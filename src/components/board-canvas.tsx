@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -53,19 +53,17 @@ function CanvasInner({
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
   const { fitView } = useReactFlow();
-  const lastSignature = useRef("");
+  const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
+  const signature = `${board.id}:${overlay}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
+    .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
+    .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
+  const [seenSignature, setSeenSignature] = useState(signature);
   const edges = useMemo(() => toFlowEdges(board), [board]);
-
-  useEffect(() => {
-    const signature = board.nodes
-      .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
-      .join("|");
-    const withFocus = `${board.id}:${board.focusedNodeId}:${board.pinnedNodeId}:${signature}`;
-    if (withFocus === lastSignature.current) return;
-    lastSignature.current = withFocus;
+  if (signature !== seenSignature) {
+    setSeenSignature(signature);
     setNodes(toFlowNodes(board, overlay));
-  }, [board, overlay]);
+  }
 
   useEffect(() => {
     if (!overlay || board.nodes.length === 0) return;
@@ -78,7 +76,7 @@ function CanvasInner({
   const onNodesChange = useCallback(
     (changes: NodeChange<TopicFlowNode>[]) => {
       setNodes((current) => {
-        const next = applyNodeChanges(changes, current);
+        const next = applyNodeChanges(changes, current).filter((node) => liveIds.has(node.id));
         if (changes.some((change) => change.type === "position" && change.dragging === false)) {
           const positions: Record<string, { x: number; y: number }> = {};
           for (const node of next) positions[node.id] = node.position;
@@ -87,7 +85,7 @@ function CanvasInner({
         return next;
       });
     },
-    [onPositions],
+    [liveIds, onPositions],
   );
 
   return (
