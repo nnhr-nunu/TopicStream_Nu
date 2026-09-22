@@ -68,6 +68,7 @@ export function TopicWorkspace() {
           } as React.CSSProperties
         }
         data-density={settings.density}
+        data-layout={settings.generationLayout}
       >
         <AppToolbar
           boards={controller.snapshot?.boards ?? [board]}
