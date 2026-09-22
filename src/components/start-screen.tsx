@@ -22,7 +22,7 @@ export function StartScreen({
   busy?: boolean;
 }) {
   const [keyword, setKeyword] = useState("");
-  const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 8));
+  const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 12));
 
   useEffect(() => {
     void fetch("/api/catalog")
@@ -82,7 +82,7 @@ export function StartScreen({
         <section className="mt-8 w-full">
           <h2 className="text-center text-xs font-medium tracking-wide text-primary">よく選ばれているトピック</h2>
           <ul className="mt-3 flex flex-wrap justify-center gap-2">
-            {popular.slice(0, 8).map((topic, index) => (
+            {popular.slice(0, 12).map((topic, index) => (
               <li key={topic.label}>
                 <button
                   type="button"
