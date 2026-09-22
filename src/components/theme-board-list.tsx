@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import type { CatalogBoard } from "@/lib/catalog-data";
+import { searchCatalog, type CatalogBoard } from "@/lib/catalog-data";
 import { loadFavoriteBoardIds, toggleFavoriteBoard } from "@/lib/favorites";
 import { cn } from "@/lib/utils";
 
@@ -56,12 +56,14 @@ export function ThemeBoardList({
   async function runSearch(value: string) {
     setQuery(value);
     setSearching(true);
+    const fallback = initialBoards ?? boards;
     try {
       const response = await fetch(`/api/catalog?q=${encodeURIComponent(value)}`);
+      if (!response.ok) throw new Error("catalog");
       const json = (await response.json()) as { boards: CatalogBoard[] };
       setBoards(json.boards);
     } catch {
-      toast.error("検索できませんでした");
+      setBoards(searchCatalog(fallback, value));
     } finally {
       setSearching(false);
     }

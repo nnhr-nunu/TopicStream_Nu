@@ -25,6 +25,10 @@ export function WatchView({ shareId }: { shareId: string }) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      if (!shareId) {
+        if (!cancelled) setError("共有IDがありません。配信者のリンクから開き直してください。");
+        return;
+      }
       const response = await fetch(`/api/share/${shareId}`, { cache: "no-store" });
       if (!response.ok) {
         if (!cancelled) setError("この共有リンクは見つかりません。配信者がまだ公開していないか、サーバーが再起動した可能性があります。");
