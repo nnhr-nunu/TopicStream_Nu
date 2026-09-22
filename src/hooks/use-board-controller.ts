@@ -1,0 +1,430 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
+
+import * as ops from "@/lib/board-ops";
+import {
+  getBoardSnapshot,
+  getServerBoardSnapshot,
+  subscribeBoardStore,
+  writeBoardSnapshot,
+} from "@/lib/board-store";
+import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
+import { generateRelatedTopics } from "@/lib/gemini";
+import { loadIdentity } from "@/lib/identity";
+import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
+import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
+import { recordUsage } from "@/lib/usage";
+import type { AppSnapshot, Board, HistoryEntry, Settings } from "@/lib/types";
+
+function currentSnapshot(): AppSnapshot {
+  return getBoardSnapshot();
+}
+
+const SHARE_KEY = "topicstream-nu:share-id";
+
+export function useBoardController() {
+  const snapshot = useSyncExternalStore(subscribeBoardStore, getBoardSnapshot, getServerBoardSnapshot);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+  const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
+  const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const expandTokens = useRef(new Map<string, number>());
+
+  const persist = useCallback((next: AppSnapshot) => {
+    writeBoardSnapshot(next);
+  }, []);
+
+  const updateBoard = useCallback(
+    (mutator: (board: Board) => Board, extra?: Partial<AppSnapshot>) => {
+      const current = currentSnapshot();
+      const boards = current.boards.map((board) =>
+        board.id === current.activeBoardId ? mutator(board) : board,
+      );
+      persist({ ...current, ...extra, boards });
+    },
+    [persist],
+  );
+
+  const activeBoard = useMemo(
+    () => snapshot.boards.find((board) => board.id === snapshot.activeBoardId) ?? snapshot.boards[0] ?? null,
+    [snapshot],
+  );
+
+  const expandNode = useCallback(
+    async (nodeId: string, replace = false) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      if (!board) return;
+      let working = board;
+      if (replace) {
+        const cleared = ops.clearChildren(working, nodeId);
+        working = cleared.board;
+        if (cleared.history) {
+          setUndoStack((stack) => [...stack, cleared.history!].slice(-40));
+          setRedoStack([]);
+        }
+      }
+      const parent = working.nodes.find((node) => node.id === nodeId);
+      if (!parent || parent.data.expanding) return;
+
+      const started = ops.beginExpand(working, nodeId, 8, current.settings.density, false);
+      if (!started) return;
+
+      const token = (expandTokens.current.get(nodeId) ?? 0) + 1;
+      expandTokens.current.set(nodeId, token);
+      persist({
+        ...current,
+        boards: current.boards.map((item) => (item.id === started.board.id ? started.board : item)),
+      });
+      setBusy(true);
+
+      const existingLabels = started.board.nodes.map((node) => node.data.label);
+      const result = await generateRelatedTopics({
+        seed: parent.data.label,
+        existing: existingLabels,
+        apiKey: current.settings.geminiApiKey,
+        model: current.settings.geminiModel,
+        preferred: preferredForSeed(parent.data.label),
+      });
+
+      if (expandTokens.current.get(nodeId) !== token) {
+        setBusy(false);
+        return;
+      }
+
+      const latest = currentSnapshot();
+      const filled = ops.fillExpand(
+        latest.boards.find((item) => item.id === latest.activeBoardId) ?? started.board,
+        nodeId,
+        started.childIds,
+        result.topics,
+      );
+      persist({
+        ...latest,
+        boards: latest.boards.map((item) => (item.id === filled.id ? filled : item)),
+      });
+      setUndoStack((stack) => [
+        ...stack,
+        ops.historyFromChildren(filled, nodeId, started.childIds, started.edgeIds),
+      ].slice(-40));
+      setRedoStack([]);
+      recordUsage(parent.data.label, "expands");
+      setBusy(false);
+      if (result.warning) toast.message(result.warning);
+      else if (result.source === "mock" && current.settings.geminiApiKey.trim()) {
+        toast.message("オフライン生成を使いました");
+      }
+    },
+    [persist],
+  );
+
+  const startWithKeyword = useCallback(
+    async (label: string) => {
+      const current = currentSnapshot();
+      if (!label.trim()) return;
+      const existing = current.boards.find((board) => board.id === current.activeBoardId);
+      if (!existing) return;
+      const rooted = ops.createRootBoard(existing, label);
+      persist({ ...current, boards: current.boards.map((board) => (board.id === rooted.id ? rooted : board)) });
+      setUndoStack([]);
+      setRedoStack([]);
+      const rootId = rooted.nodes[0]?.id;
+      if (rootId) await expandNode(rootId);
+    },
+    [expandNode, persist],
+  );
+
+  const startRandom = useCallback(async () => {
+    const current = currentSnapshot();
+    const board = current.boards.find((item) => item.id === current.activeBoardId);
+    const labels = board?.nodes.map((node) => node.data.label) ?? [];
+    const topic = pickWeightedStarter(labels);
+    if (board && board.nodes.length > 0) {
+      updateBoard((item) => ops.addRootNode(item, topic));
+      toast.success(`新しいきっかけ: ${topic}`);
+      return;
+    }
+    await startWithKeyword(topic);
+  }, [startWithKeyword, updateBoard]);
+
+  const undo = useCallback(() => {
+    setUndoStack((stack) => {
+      const action = stack[stack.length - 1];
+      if (!action) {
+        toast.message("戻せる操作がありません");
+        return stack;
+      }
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      if (board) {
+        const captured = ops.historyFromChildren(board, action.parentId, action.childIds, action.edgeIds);
+        setRedoStack((redo) => [...redo, captured].slice(-40));
+      }
+      updateBoard((item) => ops.undoExpand(item, action));
+      toast.success("ひとつ戻しました");
+      return stack.slice(0, -1);
+    });
+  }, [updateBoard]);
+
+  const redo = useCallback(() => {
+    setRedoStack((stack) => {
+      const action = stack[stack.length - 1];
+      if (!action) {
+        toast.message("進める操作がありません");
+        return stack;
+      }
+      updateBoard((item) => ops.redoExpand(item, action));
+      setUndoStack((undo) => [...undo, action].slice(-40));
+      toast.success("進みました");
+      return stack.slice(0, -1);
+    });
+  }, [updateBoard]);
+
+  const regenerateNode = useCallback(
+    async (nodeId: string) => {
+      toast.message("キーワードを作り直します");
+      await expandNode(nodeId, true);
+    },
+    [expandNode],
+  );
+
+  const setMemo = useCallback(
+    (nodeId: string, memo: string) => updateBoard((board) => ops.setMemo(board, nodeId, memo)),
+    [updateBoard],
+  );
+  const pinNode = useCallback(
+    (nodeId: string | null) => {
+      const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
+      const label = nodeId ? board?.nodes.find((node) => node.id === nodeId)?.data.label : undefined;
+      if (label) recordUsage(label, "pins");
+      updateBoard((item) => ops.pinNode(item, nodeId));
+    },
+    [updateBoard],
+  );
+  const focusNode = useCallback(
+    (nodeId: string | null) => updateBoard((board) => ops.focusNode(board, nodeId)),
+    [updateBoard],
+  );
+  const syncPositions = useCallback(
+    (positions: Record<string, { x: number; y: number }>) =>
+      updateBoard((board) => ops.syncPositions(board, positions)),
+    [updateBoard],
+  );
+
+  const createBoard = useCallback(
+    (name?: string) => {
+      const current = currentSnapshot();
+      const board = emptyBoard(name);
+      persist({
+        ...current,
+        boards: [...current.boards, board],
+        activeBoardId: board.id,
+      });
+      setUndoStack([]);
+      setRedoStack([]);
+      toast.success(`ボード「${board.name}」を作りました`);
+    },
+    [persist],
+  );
+
+  const switchBoard = useCallback(
+    (boardId: string) => {
+      persist({ ...currentSnapshot(), activeBoardId: boardId });
+      setUndoStack([]);
+      setRedoStack([]);
+    },
+    [persist],
+  );
+
+  const renameActive = useCallback(
+    (name: string) => updateBoard((board) => ops.renameBoard(board, name)),
+    [updateBoard],
+  );
+
+  const deleteActive = useCallback(() => {
+    const current = currentSnapshot();
+    if (current.boards.length <= 1) {
+      toast.error("最後のボードは削除できません");
+      return;
+    }
+    const remaining = current.boards.filter((board) => board.id !== current.activeBoardId);
+    persist({
+      ...current,
+      boards: remaining,
+      activeBoardId: remaining[0]!.id,
+    });
+    setUndoStack([]);
+    setRedoStack([]);
+    toast.success("ボードを削除しました");
+  }, [persist]);
+
+  const resetActive = useCallback(() => {
+    updateBoard((board) => ({
+      ...board,
+      nodes: [],
+      edges: [],
+      pinnedNodeId: null,
+      focusedNodeId: null,
+      updatedAt: Date.now(),
+    }));
+    setUndoStack([]);
+    setRedoStack([]);
+    toast.success("ボードを空にしました");
+  }, [updateBoard]);
+
+  const importCatalogBoard = useCallback(
+    (catalog: CatalogBoard) => {
+      const current = currentSnapshot();
+      const board = catalogBoardToBoard(catalog);
+      persist({
+        ...current,
+        boards: [...current.boards, board],
+        activeBoardId: board.id,
+      });
+      setUndoStack([]);
+      setRedoStack([]);
+      toast.success(`「${board.name}」を取り込みました`);
+    },
+    [persist],
+  );
+
+  const patchSettings = useCallback(
+    (patch: Partial<Settings>) => {
+      const current = currentSnapshot();
+      persist({ ...current, settings: { ...current.settings, ...patch } });
+    },
+    [persist],
+  );
+
+  const exportJson = useCallback(() => {
+    const blob = new Blob([exportSnapshot(currentSnapshot(), false)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `topicstream-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    toast.success("JSONを書き出しました（APIキーは含みません）");
+  }, []);
+
+  const importJson = useCallback((text: string) => {
+    try {
+      const parsed = parseSnapshot(JSON.parse(text));
+      const current = currentSnapshot();
+      persist({
+        ...parsed,
+        settings: {
+          ...parsed.settings,
+          geminiApiKey: parsed.settings.geminiApiKey || current.settings.geminiApiKey || "",
+        },
+      });
+      setUndoStack([]);
+      setRedoStack([]);
+      toast.success("ボードを読み込みました");
+    } catch {
+      toast.error("JSONを読み込めませんでした");
+    }
+  }, [persist]);
+
+  const copyLabel = useCallback(async (nodeId: string) => {
+    const current = currentSnapshot();
+    const board = current.boards.find((item) => item.id === current.activeBoardId);
+    const label = board?.nodes.find((node) => node.id === nodeId)?.data.label;
+    if (!label) return;
+    try {
+      await navigator.clipboard.writeText(label);
+      recordUsage(label, "copies");
+      toast.success(`「${label}」をコピーしました`);
+    } catch {
+      toast.error("コピーできませんでした");
+    }
+  }, []);
+
+  const publishWatchLink = useCallback(async () => {
+    const current = currentSnapshot();
+    const board = current.boards.find((item) => item.id === current.activeBoardId);
+    if (!board || board.nodes.length === 0) {
+      toast.error("共有する話題がまだありません");
+      return;
+    }
+    const nickname = current.settings.nickname || loadIdentity().nickname;
+    const existing = shareId ?? window.sessionStorage.getItem(SHARE_KEY);
+    const response = await fetch("/api/share", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: existing ?? undefined, board, nickname }),
+    });
+    if (!response.ok) {
+      toast.error("共有リンクを作れませんでした");
+      return;
+    }
+    const json = (await response.json()) as { id: string };
+    setShareId(json.id);
+    window.sessionStorage.setItem(SHARE_KEY, json.id);
+    const url = `${window.location.origin}/watch/${json.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("いっしょに見るリンクをコピーしました");
+    } catch {
+      toast.message(url);
+    }
+  }, [shareId]);
+
+  useEffect(() => {
+    if (!shareId || !activeBoard || activeBoard.nodes.length === 0) return;
+    const timer = window.setTimeout(() => {
+      const current = currentSnapshot();
+      void fetch("/api/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: shareId,
+          board: activeBoard,
+          nickname: current.settings.nickname || loadIdentity().nickname,
+        }),
+      }).catch(() => undefined);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [activeBoard, shareId]);
+
+  return {
+    hydrated: mounted,
+    snapshot,
+    activeBoard,
+    settings: snapshot.settings,
+    undoStack,
+    redoStack,
+    busy,
+    shareId,
+    startWithKeyword,
+    startRandom,
+    expandNode,
+    regenerateNode,
+    undo,
+    redo,
+    setMemo,
+    pinNode,
+    focusNode,
+    syncPositions,
+    createBoard,
+    switchBoard,
+    renameActive,
+    deleteActive,
+    resetActive,
+    importCatalogBoard,
+    patchSettings,
+    exportJson,
+    importJson,
+    copyLabel,
+    publishWatchLink,
+  };
+}
+
+export type BoardController = ReturnType<typeof useBoardController>;
