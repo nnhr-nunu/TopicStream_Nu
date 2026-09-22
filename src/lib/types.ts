@@ -1,6 +1,15 @@
 import type { ColorTheme } from "@/lib/color-theme";
 
 export type Density = "comfortable" | "compact";
+export type GenerationLayout = "radial" | "mandala";
+
+export type LayoutPrefs = {
+  density?: Density;
+  overlay?: boolean;
+  fontScale?: number;
+  generationLayout?: GenerationLayout;
+  pinnedNodeId?: string | null;
+};
 
 export type TopicNodeData = {
   label: string;
@@ -46,6 +55,7 @@ export type Settings = {
   overlayTransparent: boolean;
   nickname: string;
   colorTheme: ColorTheme;
+  generationLayout: GenerationLayout;
 };
 
 export type AppSnapshot = {
