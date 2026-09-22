@@ -26,7 +26,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const RADIUS = {
-  comfortable: 280,
-  compact: 216,
-  overlay: 320,
+  comfortable: 168,
+  compact: 140,
+  overlay: 184,
 } as const;
