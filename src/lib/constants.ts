@@ -22,10 +22,11 @@ export const DEFAULT_SETTINGS = {
   density: "comfortable" as const,
   overlayTransparent: true,
   nickname: "",
+  colorTheme: "fresh" as const,
 };
 
 export const RADIUS = {
-  comfortable: 230,
-  compact: 176,
-  overlay: 260,
+  comfortable: 280,
+  compact: 216,
+  overlay: 320,
 } as const;

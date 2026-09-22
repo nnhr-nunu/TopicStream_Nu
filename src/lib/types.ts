@@ -1,3 +1,5 @@
+import type { ColorTheme } from "@/lib/color-theme";
+
 export type Density = "comfortable" | "compact";
 
 export type TopicNodeData = {
@@ -9,6 +11,8 @@ export type TopicNodeData = {
   placeholder?: boolean;
   depth: number;
   appearIndex: number;
+  sproutX?: number;
+  sproutY?: number;
 };
 
 export type TNode = {
@@ -41,6 +45,7 @@ export type Settings = {
   density: Density;
   overlayTransparent: boolean;
   nickname: string;
+  colorTheme: ColorTheme;
 };
 
 export type AppSnapshot = {

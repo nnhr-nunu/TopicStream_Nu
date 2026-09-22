@@ -24,7 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="ja"
-      className={`dark ${notoSans.variable} ${geistMono.variable} h-full antialiased`}
+      data-theme="fresh"
+      suppressHydrationWarning
+      className={`${notoSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <AppProviders>{children}</AppProviders>
