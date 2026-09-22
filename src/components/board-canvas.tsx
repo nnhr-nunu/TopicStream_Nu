@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
-  Controls,
-  MiniMap,
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
@@ -16,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
+import { ZoomDock } from "@/components/zoom-dock";
 import type { Board } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,13 +51,14 @@ function CanvasInner({
   onFocus: (id: string | null) => void;
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
-  const { fitView } = useReactFlow();
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
   const [seenSignature, setSeenSignature] = useState(signature);
+  const prevCount = useRef(board.nodes.length);
   const edges = useMemo(() => toFlowEdges(board), [board]);
   if (signature !== seenSignature) {
     setSeenSignature(signature);
@@ -66,12 +66,42 @@ function CanvasInner({
   }
 
   useEffect(() => {
-    if (!overlay || board.nodes.length === 0) return;
+    const grew = board.nodes.length > prevCount.current;
+    prevCount.current = board.nodes.length;
+    if (board.nodes.length === 0) return;
+    if (!grew && !overlay) return;
     const timer = window.setTimeout(() => {
-      void fitView({ padding: 0.18, duration: 280 });
-    }, 40);
+      void fitView({ padding: overlay ? 0.16 : 0.22, duration: 320, maxZoom: overlay ? 1.05 : 1.12 });
+    }, grew ? 70 : 40);
     return () => window.clearTimeout(timer);
-  }, [board.nodes.length, fitView, overlay]);
+  }, [board.nodes.length, board.id, fitView, overlay]);
+
+  useEffect(() => {
+    if (overlay) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
+      }
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        void zoomIn({ duration: 160 });
+        return;
+      }
+      if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        void zoomOut({ duration: 160 });
+        return;
+      }
+      if (event.key === "0" || event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        void fitView({ padding: 0.22, duration: 260, maxZoom: 1.15 });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fitView, overlay, zoomIn, zoomOut]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<TopicFlowNode>[]) => {
@@ -97,13 +127,17 @@ function CanvasInner({
       onNodeClick={(_, node) => onFocus(node.id)}
       onPaneClick={() => undefined}
       fitView={board.nodes.length > 0}
-      fitViewOptions={{ padding: overlay ? 0.18 : 0.28 }}
-      minZoom={0.25}
-      maxZoom={1.8}
+      fitViewOptions={{ padding: overlay ? 0.16 : 0.22, maxZoom: 1.12 }}
+      minZoom={0.2}
+      maxZoom={2.2}
+      nodeOrigin={[0.5, 0.5]}
       nodesConnectable={false}
       nodesDraggable={!overlay}
       elementsSelectable
-      panOnScroll
+      panOnDrag
+      panOnScroll={false}
+      zoomOnScroll
+      zoomOnPinch
       zoomOnDoubleClick={false}
       deleteKeyCode={null}
       multiSelectionKeyCode={null}
@@ -123,13 +157,7 @@ function CanvasInner({
             size={1.1}
             color="color-mix(in oklab, var(--foreground) 14%, transparent)"
           />
-          <Controls showInteractive={false} className="!shadow-none" />
-          <MiniMap
-            pannable
-            zoomable
-            className="hidden !bg-card/80 !border-border overflow-hidden rounded-lg sm:block"
-            maskColor="color-mix(in oklab, var(--background) 72%, transparent)"
-          />
+          <ZoomDock />
         </>
       )}
     </ReactFlow>

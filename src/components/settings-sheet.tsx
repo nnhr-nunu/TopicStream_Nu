@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Settings } from "lucide-react";
+import { Eye, EyeOff, MonitorPlay, Settings } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,21 +53,23 @@ export function SettingsSheet({
       <SheetContent side="right" className="w-[min(100%,24rem)] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>設定</SheetTitle>
-          <SheetDescription>
-            APIキーと呼び名はこのブラウザ内にだけ保存します。ログインは不要です。本番のキーはサーバーの環境変数です。
-          </SheetDescription>
+          <SheetDescription>このブラウザにだけ残ります。ログインは不要です。</SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-4 pb-8">
+          <section className="space-y-2">
+            <p className="text-sm font-medium">つかいかた</p>
+            <p className="text-xs leading-6 text-muted-foreground">
+              キーワードをクリックすると周りに話題が生えます。左下の − ＋ とホイール／ピンチで拡大。全体で画面に合わせます。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
+            </p>
+          </section>
+
           <section className="space-y-2">
             <Label>配色</Label>
             <ThemeSwitcher
               value={settings.colorTheme}
               onChange={(colorTheme) => onPatch({ colorTheme })}
             />
-            <p className="text-xs leading-5 text-muted-foreground">
-              配信に出すなら「配信ダーク」。目を休めるなら「爽やか」か「落ち着き」。
-            </p>
           </section>
 
           <section className="space-y-2">
@@ -103,9 +106,9 @@ export function SettingsSheet({
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
               {hostConfigured
-                ? "このホストには GEMINI_API_KEY があります。空欄のままでも本番のAIが使えます。"
-                : "ホストに GEMINI_API_KEY がまだありません。空欄・失敗時はオフライン生成です。"}
-              ここに入れると、このブラウザだけそのキーで上書きします。キーは git に置きません。発行は{" "}
+                ? "ホストに GEMINI_API_KEY があります。空欄のままでも AI が使えます。"
+                : "空欄・失敗時はオフライン生成です。公開の GitHub Pages ではサーバーキーは使えません。"}
+              発行は{" "}
               <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
                 Google AI Studio
               </a>
@@ -174,6 +177,21 @@ export function SettingsSheet({
               onCheckedChange={(checked) => onPatch({ overlayTransparent: checked })}
             />
           </section>
+
+          <Button
+            variant="outline"
+            className="w-full"
+            nativeButton={false}
+            render={
+              <Link
+                href={settings.overlayTransparent ? "/overlay?transparent=1" : "/overlay"}
+                target="_blank"
+              />
+            }
+          >
+            <MonitorPlay />
+            OBSオーバーレイを開く
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

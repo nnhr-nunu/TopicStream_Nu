@@ -1,19 +1,16 @@
 "use client";
 
-import { Dices, MonitorPlay, Redo2, RefreshCw, RotateCcw, Share2, Undo2 } from "lucide-react";
-import Link from "next/link";
+import { Redo2, RefreshCw, Share2, Undo2 } from "lucide-react";
 
 import { BoardSwitcher } from "@/components/board-switcher";
+import { BrandMark } from "@/components/brand-mark";
 import { SettingsSheet } from "@/components/settings-sheet";
-import { ThemeBoardSheet } from "@/components/theme-board-sheet";
-import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { CatalogBoard } from "@/lib/catalog-data";
 import type { Board, Settings } from "@/lib/types";
 
 function Tip({
@@ -39,21 +36,18 @@ export function AppToolbar({
   canRedo,
   canRegenerate,
   hasNodes,
-  overlayHref,
+  onHome,
   onSwitch,
   onCreate,
   onRename,
   onDelete,
   onExport,
   onImport,
-  onRandom,
   onUndo,
   onRedo,
   onRegenerate,
-  onReset,
   onShare,
   onPatchSettings,
-  onImportCatalog,
 }: {
   boards: Board[];
   activeBoard: Board;
@@ -62,29 +56,23 @@ export function AppToolbar({
   canRedo: boolean;
   canRegenerate: boolean;
   hasNodes: boolean;
-  overlayHref: string;
+  onHome: () => void;
   onSwitch: (id: string) => void;
   onCreate: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
   onExport: () => void;
   onImport: (text: string) => void;
-  onRandom: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onRegenerate: () => void;
-  onReset: () => void;
   onShare: () => void;
   onPatchSettings: (patch: Partial<Settings>) => void;
-  onImportCatalog: (board: CatalogBoard) => void;
 }) {
   return (
     <header className="app-chrome pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-4">
-      <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-background/75 px-2 py-1.5 shadow-lg backdrop-blur-md">
-        <Link href="/" className="hidden px-2 sm:block">
-          <p className="text-[10px] tracking-[0.22em] text-primary">TOPICSTREAM</p>
-          <p className="text-sm font-medium leading-none">Nu</p>
-        </Link>
+      <div className="pointer-events-auto flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-background/75 px-1.5 py-1 shadow-lg backdrop-blur-md">
+        <BrandMark onHome={onHome} compact />
         <BoardSwitcher
           boards={boards}
           activeBoard={activeBoard}
@@ -98,11 +86,6 @@ export function AppToolbar({
       </div>
 
       <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-1 rounded-2xl border border-border/70 bg-background/75 p-1 shadow-lg backdrop-blur-md">
-        <Tip label="ランダムなきっかけ (R)">
-          <Button size="icon-sm" variant="ghost" aria-label="ランダムなきっかけ" onClick={onRandom}>
-            <Dices />
-          </Button>
-        </Tip>
         <Tip label="1つ戻る (Z)">
           <Button size="icon-sm" variant="ghost" aria-label="1つ戻る" onClick={onUndo} disabled={!canUndo}>
             <Undo2 />
@@ -118,35 +101,11 @@ export function AppToolbar({
             <RefreshCw />
           </Button>
         </Tip>
-        {hasNodes ? (
-          <Tip label="ボードを空にする">
-            <Button size="icon-sm" variant="ghost" aria-label="ボードを空にする" onClick={onReset}>
-              <RotateCcw />
-            </Button>
-          </Tip>
-        ) : null}
         <Tip label="いっしょに見るリンク">
           <Button size="icon-sm" variant="ghost" aria-label="いっしょに見るリンク" onClick={onShare} disabled={!hasNodes}>
             <Share2 />
           </Button>
         </Tip>
-        <Tip label="みんなのトークテーマ">
-          <span>
-            <ThemeBoardSheet onImport={onImportCatalog} />
-          </span>
-        </Tip>
-        <Tip label="OBSオーバーレイ">
-          <Button size="icon-sm" variant="ghost" aria-label="OBSオーバーレイ" nativeButton={false} render={<Link href={overlayHref} target="_blank" />}>
-            <MonitorPlay />
-          </Button>
-        </Tip>
-        <div className="hidden sm:block">
-          <ThemeSwitcher
-            value={settings.colorTheme}
-            onChange={(colorTheme) => onPatchSettings({ colorTheme })}
-            compact
-          />
-        </div>
         <SettingsSheet settings={settings} onPatch={onPatchSettings} />
       </div>
     </header>

@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
+import { BrandMark } from "@/components/brand-mark";
 import { ThemeBoardList } from "@/components/theme-board-list";
-import { Button } from "@/components/ui/button";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { getBoardSnapshot, writeBoardSnapshot } from "@/lib/board-store";
 import { useRouter } from "next/navigation";
@@ -20,23 +18,16 @@ export function CommunityCatalog({ initialBoards }: { initialBoards: CatalogBoar
       boards: [...snapshot.boards, next],
       activeBoardId: next.id,
     });
-    toast.success(`「${board.name}」を自分のボードに取り込みました`);
+    toast.success(`「${board.name}」を取り込みました`);
     router.push("/");
   }
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-4 py-8">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs tracking-[0.22em] text-primary">みんなのトークテーマボード</p>
-          <h1 className="mt-1 text-2xl font-semibold">ホームと同じカタログです</h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-            キーワード検索とテーマ選びはスタート画面にまとまっています。ここからも同じボードを取り込めます。
-          </p>
-        </div>
-        <Button variant="outline" nativeButton={false} render={<Link href="/" />}>
-          配信ホームへ
-        </Button>
+      <header className="mb-6">
+        <BrandMark onHome={() => router.push("/")} />
+        <h1 className="mt-4 text-2xl font-semibold">みんなのトークテーマ</h1>
+        <p className="mt-1 text-sm text-muted-foreground">ホームと同じカタログです。取り込みは自分のボードに追加されます。</p>
       </header>
       <ThemeBoardList initialBoards={initialBoards} onImport={importBoard} />
     </div>
