@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 43173 --hostname 127.0.0.1",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:pages": "bash scripts/build-pages.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
