@@ -94,19 +94,19 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const label = node.data.placeholder ? "………" : node.data.label || "話題";
   const lineWidths = wrapWidths(label, innerMax, fontSize, LABEL_LINES);
   const labelWidth = Math.min(innerMax, Math.max(...lineWidths, node.data.placeholder ? 4.6 * REM : 0));
-  const chipW = Math.min(
+  let chipW = Math.min(
     CHIP_MAX,
     Math.max(
       node.data.placeholder ? 7.5 * REM : 0,
-      prefs.generationLayout === "mandala" ? 7.25 * REM : 0,
       padX * 2 + labelWidth + gap + nowWidth + 2,
     ),
   );
   const lineHeight = fontSize * 1.25;
-  const chipH = Math.max(
-    prefs.generationLayout === "mandala" ? 3.05 * REM : 0,
-    padY * 2 + Math.max(1, lineWidths.length) * lineHeight + 2,
-  );
+  let chipH = padY * 2 + Math.max(1, lineWidths.length) * lineHeight + 2;
+  if (prefs.generationLayout === "mandala") {
+    chipW = 11.5 * REM;
+    chipH = Math.max(3.5 * REM, chipH);
+  }
 
   const left = -chipW / 2;
   const right0 = chipW / 2;
