@@ -1,7 +1,8 @@
 import { CHILD_COUNT, MEMO_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 import { createId } from "@/lib/ids";
-import { bboxCenter, layoutBoard, placeChildren, radiusFor } from "@/lib/radial";
-import type { Board, Density, HistoryEntry, TEdge, TNode } from "@/lib/types";
+import { bboxCenter, layoutBoard, radiusFor } from "@/lib/layout";
+import { normalizePrefs } from "@/lib/node-box";
+import type { Board, Density, HistoryEntry, LayoutPrefs, TEdge, TNode } from "@/lib/types";
 
 function touch(board: Board, patch: Partial<Board>): Board {
   return { ...board, ...patch, updatedAt: Date.now() };
@@ -19,11 +20,16 @@ function cloneEdge(edge: TEdge): TEdge {
   return { ...edge };
 }
 
-function applyLayout(board: Board, density: Density, overlay: boolean): Board {
-  return layoutBoard(board, density, overlay);
+function applyLayout(board: Board, densityOrPrefs?: Density | LayoutPrefs, overlay = false): Board {
+  return layoutBoard(board, densityOrPrefs, overlay);
 }
 
-export function createRootBoard(board: Board, label: string, density: Density = "comfortable", overlay = false): Board {
+export function createRootBoard(
+  board: Board,
+  label: string,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
   const trimmed = label.trim().slice(0, ROOT_LABEL_MAX);
   const node: TNode = {
     id: createId("n"),
@@ -45,17 +51,23 @@ export function createRootBoard(board: Board, label: string, density: Density = 
       focusedNodeId: node.id,
       pinnedNodeId: node.id,
     }),
-    density,
+    densityOrPrefs,
     overlay,
   );
 }
 
-export function addRootNode(board: Board, label: string, density: Density = "comfortable", overlay = false): Board {
+export function addRootNode(
+  board: Board,
+  label: string,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
+  const prefs = normalizePrefs(densityOrPrefs, overlay);
   const existing = board.nodes.map((node) => node.position);
   const center = bboxCenter(existing);
   const node: TNode = {
     id: createId("n"),
-    position: existing.length === 0 ? { x: 0, y: 0 } : { x: center.x + radiusFor(density, overlay) * 2.05, y: center.y },
+    position: existing.length === 0 ? { x: 0, y: 0 } : { x: center.x + radiusFor(prefs.density, prefs.overlay) * 2.05, y: center.y },
     data: {
       label: label.trim().slice(0, ROOT_LABEL_MAX),
       memo: "",
@@ -71,7 +83,7 @@ export function addRootNode(board: Board, label: string, density: Density = "com
       nodes: [...board.nodes, node],
       focusedNodeId: node.id,
     }),
-    density,
+    densityOrPrefs,
     overlay,
   );
 }
@@ -80,29 +92,17 @@ export function beginExpand(
   board: Board,
   parentId: string,
   count = CHILD_COUNT,
-  density: Density = "comfortable",
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
   overlay = false,
 ): { board: Board; childIds: string[]; edgeIds: string[] } | null {
   const parent = board.nodes.find((node) => node.id === parentId);
   if (!parent || parent.data.expanding) return null;
 
-  const grandparent = parent.data.parentId
-    ? board.nodes.find((node) => node.id === parent.data.parentId)
-    : null;
   const existingChildren = board.nodes.filter((node) => node.data.parentId === parentId).length;
-  const positions = placeChildren({
-    parent: parent.position,
-    count,
-    existing: board.nodes.map((node) => node.position),
-    awayFrom: grandparent?.position ?? null,
-    density,
-    overlay,
-    parentDepth: parent.data.depth,
-  });
 
-  const children: TNode[] = positions.map((position, index) => ({
+  const children: TNode[] = Array.from({ length: count }, (_, index) => ({
     id: createId("n"),
-    position,
+    position: { ...parent.position },
     data: {
       label: "…",
       memo: "",
@@ -112,8 +112,8 @@ export function beginExpand(
       placeholder: true,
       depth: parent.data.depth + 1,
       appearIndex: existingChildren + index,
-      sproutX: parent.position.x - position.x,
-      sproutY: parent.position.y - position.y,
+      sproutX: 0,
+      sproutY: 0,
     },
   }));
   const edges: TEdge[] = children.map((child) => ({
@@ -136,7 +136,7 @@ export function beginExpand(
       edges: [...board.edges, ...edges],
       focusedNodeId: parentId,
     }),
-    density,
+    densityOrPrefs,
     overlay,
   );
 
@@ -161,7 +161,14 @@ export function beginExpand(
   };
 }
 
-export function fillExpand(board: Board, parentId: string, childIds: string[], labels: string[]): Board {
+export function fillExpand(
+  board: Board,
+  parentId: string,
+  childIds: string[],
+  labels: string[],
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
   const present = childIds.filter((id) => board.nodes.some((node) => node.id === id));
   if (present.length === 0) {
     return touch(board, {
@@ -170,25 +177,29 @@ export function fillExpand(board: Board, parentId: string, childIds: string[], l
       ),
     });
   }
-  return touch(board, {
-    nodes: board.nodes.map((node) => {
-      if (node.id === parentId) {
-        return { ...node, data: { ...node.data, expanding: false, expanded: true, placeholder: false } };
-      }
-      const index = childIds.indexOf(node.id);
-      if (index === -1) return node;
-      const label = labels[index] ?? `話題 ${index + 1}`;
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          label,
-          placeholder: false,
-          expanding: false,
-        },
-      };
+  return applyLayout(
+    touch(board, {
+      nodes: board.nodes.map((node) => {
+        if (node.id === parentId) {
+          return { ...node, data: { ...node.data, expanding: false, expanded: true, placeholder: false } };
+        }
+        const index = childIds.indexOf(node.id);
+        if (index === -1) return node;
+        const label = labels[index] ?? `話題 ${index + 1}`;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            label,
+            placeholder: false,
+            expanding: false,
+          },
+        };
+      }),
     }),
-  });
+    densityOrPrefs,
+    overlay,
+  );
 }
 
 export function failExpand(board: Board, parentId: string, childIds: string[], edgeIds: string[]): Board {
@@ -294,18 +305,39 @@ export function clearChildren(board: Board, parentId: string): { board: Board; h
   return { board: undoExpand(board, history), history };
 }
 
-export function setMemo(board: Board, nodeId: string, memo: string): Board {
-  return touch(board, {
-    nodes: board.nodes.map((node) =>
-      node.id === nodeId ? { ...node, data: { ...node.data, memo: memo.slice(0, MEMO_MAX) } } : node,
-    ),
-  });
+export function setMemo(
+  board: Board,
+  nodeId: string,
+  memo: string,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
+  return applyLayout(
+    touch(board, {
+      nodes: board.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, memo: memo.slice(0, MEMO_MAX) } } : node,
+      ),
+    }),
+    densityOrPrefs,
+    overlay,
+  );
 }
 
-export function pinNode(board: Board, nodeId: string | null): Board {
-  return touch(board, {
-    pinnedNodeId: nodeId && board.pinnedNodeId === nodeId ? null : nodeId,
-  });
+export function pinNode(
+  board: Board,
+  nodeId: string | null,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
+  const nextId = nodeId && board.pinnedNodeId === nodeId ? null : nodeId;
+  const prefs = normalizePrefs(densityOrPrefs, overlay);
+  return applyLayout(
+    touch(board, {
+      pinnedNodeId: nextId,
+    }),
+    { ...prefs, pinnedNodeId: nextId },
+    overlay,
+  );
 }
 
 export function focusNode(board: Board, nodeId: string | null): Board {

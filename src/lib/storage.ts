@@ -89,6 +89,7 @@ function asSettings(value: unknown): Settings {
     overlayTransparent: settings.overlayTransparent !== false,
     nickname: typeof settings.nickname === "string" ? settings.nickname.slice(0, 24) : "",
     colorTheme: asColorTheme(settings.colorTheme),
+    generationLayout: settings.generationLayout === "mandala" ? "mandala" : "radial",
   };
 }
 

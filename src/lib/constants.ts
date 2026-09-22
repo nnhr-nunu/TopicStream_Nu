@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS = {
   overlayTransparent: true,
   nickname: "",
   colorTheme: "fresh" as const,
+  generationLayout: "radial" as const,
 };
 
 export const RADIUS = {
