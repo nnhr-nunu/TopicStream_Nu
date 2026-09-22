@@ -422,7 +422,9 @@ html.overlay-mode .topic-chip {
   width: 11.5rem;
   min-width: 11.5rem;
   max-width: 11.5rem;
-  min-height: 3.5rem;
+  height: 4rem;
+  min-height: 4rem;
+  max-height: 4rem;
   justify-content: center;
   border-radius: 14px;
   text-align: center;
