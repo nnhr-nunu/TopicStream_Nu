@@ -1,8 +1,7 @@
-import { listCatalog } from "@/lib/live-store";
+import { SEED_CATALOG } from "@/lib/catalog-data";
 
 import { CommunityCatalog } from "@/components/community-catalog";
 
 export default function CommunityPage() {
-  const boards = listCatalog();
-  return <CommunityCatalog initialBoards={boards} />;
+  return <CommunityCatalog initialBoards={SEED_CATALOG} />;
 }
