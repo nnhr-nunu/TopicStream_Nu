@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { GEMINI_MODELS } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
@@ -34,6 +35,14 @@ export function SettingsSheet({
   onPatch: (patch: Partial<AppSettings>) => void;
 }) {
   const [showKey, setShowKey] = useState(false);
+  const [hostConfigured, setHostConfigured] = useState(false);
+
+  useEffect(() => {
+    void fetch("/api/gemini")
+      .then((response) => response.json())
+      .then((json: { configured?: boolean }) => setHostConfigured(Boolean(json.configured)))
+      .catch(() => setHostConfigured(false));
+  }, []);
 
   return (
     <Sheet>
@@ -44,11 +53,22 @@ export function SettingsSheet({
         <SheetHeader>
           <SheetTitle>設定</SheetTitle>
           <SheetDescription>
-            APIキーと呼び名はこのブラウザ内にだけ保存します。ログインは不要です。
+            APIキーと呼び名はこのブラウザ内にだけ保存します。ログインは不要です。本番のキーはサーバーの環境変数です。
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-col gap-6 px-4 pb-8">
+          <section className="space-y-2">
+            <Label>配色</Label>
+            <ThemeSwitcher
+              value={settings.colorTheme}
+              onChange={(colorTheme) => onPatch({ colorTheme })}
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              配信に出すなら「配信ダーク」。目を休めるなら「爽やか」か「落ち着き」。
+            </p>
+          </section>
+
           <section className="space-y-2">
             <Label htmlFor="nickname">呼び名（任意）</Label>
             <Input
@@ -61,14 +81,14 @@ export function SettingsSheet({
           </section>
 
           <section className="space-y-2">
-            <Label htmlFor="gemini-key">Gemini APIキー（任意）</Label>
+            <Label htmlFor="gemini-key">Gemini APIキー（任意・上書き）</Label>
             <div className="flex gap-1.5">
               <Input
                 id="gemini-key"
                 type={showKey ? "text" : "password"}
                 autoComplete="off"
                 value={settings.geminiApiKey}
-                placeholder="未入力ならオフライン生成"
+                placeholder="空ならホストの GEMINI_API_KEY"
                 onChange={(event) => onPatch({ geminiApiKey: event.target.value })}
               />
               <Button
@@ -82,7 +102,14 @@ export function SettingsSheet({
               </Button>
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
-              キーがあると関連キーワードを Gemini が生成します。空欄・失敗時は端末内のダミー生成に切り替わります。
+              {hostConfigured
+                ? "このホストには GEMINI_API_KEY があります。空欄のままでも本番のAIが使えます。"
+                : "ホストに GEMINI_API_KEY がまだありません。空欄・失敗時はオフライン生成です。"}
+              ここに入れると、このブラウザだけそのキーで上書きします。キーは git に置きません。発行は{" "}
+              <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
+                Google AI Studio
+              </a>
+              。
             </p>
           </section>
 
