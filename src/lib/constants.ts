@@ -5,7 +5,7 @@ export const FAVORITES_KEY = "topicstream-nu:favorites";
 export const CHILD_COUNT = 8;
 export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
-export const ROOT_LABEL_MAX = 40;
+export const ROOT_LABEL_MAX = 48;
 export const DEFAULT_MODEL = "gemini-2.0-flash";
 
 export const GEMINI_MODELS = [
