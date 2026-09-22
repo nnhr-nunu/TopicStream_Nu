@@ -1,3 +1,4 @@
+import { asColorTheme } from "@/lib/color-theme";
 import { DEFAULT_SETTINGS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
@@ -87,6 +88,7 @@ function asSettings(value: unknown): Settings {
     density: settings.density === "compact" ? "compact" : "comfortable",
     overlayTransparent: settings.overlayTransparent !== false,
     nickname: typeof settings.nickname === "string" ? settings.nickname.slice(0, 24) : "",
+    colorTheme: asColorTheme(settings.colorTheme),
   };
 }
 
