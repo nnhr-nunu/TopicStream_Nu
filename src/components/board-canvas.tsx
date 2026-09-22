@@ -51,30 +51,105 @@ function CanvasInner({
   onFocus: (id: string | null) => void;
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, setCenter, getZoom } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
   const [seenSignature, setSeenSignature] = useState(signature);
-  const prevCount = useRef(board.nodes.length);
+  const prevIds = useRef<Set<string> | null>(null);
+  const boardIdRef = useRef(board.id);
+  const clusterRef = useRef<string[]>([]);
+  const clusterUntil = useRef(0);
   const edges = useMemo(() => toFlowEdges(board), [board]);
   if (signature !== seenSignature) {
     setSeenSignature(signature);
     setNodes(toFlowNodes(board, overlay));
   }
 
+  const fitCluster = useCallback(
+    (ids: string[]) => {
+      const present = ids.filter((id) => board.nodes.some((node) => node.id === id));
+      if (present.length === 0) return;
+      const cluster = board.nodes.filter((node) => present.includes(node.id));
+      const minX = Math.min(...cluster.map((node) => node.position.x));
+      const maxX = Math.max(...cluster.map((node) => node.position.x));
+      const minY = Math.min(...cluster.map((node) => node.position.y));
+      const maxY = Math.max(...cluster.map((node) => node.position.y));
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      void fitView({
+        nodes: present.map((id) => ({ id })),
+        padding: overlay ? 0.22 : 0.34,
+        duration: 280,
+        maxZoom: overlay ? 1.05 : 1.22,
+        minZoom: 0.55,
+      }).then((ok) => {
+        if (ok) return;
+        const zoom = Math.min(getZoom(), overlay ? 1.05 : 1.18);
+        void setCenter(cx, cy, { zoom, duration: 260 });
+      });
+    },
+    [board.nodes, fitView, getZoom, overlay, setCenter],
+  );
+
+  const idsKey = board.nodes.map((node) => node.id).join(",");
+  const labelKey = board.nodes.map((node) => `${node.id}:${node.data.label}`).join("|");
+  const posKey = board.nodes.map((node) => `${Math.round(node.position.x)},${Math.round(node.position.y)}`).join(";");
+
   useEffect(() => {
-    const grew = board.nodes.length > prevCount.current;
-    prevCount.current = board.nodes.length;
-    if (board.nodes.length === 0) return;
-    if (!grew && !overlay) return;
-    const timer = window.setTimeout(() => {
-      void fitView({ padding: overlay ? 0.16 : 0.22, duration: 320, maxZoom: overlay ? 1.05 : 1.12 });
-    }, grew ? 70 : 40);
-    return () => window.clearTimeout(timer);
-  }, [board.nodes.length, board.id, fitView, overlay]);
+    const ids = new Set(board.nodes.map((node) => node.id));
+    const prev = prevIds.current;
+    const boardChanged = boardIdRef.current !== board.id;
+    boardIdRef.current = board.id;
+    prevIds.current = ids;
+    if (board.nodes.length === 0) {
+      clusterRef.current = [];
+      return;
+    }
+
+    const added = prev ? [...ids].filter((id) => !prev.has(id)) : [];
+    if (boardChanged || prev === null) {
+      const timer = window.setTimeout(() => {
+        if (added.length > 0) {
+          const parents = [
+            ...new Set(
+              added
+                .map((id) => board.nodes.find((node) => node.id === id)?.data.parentId)
+                .filter((id): id is string => Boolean(id)),
+            ),
+          ];
+          clusterRef.current = [...parents, ...added];
+          clusterUntil.current = Date.now() + 1400;
+          fitCluster(clusterRef.current);
+          return;
+        }
+        void fitView({ padding: overlay ? 0.16 : 0.2, duration: 240, maxZoom: overlay ? 1.05 : 1.12 });
+      }, 40);
+      return () => window.clearTimeout(timer);
+    }
+
+    if (added.length > 0) {
+      const parents = [
+        ...new Set(
+          added
+            .map((id) => board.nodes.find((node) => node.id === id)?.data.parentId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      clusterRef.current = [...parents, ...added];
+      clusterUntil.current = Date.now() + 1400;
+      const timer = window.setTimeout(() => fitCluster(clusterRef.current), 70);
+      return () => window.clearTimeout(timer);
+    }
+
+    if (Date.now() < clusterUntil.current && clusterRef.current.length > 0) {
+      const timer = window.setTimeout(() => fitCluster(clusterRef.current), 60);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [board.id, board.nodes, fitCluster, fitView, idsKey, labelKey, overlay, posKey]);
 
   useEffect(() => {
     if (overlay) return;
@@ -126,7 +201,8 @@ function CanvasInner({
       onNodesChange={onNodesChange}
       onNodeClick={(_, node) => onFocus(node.id)}
       onPaneClick={() => undefined}
-      fitView={board.nodes.length > 0}
+      fitView={false}
+      defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       fitViewOptions={{ padding: overlay ? 0.16 : 0.22, maxZoom: 1.12 }}
       minZoom={0.2}
       maxZoom={2.2}

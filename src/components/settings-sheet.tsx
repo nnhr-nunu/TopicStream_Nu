@@ -60,7 +60,28 @@ export function SettingsSheet({
           <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードをクリックすると周りに話題が生えます。左下の − ＋ とホイール／ピンチで拡大。全体で画面に合わせます。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
+              キーワードをクリックすると周りに話題が生えます。展開したあとは、その親と新しい子だけが画面の中央に来ます。左下の − ＋ とホイール／ピンチで拡大。全体でマップ全体に合わせます。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <Label>広げかた</Label>
+            <Select
+              value={settings.generationLayout}
+              onValueChange={(value) => {
+                if (value === "radial" || value === "mandala") onPatch({ generationLayout: value });
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="radial">放射（初期値）</SelectItem>
+                <SelectItem value="mandala">マンダラート（3×3マス）</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs leading-6 text-muted-foreground">
+              放射は親のまわりに円で広がります。マンダラートは中央が今の話題、周囲8マスが新しいキーワードです。マスを開くと、そのマスに次の3×3がマス目のままくっつきます。
             </p>
           </section>
 
