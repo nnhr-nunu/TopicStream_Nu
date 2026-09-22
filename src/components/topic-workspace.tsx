@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
+
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
-import { ExpandControls } from "@/components/expand-controls";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
@@ -13,12 +14,14 @@ export function TopicWorkspace() {
   const board = controller.activeBoard;
   const settings = controller.settings;
   const focusedId = board?.focusedNodeId ?? board?.pinnedNodeId ?? null;
+  const [atHome, setAtHome] = useState(false);
 
   useHotkeys({
     expand: () => {
       if (focusedId) void controller.expandNode(focusedId);
     },
     random: () => {
+      setAtHome(false);
       void controller.startRandom();
     },
     undo: controller.undo,
@@ -42,7 +45,7 @@ export function TopicWorkspace() {
     );
   }
 
-  const overlayHref = settings.overlayTransparent ? "/overlay?transparent=1" : "/overlay";
+  const showHome = atHome || board.nodes.length === 0;
 
   return (
     <BoardActionsProvider
@@ -72,53 +75,56 @@ export function TopicWorkspace() {
           settings={settings}
           canUndo={controller.undoStack.length > 0}
           canRedo={controller.redoStack.length > 0}
-          canRegenerate={Boolean(focusedId)}
+          canRegenerate={Boolean(focusedId) && !showHome}
           hasNodes={board.nodes.length > 0}
-          overlayHref={overlayHref}
-          onSwitch={controller.switchBoard}
-          onCreate={() => controller.createBoard()}
+          onHome={() => setAtHome(true)}
+          onSwitch={(id) => {
+            setAtHome(false);
+            controller.switchBoard(id);
+          }}
+          onCreate={() => {
+            setAtHome(true);
+            controller.createBoard();
+          }}
           onRename={controller.renameActive}
           onDelete={controller.deleteActive}
           onExport={controller.exportJson}
-          onImport={controller.importJson}
-          onRandom={() => void controller.startRandom()}
+          onImport={(text) => {
+            setAtHome(false);
+            controller.importJson(text);
+          }}
           onUndo={controller.undo}
           onRedo={controller.redo}
           onRegenerate={() => {
             if (focusedId) void controller.regenerateNode(focusedId);
           }}
-          onReset={controller.resetActive}
           onShare={() => void controller.publishWatchLink()}
           onPatchSettings={controller.patchSettings}
-          onImportCatalog={controller.importCatalogBoard}
         />
 
-        {board.nodes.length === 0 ? (
+        {showHome ? (
           <StartScreen
-            onStart={(keyword) => void controller.startWithKeyword(keyword)}
-            onRandom={() => void controller.startRandom()}
-            onImport={controller.importCatalogBoard}
+            onStart={(keyword) => {
+              setAtHome(false);
+              void controller.startWithKeyword(keyword);
+            }}
+            onRandom={() => {
+              setAtHome(false);
+              void controller.startRandom();
+            }}
+            onImport={(catalog) => {
+              setAtHome(false);
+              controller.importCatalogBoard(catalog);
+            }}
+            onResume={board.nodes.length > 0 ? () => setAtHome(false) : undefined}
             busy={controller.busy}
           />
         ) : (
-          <>
-            <BoardCanvas
-              board={board}
-              onFocus={controller.focusNode}
-              onPositions={controller.syncPositions}
-            />
-            <ExpandControls
-              canUndo={controller.undoStack.length > 0}
-              canRedo={controller.redoStack.length > 0}
-              canRegenerate={Boolean(focusedId)}
-              busy={controller.busy}
-              onUndo={controller.undo}
-              onRedo={controller.redo}
-              onRegenerate={() => {
-                if (focusedId) void controller.regenerateNode(focusedId);
-              }}
-            />
-          </>
+          <BoardCanvas
+            board={board}
+            onFocus={controller.focusNode}
+            onPositions={controller.syncPositions}
+          />
         )}
       </div>
     </BoardActionsProvider>
