@@ -1,13 +1,29 @@
 import { CHILD_COUNT, MEMO_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 import { createId } from "@/lib/ids";
-import { bboxCenter, placeChildren } from "@/lib/radial";
+import { bboxCenter, layoutBoard, placeChildren } from "@/lib/radial";
 import type { Board, Density, HistoryEntry, TEdge, TNode } from "@/lib/types";
 
 function touch(board: Board, patch: Partial<Board>): Board {
   return { ...board, ...patch, updatedAt: Date.now() };
 }
 
-export function createRootBoard(board: Board, label: string): Board {
+function cloneNode(node: TNode): TNode {
+  return {
+    ...node,
+    position: { ...node.position },
+    data: { ...node.data },
+  };
+}
+
+function cloneEdge(edge: TEdge): TEdge {
+  return { ...edge };
+}
+
+function applyLayout(board: Board, density: Density, overlay: boolean): Board {
+  return layoutBoard(board, density, overlay);
+}
+
+export function createRootBoard(board: Board, label: string, density: Density = "comfortable", overlay = false): Board {
   const trimmed = label.trim().slice(0, ROOT_LABEL_MAX);
   const node: TNode = {
     id: createId("n"),
@@ -22,15 +38,19 @@ export function createRootBoard(board: Board, label: string): Board {
       appearIndex: 0,
     },
   };
-  return touch(board, {
-    nodes: [node],
-    edges: [],
-    focusedNodeId: node.id,
-    pinnedNodeId: node.id,
-  });
+  return applyLayout(
+    touch(board, {
+      nodes: [node],
+      edges: [],
+      focusedNodeId: node.id,
+      pinnedNodeId: node.id,
+    }),
+    density,
+    overlay,
+  );
 }
 
-export function addRootNode(board: Board, label: string): Board {
+export function addRootNode(board: Board, label: string, density: Density = "comfortable", overlay = false): Board {
   const existing = board.nodes.map((node) => node.position);
   const center = bboxCenter(existing);
   const node: TNode = {
@@ -46,10 +66,14 @@ export function addRootNode(board: Board, label: string): Board {
       appearIndex: 0,
     },
   };
-  return touch(board, {
-    nodes: [...board.nodes, node],
-    focusedNodeId: node.id,
-  });
+  return applyLayout(
+    touch(board, {
+      nodes: [...board.nodes, node],
+      focusedNodeId: node.id,
+    }),
+    density,
+    overlay,
+  );
 }
 
 export function beginExpand(
@@ -65,7 +89,8 @@ export function beginExpand(
   const grandparent = parent.data.parentId
     ? board.nodes.find((node) => node.id === parent.data.parentId)
     : null;
-  const ring = parent.data.expanded ? 2 : 1;
+  const existingChildren = board.nodes.filter((node) => node.data.parentId === parentId).length;
+  const ring = existingChildren > 0 ? 2 : 1;
   const positions = placeChildren({
     parent: parent.position,
     count,
@@ -74,6 +99,7 @@ export function beginExpand(
     density,
     overlay,
     ring,
+    parentDepth: parent.data.depth,
   });
 
   const children: TNode[] = positions.map((position, index) => ({
@@ -87,7 +113,9 @@ export function beginExpand(
       expanding: false,
       placeholder: true,
       depth: parent.data.depth + 1,
-      appearIndex: index,
+      appearIndex: existingChildren + index,
+      sproutX: parent.position.x - position.x,
+      sproutY: parent.position.y - position.y,
     },
   }));
   const edges: TEdge[] = children.map((child) => ({
@@ -98,8 +126,8 @@ export function beginExpand(
   const childIds = children.map((child) => child.id);
   const edgeIds = edges.map((edge) => edge.id);
 
-  return {
-    board: touch(board, {
+  const next = applyLayout(
+    touch(board, {
       nodes: board.nodes
         .map((node) =>
           node.id === parentId
@@ -110,12 +138,40 @@ export function beginExpand(
       edges: [...board.edges, ...edges],
       focusedNodeId: parentId,
     }),
+    density,
+    overlay,
+  );
+
+  const parentPos = next.nodes.find((node) => node.id === parentId)?.position ?? parent.position;
+  return {
+    board: {
+      ...next,
+      nodes: next.nodes.map((node) => {
+        if (!childIds.includes(node.id)) return node;
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            sproutX: parentPos.x - node.position.x,
+            sproutY: parentPos.y - node.position.y,
+          },
+        };
+      }),
+    },
     childIds,
     edgeIds,
   };
 }
 
 export function fillExpand(board: Board, parentId: string, childIds: string[], labels: string[]): Board {
+  const present = childIds.filter((id) => board.nodes.some((node) => node.id === id));
+  if (present.length === 0) {
+    return touch(board, {
+      nodes: board.nodes.map((node) =>
+        node.id === parentId ? { ...node, data: { ...node.data, expanding: false } } : node,
+      ),
+    });
+  }
   return touch(board, {
     nodes: board.nodes.map((node) => {
       if (node.id === parentId) {
@@ -150,7 +206,7 @@ export function failExpand(board: Board, parentId: string, childIds: string[], e
   });
 }
 
-function collectDescendants(board: Board, roots: string[]): Set<string> {
+export function collectDescendants(board: Board, roots: string[]): Set<string> {
   const ids = new Set(roots);
   let grew = true;
   while (grew) {
@@ -167,16 +223,28 @@ function collectDescendants(board: Board, roots: string[]): Set<string> {
 
 export function undoExpand(board: Board, action: HistoryEntry): Board {
   const drop = collectDescendants(board, action.childIds);
+  for (const node of action.nodes) drop.add(node.id);
   const remaining = board.nodes.filter((node) => !drop.has(node.id));
   const remainingIds = new Set(remaining.map((node) => node.id));
+  const dropEdges = new Set(action.edgeIds);
   return touch(board, {
     nodes: remaining.map((node) =>
       node.id === action.parentId
-        ? { ...node, data: { ...node.data, expanded: remaining.some((child) => child.data.parentId === action.parentId), expanding: false } }
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              expanded: remaining.some((child) => child.data.parentId === action.parentId),
+              expanding: false,
+            },
+          }
         : node,
     ),
     edges: board.edges.filter(
-      (edge) => remainingIds.has(edge.source) && remainingIds.has(edge.target),
+      (edge) =>
+        remainingIds.has(edge.source) &&
+        remainingIds.has(edge.target) &&
+        !dropEdges.has(edge.id),
     ),
     pinnedNodeId: board.pinnedNodeId && drop.has(board.pinnedNodeId) ? action.parentId : board.pinnedNodeId,
     focusedNodeId: action.parentId,
@@ -186,17 +254,19 @@ export function undoExpand(board: Board, action: HistoryEntry): Board {
 export function captureSubtree(board: Board, childIds: string[]): { nodes: TNode[]; edges: TEdge[] } {
   const drop = collectDescendants(board, childIds);
   return {
-    nodes: board.nodes.filter((node) => drop.has(node.id)),
-    edges: board.edges.filter((edge) => drop.has(edge.source) || drop.has(edge.target)),
+    nodes: board.nodes.filter((node) => drop.has(node.id)).map(cloneNode),
+    edges: board.edges.filter((edge) => drop.has(edge.source) || drop.has(edge.target)).map(cloneEdge),
   };
 }
 
 export function historyFromChildren(board: Board, parentId: string, childIds: string[], edgeIds: string[]): HistoryEntry {
   const captured = captureSubtree(board, childIds);
+  const edgeSet = new Set(edgeIds);
+  const extraEdges = captured.edges.filter((edge) => !edgeSet.has(edge.id));
   return {
     parentId,
-    childIds,
-    edgeIds,
+    childIds: [...childIds],
+    edgeIds: [...edgeIds, ...extraEdges.map((edge) => edge.id)],
     nodes: captured.nodes,
     edges: captured.edges,
   };
@@ -208,12 +278,12 @@ export function redoExpand(board: Board, entry: HistoryEntry): Board {
     ...board.nodes.map((node) =>
       node.id === entry.parentId ? { ...node, data: { ...node.data, expanded: true, expanding: false } } : node,
     ),
-    ...entry.nodes.filter((node) => !existing.has(node.id)),
+    ...entry.nodes.filter((node) => !existing.has(node.id)).map(cloneNode),
   ];
   const edgeIds = new Set(board.edges.map((edge) => edge.id));
   return touch(board, {
     nodes,
-    edges: [...board.edges, ...entry.edges.filter((edge) => !edgeIds.has(edge.id))],
+    edges: [...board.edges, ...entry.edges.filter((edge) => !edgeIds.has(edge.id)).map(cloneEdge)],
     focusedNodeId: entry.parentId,
   });
 }
