@@ -34,7 +34,7 @@ function expandTree(
 }
 
 describe("実サイズの重なり", () => {
-  it("長い日本語・粋箋・NOWがあっても文字の箱が重ならない", () => {
+  it("長い日本語・付箋・NOWがあっても文字の箱が重ならない", () => {
     const prefs = normalizePrefs({ generationLayout: "radial", density: "comfortable", fontScale: 1.1 });
     let board = ops.createRootBoard(emptyBoard("test"), "今話したい長いキーワード", prefs);
     const rootId = board.nodes[0]!.id;
@@ -46,7 +46,7 @@ describe("実サイズの重なり", () => {
       ["方言あるあるを聞かせて", "地元のスーパーの思い出", "学校であった変なルール", "好きな曲の歌詞の話", "正義ってなんだろう", "もしも透明人間だったら", "深夜に食べたくなるもの", "リスナーに聞きたいこと"],
       prefs,
     );
-    board = ops.setMemo(board, first.childIds[0]!, "ここでオチを置く。長い粋箋でも隣の文字に食い込まない。", prefs);
+    board = ops.setMemo(board, first.childIds[0]!, "ここでオチを置く。長い付箋でも隣の文字に食い込まない。", prefs);
     board = ops.setMemo(board, first.childIds[3]!, "NOWの隣でも重ならない", prefs);
     board = ops.pinNode(board, first.childIds[3]!, prefs);
     const laid = layoutBoard(board, { ...prefs, pinnedNodeId: board.pinnedNodeId });
