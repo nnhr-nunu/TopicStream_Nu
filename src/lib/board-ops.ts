@@ -1,6 +1,6 @@
 import { CHILD_COUNT, MEMO_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 import { createId } from "@/lib/ids";
-import { bboxCenter, layoutBoard, placeChildren } from "@/lib/radial";
+import { bboxCenter, layoutBoard, placeChildren, radiusFor } from "@/lib/radial";
 import type { Board, Density, HistoryEntry, TEdge, TNode } from "@/lib/types";
 
 function touch(board: Board, patch: Partial<Board>): Board {
@@ -55,7 +55,7 @@ export function addRootNode(board: Board, label: string, density: Density = "com
   const center = bboxCenter(existing);
   const node: TNode = {
     id: createId("n"),
-    position: existing.length === 0 ? { x: 0, y: 0 } : { x: center.x + 420, y: center.y },
+    position: existing.length === 0 ? { x: 0, y: 0 } : { x: center.x + radiusFor(density, overlay) * 2.05, y: center.y },
     data: {
       label: label.trim().slice(0, ROOT_LABEL_MAX),
       memo: "",
@@ -90,7 +90,6 @@ export function beginExpand(
     ? board.nodes.find((node) => node.id === parent.data.parentId)
     : null;
   const existingChildren = board.nodes.filter((node) => node.data.parentId === parentId).length;
-  const ring = existingChildren > 0 ? 2 : 1;
   const positions = placeChildren({
     parent: parent.position,
     count,
@@ -98,7 +97,6 @@ export function beginExpand(
     awayFrom: grandparent?.position ?? null,
     density,
     overlay,
-    ring,
     parentDepth: parent.data.depth,
   });
 

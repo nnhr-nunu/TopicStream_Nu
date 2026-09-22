@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as ops from "@/lib/board-ops";
 import { emptyBoard } from "@/lib/storage";
-import { hasOverlap, layoutBoard, minNodeGap, placeChildren } from "@/lib/radial";
+import { hasOverlap, layoutBoard, minNodeGap, placeChildren, radiusFor } from "@/lib/radial";
 import type { Board, HistoryEntry } from "@/lib/types";
 
 function labelsOf(board: Board): string[] {
@@ -40,7 +40,38 @@ describe("放射配置", () => {
     const child = board.nodes.find((node) => node.id === childId)!;
     const rootDist = Math.hypot(child.position.x - root.position.x, child.position.y - root.position.y);
     const grandDist = Math.hypot(grandchild.position.x - root.position.x, grandchild.position.y - root.position.y);
+    const parentChild = Math.hypot(child.position.x - root.position.x, child.position.y - root.position.y);
+    const childGrand = Math.hypot(grandchild.position.x - child.position.x, grandchild.position.y - child.position.y);
     expect(grandDist).toBeGreaterThan(rootDist);
+    expect(parentChild).toBeLessThan(minNodeGap("comfortable") * 1.75);
+    expect(childGrand).toBeLessThan(minNodeGap("comfortable") * 2.4);
+  });
+
+  it("子から8個広げても、親の近くに等間隔で並ぶ", () => {
+    const parent = { x: radiusFor("comfortable"), y: 0 };
+    const points = placeChildren({
+      parent,
+      count: 8,
+      existing: [{ x: 0, y: 0 }, parent],
+      awayFrom: { x: 0, y: 0 },
+      density: "comfortable",
+      parentDepth: 1,
+    });
+    const gap = minNodeGap("comfortable");
+    expect(points).toHaveLength(8);
+    expect(hasOverlap([{ x: 0, y: 0 }, parent, ...points], gap * 0.92)).toBe(false);
+    const radii = points.map((point) => Math.hypot(point.x - parent.x, point.y - parent.y));
+    const minR = Math.min(...radii);
+    const maxR = Math.max(...radii);
+    expect(maxR).toBeLessThan(gap * 2.4);
+    expect(minR).toBeGreaterThan(gap * 0.55);
+    const inner = radii.filter((radius) => radius < (minR + maxR) / 2);
+    const outer = radii.filter((radius) => radius >= (minR + maxR) / 2);
+    expect(inner.length).toBeGreaterThanOrEqual(2);
+    expect(outer.length).toBeGreaterThanOrEqual(2);
+    const spread = (values: number[]) => Math.max(...values) - Math.min(...values);
+    expect(spread(inner)).toBeLessThan(gap * 0.2);
+    expect(spread(outer)).toBeLessThan(gap * 0.2);
   });
 });
 
