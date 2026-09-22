@@ -105,7 +105,7 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   let chipH = padY * 2 + Math.max(1, lineWidths.length) * lineHeight + 2;
   if (prefs.generationLayout === "mandala") {
     chipW = 11.5 * REM;
-    chipH = Math.max(3.5 * REM, chipH);
+    chipH = 4 * REM;
   }
 
   const left = -chipW / 2;
