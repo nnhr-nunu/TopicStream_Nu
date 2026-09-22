@@ -1,18 +1,10 @@
-name: pages
+name: pages-build
 
 on:
   push:
     branches: [main, cursor/topicstream-nu-app-d395]
+  pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
 
 jobs:
   build:
@@ -28,17 +20,4 @@ jobs:
         env:
           PAGES_BASE_PATH: /TopicStream_Nu
           NEXT_PUBLIC_BASE_PATH: /TopicStream_Nu
-      - run: touch out/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - run: test -f out/index.html
