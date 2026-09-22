@@ -62,7 +62,7 @@ export function OverlayWorkspace() {
   return (
     <BoardActionsProvider
       value={{
-        expandNode: (id) => void controller.expandNode(id),
+        expandNode: (id) => void controller.expandNode(id, false, true),
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
         copyLabel: (id) => void controller.copyLabel(id),
