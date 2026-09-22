@@ -79,6 +79,7 @@ export function OverlayWorkspace() {
             "--ts-density": settings.density === "compact" ? "0.9" : "1.08",
           } as React.CSSProperties
         }
+        data-layout={settings.generationLayout}
       >
         <BoardCanvas
           board={board}

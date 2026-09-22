@@ -1,5 +1,5 @@
 import { createId } from "@/lib/ids";
-import { layoutBoard, placeChildren } from "@/lib/radial";
+import { layoutBoard, placeChildren } from "@/lib/layout";
 import type { Board, TEdge, TNode } from "@/lib/types";
 
 export type CatalogBoard = {
