@@ -1,5 +1,5 @@
 import { createId } from "@/lib/ids";
-import { placeChildren } from "@/lib/radial";
+import { layoutBoard, placeChildren } from "@/lib/radial";
 import type { Board, TEdge, TNode } from "@/lib/types";
 
 export type CatalogBoard = {
@@ -158,7 +158,7 @@ export const SEED_TOPIC_SCORES: PopularTopic[] = [
 export function catalogBoardToBoard(catalog: CatalogBoard, name?: string): Board {
   const now = Date.now();
   const pinned = catalog.nodes[0]?.id ?? null;
-  return {
+  const board: Board = {
     id: createId("board"),
     name: name ?? catalog.name,
     createdAt: now,
@@ -171,6 +171,7 @@ export function catalogBoardToBoard(catalog: CatalogBoard, name?: string): Board
     pinnedNodeId: pinned,
     focusedNodeId: pinned,
   };
+  return layoutBoard(board, "comfortable");
 }
 
 export function searchCatalog(boards: CatalogBoard[], query: string): CatalogBoard[] {
