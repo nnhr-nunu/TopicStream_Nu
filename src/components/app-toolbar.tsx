@@ -1,16 +1,19 @@
 "use client";
 
-import { Dices, MonitorPlay, Redo2, RefreshCw, RotateCcw, Share2, Undo2, Users } from "lucide-react";
+import { Dices, MonitorPlay, Redo2, RefreshCw, RotateCcw, Share2, Undo2 } from "lucide-react";
 import Link from "next/link";
 
 import { BoardSwitcher } from "@/components/board-switcher";
 import { SettingsSheet } from "@/components/settings-sheet";
+import { ThemeBoardSheet } from "@/components/theme-board-sheet";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import type { CatalogBoard } from "@/lib/catalog-data";
 import type { Board, Settings } from "@/lib/types";
 
 function Tip({
@@ -50,6 +53,7 @@ export function AppToolbar({
   onReset,
   onShare,
   onPatchSettings,
+  onImportCatalog,
 }: {
   boards: Board[];
   activeBoard: Board;
@@ -72,6 +76,7 @@ export function AppToolbar({
   onReset: () => void;
   onShare: () => void;
   onPatchSettings: (patch: Partial<Settings>) => void;
+  onImportCatalog: (board: CatalogBoard) => void;
 }) {
   return (
     <header className="app-chrome pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3 sm:p-4">
@@ -126,15 +131,22 @@ export function AppToolbar({
           </Button>
         </Tip>
         <Tip label="みんなのトークテーマ">
-          <Button size="icon-sm" variant="ghost" aria-label="みんなのトークテーマ" nativeButton={false} render={<Link href="/community" />}>
-            <Users />
-          </Button>
+          <span>
+            <ThemeBoardSheet onImport={onImportCatalog} />
+          </span>
         </Tip>
         <Tip label="OBSオーバーレイ">
           <Button size="icon-sm" variant="ghost" aria-label="OBSオーバーレイ" nativeButton={false} render={<Link href={overlayHref} target="_blank" />}>
             <MonitorPlay />
           </Button>
         </Tip>
+        <div className="hidden sm:block">
+          <ThemeSwitcher
+            value={settings.colorTheme}
+            onChange={(colorTheme) => onPatchSettings({ colorTheme })}
+            compact
+          />
+        </div>
         <SettingsSheet settings={settings} onPatch={onPatchSettings} />
       </div>
     </header>

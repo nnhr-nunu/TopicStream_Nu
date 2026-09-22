@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Check, Copy, Loader2, Pin, RefreshCw, StickyNote } from "lucide-react";
+import { Check, Copy, Pin, RefreshCw, StickyNote } from "lucide-react";
 
 import { useBoardActions } from "@/components/board-actions";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,11 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   return (
     <div
       className={cn("topic-node relative", overlay && "topic-node-overlay")}
-      style={{ animationDelay: `${data.appearIndex * 38}ms` }}
+      style={{
+        animationDelay: `${data.appearIndex * 58}ms`,
+        ["--sprout-x" as string]: `${Math.max(-72, Math.min(72, (data.sproutX ?? 0) * 0.28))}px`,
+        ["--sprout-y" as string]: `${Math.max(-72, Math.min(72, (data.sproutY ?? 16) * 0.28))}px`,
+      }}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0 !h-1 !w-1 !border-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-1 !w-1 !border-0" />
@@ -44,6 +48,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isPinned && "topic-chip-now",
           isFocused && "topic-chip-focus",
           data.expanding && "topic-chip-busy",
+          data.placeholder && "topic-chip-skeleton",
         )}
         onClick={(event) => {
           event.stopPropagation();
@@ -54,8 +59,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           document.getElementById(`memo-${id}`)?.click();
         }}
       >
-        {data.expanding ? <Loader2 className="size-4 shrink-0 animate-spin opacity-80" /> : null}
-        <span className="topic-label">{data.placeholder ? "考え中" : data.label}</span>
+        {data.placeholder ? (
+          <span className="topic-skeleton" aria-label="話題を準備中">
+            <span className="topic-skeleton-bud" />
+            <span className="topic-skeleton-bar" />
+          </span>
+        ) : (
+          <span className="topic-label">{data.label}</span>
+        )}
         {isPinned ? <span className="now-badge">NOW</span> : null}
       </button>
 

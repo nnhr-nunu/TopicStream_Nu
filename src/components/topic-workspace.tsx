@@ -90,12 +90,14 @@ export function TopicWorkspace() {
           onReset={controller.resetActive}
           onShare={() => void controller.publishWatchLink()}
           onPatchSettings={controller.patchSettings}
+          onImportCatalog={controller.importCatalogBoard}
         />
 
         {board.nodes.length === 0 ? (
           <StartScreen
             onStart={(keyword) => void controller.startWithKeyword(keyword)}
             onRandom={() => void controller.startRandom()}
+            onImport={controller.importCatalogBoard}
             busy={controller.busy}
           />
         ) : (
