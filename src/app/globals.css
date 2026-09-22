@@ -419,13 +419,22 @@ html.overlay-mode .topic-chip {
 }
 
 [data-layout="mandala"] .topic-chip {
-  min-width: 7.25rem;
-  min-height: 3.05rem;
+  width: 11.5rem;
+  min-width: 11.5rem;
+  max-width: 11.5rem;
+  min-height: 3.5rem;
   justify-content: center;
   border-radius: 14px;
   text-align: center;
 }
 
+[data-layout="mandala"] .topic-chip-root {
+  width: 11.5rem;
+  max-width: 11.5rem;
+  padding-inline: 0.85rem;
+}
+
 [data-layout="mandala"] .topic-label {
   text-align: center;
+  width: 100%;
 }
