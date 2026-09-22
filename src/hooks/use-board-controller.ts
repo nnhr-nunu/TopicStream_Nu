@@ -13,6 +13,7 @@ import {
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { generateRelatedTopics } from "@/lib/gemini";
 import { loadIdentity } from "@/lib/identity";
+import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
@@ -74,7 +75,8 @@ export function useBoardController() {
       const parent = working.nodes.find((node) => node.id === nodeId);
       if (!parent || parent.data.expanding) return;
 
-      const started = ops.beginExpand(working, nodeId, 8, current.settings.density, overlay);
+      const prefs = prefsFromSettings(current.settings, overlay, working.pinnedNodeId);
+      const started = ops.beginExpand(working, nodeId, 8, prefs);
       if (!started) return;
 
       const token = (expandTokens.current.get(nodeId) ?? 0) + 1;
@@ -111,7 +113,13 @@ export function useBoardController() {
         return;
       }
 
-      const filled = ops.fillExpand(latestBoard, nodeId, started.childIds, result.topics);
+      const filled = ops.fillExpand(
+        latestBoard,
+        nodeId,
+        started.childIds,
+        result.topics,
+        prefsFromSettings(latest.settings, overlay, latestBoard.pinnedNodeId),
+      );
       persist({
         ...latest,
         boards: latest.boards.map((item) => (item.id === filled.id ? filled : item)),
@@ -144,7 +152,7 @@ export function useBoardController() {
       if (!label.trim()) return;
       const existing = current.boards.find((board) => board.id === current.activeBoardId);
       if (!existing) return;
-      const rooted = ops.createRootBoard(existing, label, current.settings.density);
+      const rooted = ops.createRootBoard(existing, label, prefsFromSettings(current.settings, false, existing.pinnedNodeId));
       persist({ ...current, boards: current.boards.map((board) => (board.id === rooted.id ? rooted : board)) });
       setUndoStack([]);
       setRedoStack([]);
@@ -160,7 +168,7 @@ export function useBoardController() {
     const labels = board?.nodes.map((node) => node.data.label) ?? [];
     const topic = pickWeightedStarter(labels);
     if (board && board.nodes.length > 0) {
-      updateBoard((item) => ops.addRootNode(item, topic, current.settings.density));
+      updateBoard((item) => ops.addRootNode(item, topic, prefsFromSettings(current.settings, false, item.pinnedNodeId)));
       toast.success(`新しいきっかけ: ${topic}`);
       return;
     }
@@ -213,7 +221,11 @@ export function useBoardController() {
   );
 
   const setMemo = useCallback(
-    (nodeId: string, memo: string) => updateBoard((board) => ops.setMemo(board, nodeId, memo)),
+    (nodeId: string, memo: string) =>
+      updateBoard((board) => {
+        const current = currentSnapshot();
+        return ops.setMemo(board, nodeId, memo, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+      }),
     [updateBoard],
   );
   const pinNode = useCallback(
@@ -221,7 +233,10 @@ export function useBoardController() {
       const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
       const label = nodeId ? board?.nodes.find((node) => node.id === nodeId)?.data.label : undefined;
       if (label) recordUsage(label, "pins");
-      updateBoard((item) => ops.pinNode(item, nodeId));
+      updateBoard((item) => {
+        const current = currentSnapshot();
+        return ops.pinNode(item, nodeId, prefsFromSettings(current.settings, false, item.pinnedNodeId));
+      });
     },
     [updateBoard],
   );
@@ -315,7 +330,17 @@ export function useBoardController() {
   const patchSettings = useCallback(
     (patch: Partial<Settings>) => {
       const current = currentSnapshot();
-      persist({ ...current, settings: { ...current.settings, ...patch } });
+      const settings = { ...current.settings, ...patch };
+      const relayout =
+        patch.generationLayout !== undefined ||
+        patch.density !== undefined ||
+        patch.fontScale !== undefined;
+      const boards = relayout
+        ? current.boards.map((board) =>
+            layoutBoard(board, prefsFromSettings(settings, false, board.pinnedNodeId)),
+          )
+        : current.boards;
+      persist({ ...current, settings, boards });
     },
     [persist],
   );
