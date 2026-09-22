@@ -385,7 +385,8 @@ export function useBoardController() {
     const json = (await response.json()) as { id: string };
     setShareId(json.id);
     window.sessionStorage.setItem(SHARE_KEY, json.id);
-    const url = `${window.location.origin}/watch/${json.id}`;
+    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    const url = `${window.location.origin}${base}/watch?id=${encodeURIComponent(json.id)}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("いっしょに見るリンクをコピーしました");
