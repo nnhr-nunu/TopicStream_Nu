@@ -417,3 +417,15 @@ html.overlay-mode .topic-chip {
     top: calc(100% + 36px);
   }
 }
+
+[data-layout="mandala"] .topic-chip {
+  min-width: 7.25rem;
+  min-height: 3.05rem;
+  justify-content: center;
+  border-radius: 14px;
+  text-align: center;
+}
+
+[data-layout="mandala"] .topic-label {
+  text-align: center;
+}
