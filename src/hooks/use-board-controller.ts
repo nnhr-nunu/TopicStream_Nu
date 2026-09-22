@@ -58,7 +58,7 @@ export function useBoardController() {
   );
 
   const expandNode = useCallback(
-    async (nodeId: string, replace = false) => {
+    async (nodeId: string, replace = false, overlay = false) => {
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       if (!board) return;
@@ -74,7 +74,7 @@ export function useBoardController() {
       const parent = working.nodes.find((node) => node.id === nodeId);
       if (!parent || parent.data.expanding) return;
 
-      const started = ops.beginExpand(working, nodeId, 8, current.settings.density, false);
+      const started = ops.beginExpand(working, nodeId, 8, current.settings.density, overlay);
       if (!started) return;
 
       const token = (expandTokens.current.get(nodeId) ?? 0) + 1;
@@ -83,6 +83,10 @@ export function useBoardController() {
         ...current,
         boards: current.boards.map((item) => (item.id === started.board.id ? started.board : item)),
       });
+      setUndoStack((stack) =>
+        [...stack, ops.historyFromChildren(started.board, nodeId, started.childIds, started.edgeIds)].slice(-40),
+      );
+      setRedoStack([]);
       setBusy(true);
 
       const existingLabels = started.board.nodes.map((node) => node.data.label);
@@ -100,27 +104,36 @@ export function useBoardController() {
       }
 
       const latest = currentSnapshot();
-      const filled = ops.fillExpand(
-        latest.boards.find((item) => item.id === latest.activeBoardId) ?? started.board,
-        nodeId,
-        started.childIds,
-        result.topics,
-      );
+      const latestBoard = latest.boards.find((item) => item.id === latest.activeBoardId) ?? started.board;
+      const stillPresent = started.childIds.some((id) => latestBoard.nodes.some((node) => node.id === id));
+      if (!stillPresent) {
+        setBusy(false);
+        return;
+      }
+
+      const filled = ops.fillExpand(latestBoard, nodeId, started.childIds, result.topics);
       persist({
         ...latest,
         boards: latest.boards.map((item) => (item.id === filled.id ? filled : item)),
       });
-      setUndoStack((stack) => [
-        ...stack,
-        ops.historyFromChildren(filled, nodeId, started.childIds, started.edgeIds),
-      ].slice(-40));
-      setRedoStack([]);
+      setUndoStack((stack) => {
+        const next = [...stack];
+        for (let i = next.length - 1; i >= 0; i -= 1) {
+          const entry = next[i]!;
+          if (
+            entry.parentId === nodeId &&
+            entry.childIds.length === started.childIds.length &&
+            entry.childIds.every((id, index) => id === started.childIds[index])
+          ) {
+            next[i] = ops.historyFromChildren(filled, nodeId, started.childIds, started.edgeIds);
+            break;
+          }
+        }
+        return next;
+      });
       recordUsage(parent.data.label, "expands");
       setBusy(false);
       if (result.warning) toast.message(result.warning);
-      else if (result.source === "mock" && current.settings.geminiApiKey.trim()) {
-        toast.message("オフライン生成を使いました");
-      }
     },
     [persist],
   );
@@ -131,7 +144,7 @@ export function useBoardController() {
       if (!label.trim()) return;
       const existing = current.boards.find((board) => board.id === current.activeBoardId);
       if (!existing) return;
-      const rooted = ops.createRootBoard(existing, label);
+      const rooted = ops.createRootBoard(existing, label, current.settings.density);
       persist({ ...current, boards: current.boards.map((board) => (board.id === rooted.id ? rooted : board)) });
       setUndoStack([]);
       setRedoStack([]);
@@ -147,7 +160,7 @@ export function useBoardController() {
     const labels = board?.nodes.map((node) => node.data.label) ?? [];
     const topic = pickWeightedStarter(labels);
     if (board && board.nodes.length > 0) {
-      updateBoard((item) => ops.addRootNode(item, topic));
+      updateBoard((item) => ops.addRootNode(item, topic, current.settings.density));
       toast.success(`新しいきっかけ: ${topic}`);
       return;
     }
@@ -160,6 +173,10 @@ export function useBoardController() {
       if (!action) {
         toast.message("戻せる操作がありません");
         return stack;
+      }
+      expandTokens.current.set(action.parentId, (expandTokens.current.get(action.parentId) ?? 0) + 1);
+      for (const id of action.childIds) {
+        expandTokens.current.set(id, (expandTokens.current.get(id) ?? 0) + 1);
       }
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
