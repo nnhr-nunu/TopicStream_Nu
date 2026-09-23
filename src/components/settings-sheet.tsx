@@ -66,7 +66,7 @@ export function SettingsSheet({
               onChange={(event) => onPatch({ streamUrl: event.target.value })}
             />
             <p className="text-xs leading-5 text-muted-foreground">
-              このマップのコメントを読むためのURLです。ホームの一覧は TopicStream を使っている枠の案内で、貼った配信はそこに一行で出ます。Pages ではテストコメントで 3E を確認できます。Twitchは匿名、YouTubeはキーか YOUTUBE_API_KEY が必要です。
+              このマップのコメントを読むためのURLです。ホームの一覧は TopicStream を使っている枠の案内で、貼った配信はそこに一行で出ます。Pages ではテストコメントで 1E（最初の中央）を確認できます。Twitchは匿名、YouTubeはキーか YOUTUBE_API_KEY が必要です。
             </p>
           </section>
 
@@ -85,7 +85,7 @@ export function SettingsSheet({
           <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は付箋。♡はお気に入り。ピンは NOW。コメントの 3E でカードが光ります。ロゴでホームへ。
+              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は付箋。♡はお気に入り。ピンは NOW。コメントのマスID（最初の中央は 1E）でカードが光ります。ロゴでホームへ。
             </p>
           </section>
 
