@@ -9,6 +9,8 @@ import {
   geminiFailureWarning,
   geminiRetry,
   parseGoogleError,
+  isJunkTopic,
+  padTopics,
   parseTopics,
   requestGemini,
   shouldTryNextModel,
@@ -18,6 +20,46 @@ describe("Gemini の返答パース", () => {
   it("JSON配列から重複とお題を除く", () => {
     const topics = parseTopics('["温泉","温泉","旅行","お題"]', "お題", ["旅行"]);
     expect(topics).toEqual(["温泉"]);
+  });
+
+  it("きれいな JSON 配列 [\"a\",\"b\"] を取る", () => {
+    expect(parseTopics('["a","b"]', "お題", [])).toEqual(["a", "b"]);
+    expect(parseTopics('```json\n["温泉","湯けむり"]\n```', "お題", [])).toEqual(["温泉", "湯けむり"]);
+  });
+
+  it("壊れた 1A [\"緊張… から中身だけ残す", () => {
+    expect(parseTopics('1A ["緊張でバクバクした瞬間"', "お題", [])).toEqual(["緊張でバクバクした瞬間"]);
+    expect(parseTopics('1A ["緊張でバクバクした瞬間"]', "お題", [])).toEqual(["緊張でバクバクした瞬間"]);
+  });
+
+  it("単独の [ や引用符は捨てる", () => {
+    expect(parseTopics("[", "お題", [])).toEqual([]);
+    expect(parseTopics('"', "お題", [])).toEqual([]);
+    expect(parseTopics("]", "お題", [])).toEqual([]);
+    expect(parseTopics(",", "お題", [])).toEqual([]);
+    expect(parseTopics(" [ ] ", "お題", [])).toEqual([]);
+  });
+
+  it("番号付きリストからキーワードだけ取る", () => {
+    const raw = `1. 温泉旅行
+2. 地元あるある
+3) 深夜のコンビニ
+- 推しの話`;
+    expect(parseTopics(raw, "お題", [])).toEqual(["温泉旅行", "地元あるある", "深夜のコンビニ", "推しの話"]);
+  });
+
+  it("JSON の破片をマスに残さない", () => {
+    expect(parseTopics('["a","b"] [', "お題", [])).toEqual(["a", "b"]);
+    expect(isJunkTopic("[")).toBe(true);
+    expect(isJunkTopic('"')).toBe(true);
+    expect(isJunkTopic("温泉")).toBe(false);
+  });
+});
+
+describe("足りない分の埋め", () => {
+  it("パース後にだけモックで埋め、ゴミは混ぜない", () => {
+    expect(padTopics(["温泉"], ["[", "湯けむり", "露天"], 3, "お題")).toEqual(["温泉", "湯けむり", "露天"]);
+    expect(padTopics([], ["地元あるある", "失敗談"], 2, "お題")).toEqual(["地元あるある", "失敗談"]);
   });
 });
 
@@ -165,8 +207,37 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.model).toBe("gemini-2.0-flash-lite");
     expect(result.topics).toContain("温泉");
     expect(result.tried.slice(0, 2)).toEqual(["gemini-2.5-flash", "gemini-2.0-flash-lite"]);
-    expect(calls.filter((item) => item.includes("gemini-2.0-flash-lite"))).toHaveLength(2);
+    expect(calls.filter((item) => item.includes("gemini-2.0-flash-lite")).length).toBeGreaterThanOrEqual(2);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.sameModelMs);
+  });
+
+  it("有効な語が8個未満なら同じモデルでもう一度頼み、ゴミは残さない", async () => {
+    const sleep = vi.fn(async () => {});
+    geminiRetry.sleep = sleep;
+    let hits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        hits += 1;
+        if (hits === 1) {
+          return googleOk(["[", "緊張でバクバクした瞬間"]);
+        }
+        return googleOk(["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"]);
+      }),
+    );
+
+    const result = await requestGemini({
+      seed: "お題",
+      existing: [],
+      apiKey: "test-key",
+      model: DEFAULT_MODEL,
+      count: 8,
+    });
+
+    expect(hits).toBe(2);
+    expect(result.topics).not.toContain("[");
+    expect(result.topics[0]).toBe("緊張でバクバクした瞬間");
+    expect(result.topics).toHaveLength(8);
   });
 
   it("全部 503 なら最後のモデルをもう一度待つ", async () => {
