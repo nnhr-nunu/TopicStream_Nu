@@ -12,14 +12,15 @@ export type HeartOrbit = {
 const CHANNEL = "topicstream-nu-hearts";
 const GOLDEN = 137.508;
 
-/** Place hearts around a card so they stack instead of overlapping the label. */
+/** Place hearts outside a mandala chip (~184×84) so they are not hidden behind the label. */
 export function heartOrbit(slot: number): HeartOrbit {
   const angle = ((slot * GOLDEN) % 360) * (Math.PI / 180);
-  const radius = 42 + (slot % 4) * 7;
+  const rx = 110 + (slot % 3) * 10;
+  const ry = 62 + (slot % 3) * 8;
   return {
-    dx: Math.round(Math.cos(angle) * radius),
-    dy: Math.round(Math.sin(angle) * radius * 0.78),
-    scale: 0.82 + (slot % 3) * 0.12,
+    dx: Math.round(Math.cos(angle) * rx),
+    dy: Math.round(Math.sin(angle) * ry),
+    scale: 0.9 + (slot % 3) * 0.14,
   };
 }
 

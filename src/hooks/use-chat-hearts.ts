@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { heartOrbit, subscribeChatHearts } from "@/lib/live-hearts";
 
-const HOLD_MS = 4200;
+const HOLD_MS = 6500;
 const MAX_HEARTS = 16;
 
 export type FestiveHeart = {
