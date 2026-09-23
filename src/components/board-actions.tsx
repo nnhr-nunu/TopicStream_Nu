@@ -11,6 +11,7 @@ type BoardActions = {
   setMemo: (id: string, memo: string) => void;
   setLabel?: (id: string, label: string) => void;
   copyLabel: (id: string) => void;
+  toggleHeart?: (id: string) => void;
   overlay?: boolean;
   pinnedNodeId: string | null;
   focusedNodeId: string | null;

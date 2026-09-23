@@ -29,6 +29,8 @@ export type TopicNodeData = {
   familyIndex?: number;
   role?: TopicNodeRole;
   copiedFromId?: string;
+  hostsGroupId?: number;
+  heartCount?: number;
 };
 
 export type TNode = {
@@ -63,6 +65,8 @@ export type Settings = {
   nickname: string;
   colorTheme: ColorTheme;
   generationLayout: GenerationLayout;
+  streamUrl: string;
+  youtubeApiKey: string;
 };
 
 export type AppSnapshot = {
