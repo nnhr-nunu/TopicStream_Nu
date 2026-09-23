@@ -113,7 +113,12 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
   }
   return {
     geminiApiKey: typeof settings.geminiApiKey === "string" ? settings.geminiApiKey : "",
-    geminiModel: typeof settings.geminiModel === "string" && settings.geminiModel ? settings.geminiModel : DEFAULT_SETTINGS.geminiModel,
+    geminiModel:
+      typeof settings.geminiModel === "string" &&
+      settings.geminiModel &&
+      !(RETIRED_GEMINI_MODELS as readonly string[]).includes(settings.geminiModel)
+        ? settings.geminiModel
+        : DEFAULT_SETTINGS.geminiModel,
     fontScale: Number.isFinite(fontScale) ? Math.min(1.6, Math.max(0.85, fontScale)) : 1,
     density: settings.density === "compact" ? "compact" : "comfortable",
     overlayTransparent: settings.overlayTransparent !== false,
