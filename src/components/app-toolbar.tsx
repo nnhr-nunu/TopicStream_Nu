@@ -41,6 +41,7 @@ export function AppToolbar({
   onCreate,
   onRename,
   onDelete,
+  onDuplicate,
   onExport,
   onImport,
   onUndo,
@@ -61,6 +62,7 @@ export function AppToolbar({
   onCreate: () => void;
   onRename: (name: string) => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
   onExport: () => void;
   onImport: (text: string) => void;
   onUndo: () => void;
@@ -80,6 +82,7 @@ export function AppToolbar({
           onCreate={onCreate}
           onRename={onRename}
           onDelete={onDelete}
+          onDuplicate={onDuplicate}
           onExport={onExport}
           onImport={onImport}
         />

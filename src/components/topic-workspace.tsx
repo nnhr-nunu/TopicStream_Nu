@@ -5,10 +5,12 @@ import { useState } from "react";
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { LiveChatDock } from "@/components/live-chat-dock";
 import { PinBanner } from "@/components/pin-banner";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import { cellCode } from "@/lib/mandala-ids";
 
 export function TopicWorkspace() {
   const controller = useBoardController();
@@ -22,8 +24,7 @@ export function TopicWorkspace() {
       if (focusedId) void controller.expandNode(focusedId);
     },
     random: () => {
-      setAtHome(false);
-      void controller.startRandom();
+      if (!atHome) void controller.startRandom();
     },
     undo: controller.undo,
     redo: controller.redo,
@@ -60,6 +61,7 @@ export function TopicWorkspace() {
         setMemo: controller.setMemo,
         setLabel: controller.setLabel,
         copyLabel: (id) => void controller.copyLabel(id),
+        toggleHeart: controller.toggleHeart,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
         generationLayout: settings.generationLayout,
@@ -95,6 +97,7 @@ export function TopicWorkspace() {
           }}
           onRename={controller.renameActive}
           onDelete={controller.deleteActive}
+          onDuplicate={controller.duplicateActive}
           onExport={controller.exportJson}
           onImport={(text) => {
             setAtHome(false);
@@ -115,16 +118,16 @@ export function TopicWorkspace() {
               setAtHome(false);
               void controller.startWithKeyword(keyword);
             }}
-            onRandom={() => {
-              setAtHome(false);
-              void controller.startRandom();
-            }}
             onImport={(catalog) => {
               setAtHome(false);
               controller.importCatalogBoard(catalog);
             }}
             onResume={board.nodes.length > 0 ? () => setAtHome(false) : undefined}
             busy={controller.busy}
+            linkedUrl={settings.streamUrl}
+            linkedTitle={board.name}
+            linkedStreamer={settings.nickname}
+            linkedWatchId={controller.shareId ?? undefined}
           />
         ) : (
           <>
@@ -134,6 +137,22 @@ export function TopicWorkspace() {
               layout={settings.generationLayout}
               onFocus={controller.focusNode}
               onPositions={controller.syncPositions}
+            />
+            <LiveChatDock
+              board={board}
+              streamUrl={settings.streamUrl}
+              youtubeApiKey={settings.youtubeApiKey}
+              pinnedCode={
+                board.pinnedNodeId
+                  ? (() => {
+                      const node = board.nodes.find((item) => item.id === board.pinnedNodeId);
+                      return node && typeof node.data.groupId === "number" && typeof node.data.cellIndex === "number"
+                        ? cellCode(node.data.groupId, node.data.cellIndex)
+                        : "";
+                    })()
+                  : ""
+              }
+              onHeart={(id) => controller.bumpHeart(id, 1)}
             />
           </>
         )}
