@@ -1,5 +1,5 @@
 import { asColorTheme } from "@/lib/color-theme";
-import { DEFAULT_SETTINGS, STORAGE_KEY } from "@/lib/constants";
+import { DEFAULT_SETTINGS, resolveGeminiModel, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
 
@@ -109,7 +109,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
   }
   return {
     geminiApiKey: typeof settings.geminiApiKey === "string" ? settings.geminiApiKey : "",
-    geminiModel: typeof settings.geminiModel === "string" && settings.geminiModel ? settings.geminiModel : DEFAULT_SETTINGS.geminiModel,
+    geminiModel: resolveGeminiModel(settings.geminiModel),
     fontScale: Number.isFinite(fontScale) ? Math.min(1.6, Math.max(0.85, fontScale)) : 1,
     density: settings.density === "compact" ? "compact" : "comfortable",
     overlayTransparent: settings.overlayTransparent !== false,
