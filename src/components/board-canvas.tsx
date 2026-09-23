@@ -78,10 +78,10 @@ function CanvasInner({
   }
 
   const fitCluster = useCallback(
-    (ids: string[]) => {
-      const present = ids.filter((id) => board.nodes.some((node) => node.id === id));
+    (ids: string[], graph: Board["nodes"]) => {
+      const present = ids.filter((id) => graph.some((node) => node.id === id));
       if (present.length === 0) return;
-      const cluster = board.nodes.filter((node) => present.includes(node.id));
+      const cluster = graph.filter((node) => present.includes(node.id));
       const minX = Math.min(...cluster.map((node) => node.position.x));
       const maxX = Math.max(...cluster.map((node) => node.position.x));
       const minY = Math.min(...cluster.map((node) => node.position.y));
@@ -100,18 +100,19 @@ function CanvasInner({
         void setCenter(cx, cy, { zoom, duration: 260 });
       });
     },
-    [board.nodes, fitView, getZoom, overlay, setCenter],
+    [fitView, getZoom, overlay, setCenter],
   );
 
   const idsKey = board.nodes.map((node) => node.id).join(",");
 
   useEffect(() => {
-    const ids = new Set(board.nodes.map((node) => node.id));
+    const graph = board.nodes;
+    const ids = new Set(graph.map((node) => node.id));
     const prev = prevIds.current;
     const boardChanged = boardIdRef.current !== board.id;
     boardIdRef.current = board.id;
     prevIds.current = ids;
-    if (board.nodes.length === 0) {
+    if (graph.length === 0) {
       clusterRef.current = [];
       return;
     }
@@ -123,13 +124,13 @@ function CanvasInner({
           const parents = [
             ...new Set(
               added
-                .map((id) => board.nodes.find((node) => node.id === id)?.data.parentId)
+                .map((id) => graph.find((node) => node.id === id)?.data.parentId)
                 .filter((id): id is string => Boolean(id)),
             ),
           ];
           clusterRef.current = [...parents, ...added];
           clusterUntil.current = Date.now() + 1400;
-          fitCluster(clusterRef.current);
+          fitCluster(clusterRef.current, graph);
           return;
         }
         void fitView({ padding: overlay ? 0.16 : 0.2, duration: 240, maxZoom: overlay ? 1.05 : 1.12 });
@@ -141,18 +142,19 @@ function CanvasInner({
       const parents = [
         ...new Set(
           added
-            .map((id) => board.nodes.find((node) => node.id === id)?.data.parentId)
+            .map((id) => graph.find((node) => node.id === id)?.data.parentId)
             .filter((id): id is string => Boolean(id)),
         ),
       ];
       clusterRef.current = [...parents, ...added];
       clusterUntil.current = Date.now() + 1400;
-      const timer = window.setTimeout(() => fitCluster(clusterRef.current), 70);
+      const timer = window.setTimeout(() => fitCluster(clusterRef.current, graph), 70);
       return () => window.clearTimeout(timer);
     }
 
     return undefined;
-  }, [board.id, board.nodes, fitCluster, fitView, idsKey, overlay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- idsKey is the node-identity key; listing board.nodes spreads and changes dep count
+  }, [board.id, fitCluster, fitView, idsKey, overlay]);
 
   useEffect(() => {
     if (overlay) return;

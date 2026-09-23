@@ -179,7 +179,7 @@ export function useBoardController() {
     setUndoStack((stack) => {
       const action = stack[stack.length - 1];
       if (!action) {
-        toast.message("戻せる操作がありません");
+        queueMicrotask(() => toast.message("戻せる操作がありません"));
         return stack;
       }
       expandTokens.current.set(action.parentId, (expandTokens.current.get(action.parentId) ?? 0) + 1);
@@ -188,12 +188,14 @@ export function useBoardController() {
       }
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
-      if (board) {
-        const captured = ops.historyFromChildren(board, action.parentId, action.childIds, action.edgeIds);
-        setRedoStack((redo) => [...redo, captured].slice(-40));
-      }
-      updateBoard((item) => ops.undoExpand(item, action));
-      toast.success("ひとつ戻しました");
+      const captured = board
+        ? ops.historyFromChildren(board, action.parentId, action.childIds, action.edgeIds)
+        : null;
+      queueMicrotask(() => {
+        if (captured) setRedoStack((redo) => [...redo, captured].slice(-40));
+        updateBoard((item) => ops.undoExpand(item, action));
+        toast.success("ひとつ戻しました");
+      });
       return stack.slice(0, -1);
     });
   }, [updateBoard]);
@@ -202,12 +204,14 @@ export function useBoardController() {
     setRedoStack((stack) => {
       const action = stack[stack.length - 1];
       if (!action) {
-        toast.message("進める操作がありません");
+        queueMicrotask(() => toast.message("進める操作がありません"));
         return stack;
       }
-      updateBoard((item) => ops.redoExpand(item, action));
-      setUndoStack((undo) => [...undo, action].slice(-40));
-      toast.success("進みました");
+      queueMicrotask(() => {
+        updateBoard((item) => ops.redoExpand(item, action));
+        setUndoStack((undo) => [...undo, action].slice(-40));
+        toast.success("進みました");
+      });
       return stack.slice(0, -1);
     });
   }, [updateBoard]);
