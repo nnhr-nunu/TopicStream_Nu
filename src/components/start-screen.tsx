@@ -3,25 +3,32 @@
 import { useEffect, useState } from "react";
 import { Dices, Sparkles } from "lucide-react";
 
+import { StreamDirectory } from "@/components/stream-directory";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CatalogBoard } from "@/lib/catalog-data";
-import { mergePopularTopics, type PopularTopic } from "@/lib/popularity";
+import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
 import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
 
 export function StartScreen({
   onStart,
-  onRandom,
   onImport,
   onResume,
   busy,
+  linkedUrl,
+  linkedTitle,
+  linkedStreamer,
+  linkedWatchId,
 }: {
   onStart: (keyword: string) => void;
-  onRandom: () => void;
   onImport: (board: CatalogBoard) => void;
   onResume?: () => void;
   busy?: boolean;
+  linkedUrl?: string;
+  linkedTitle?: string;
+  linkedStreamer?: string;
+  linkedWatchId?: string;
 }) {
   const [keyword, setKeyword] = useState("");
   const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 12));
@@ -79,7 +86,7 @@ export function StartScreen({
             variant="outline"
             size="lg"
             className="h-11 rounded-xl"
-            onClick={onRandom}
+            onClick={() => setKeyword(pickWeightedStarter(keyword ? [keyword] : []))}
             disabled={busy}
           >
             <Dices className="size-4" />
@@ -111,6 +118,13 @@ export function StartScreen({
           </ul>
         </section>
       </div>
+
+      <StreamDirectory
+        linkedUrl={linkedUrl}
+        linkedTitle={linkedTitle}
+        linkedStreamer={linkedStreamer}
+        linkedWatchId={linkedWatchId}
+      />
 
       <div className="mx-auto mt-12 w-full max-w-5xl">
         <h2 className="mb-4 text-center text-lg font-semibold">みんなのトークテーマ</h2>
