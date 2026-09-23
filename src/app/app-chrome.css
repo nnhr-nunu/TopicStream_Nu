@@ -559,3 +559,18 @@
   text-align: center;
   padding: 0 0.3rem;
 }
+
+/* コメントが既にあるときも、読めていない理由を欄の上に出す */
+.comment-overlay-status {
+  margin: 0 0.6rem 0.3rem;
+  border-radius: 0.6rem;
+  background: color-mix(in oklab, oklch(0.78 0.14 80) 18%, var(--card));
+  color: var(--foreground);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.55rem;
+}
+
+.comment-overlay-status-error {
+  background: color-mix(in oklab, var(--destructive) 12%, var(--card));
+}

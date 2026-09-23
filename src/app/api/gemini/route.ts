@@ -1,6 +1,13 @@
 import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
-import { geminiDebug, geminiFailureWarning, GeminiRequestError, padTopics, requestGemini } from "@/lib/gemini-core";
+import {
+  geminiDebug,
+  geminiFailureWarning,
+  GeminiRequestError,
+  geminiUserNotice,
+  padTopics,
+  requestGemini,
+} from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult, GeminiDebug } from "@/lib/types";
 
@@ -82,7 +89,8 @@ export async function POST(request: Request) {
       return Response.json({
         topics,
         source: "mock" as const,
-        warning: `AIの返答が空だったので、オフライン生成に切り替えました（empty・${remote.model}）。`,
+        warning: "AI の返答が空だったので、今回はオフラインの候補で広げました。",
+        noticeKind: "unavailable",
         debug,
       });
     }
@@ -96,6 +104,9 @@ export async function POST(request: Request) {
         ? error.debug
         : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
     logDebug(debug);
-    return Response.json(mockResult(seed, existing, count, preferred, geminiFailureWarning(error), debug));
+    // 技術的な詳細（試したモデル・Google の返事）はサーバーログへ。利用者には短いお知らせだけ返す
+    console.warn("[gemini]", geminiFailureWarning(error));
+    const notice = geminiUserNotice(error);
+    return Response.json({ ...mockResult(seed, existing, count, preferred, notice.message, debug), noticeKind: notice.kind });
   }
 }

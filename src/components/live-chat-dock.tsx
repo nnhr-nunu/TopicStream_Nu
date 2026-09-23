@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ChevronUp, MessageSquareText, Radio } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,6 +140,7 @@ export function LiveChatDock({
 
     let token = "";
     let liveChatId = "";
+    let quotaNoticed = false;
     const poll = async () => {
       try {
         const response = await fetch("/api/chat/youtube", {
@@ -164,6 +166,10 @@ export function LiveChatDock({
         liveChatId = json.liveChatId ?? "";
         if (json.problem) {
           token = "";
+          if (json.problem === "quota" && !quotaNoticed) {
+            quotaNoticed = true;
+            toast.warning(json.warning ?? "YouTube のコメント取得が今日の上限に達しました。", { duration: 10_000 });
+          }
           setLive({ phase: json.problem === "not-live" ? "waiting" : "error", message: json.warning ?? "" });
           later(() => void poll(), json.retryMs ?? 20_000);
           return;
@@ -235,6 +241,11 @@ export function LiveChatDock({
                 </div>
               ) : null}
             </div>
+            {streamRef && (live.phase === "error" || live.phase === "waiting") && log.length > 0 ? (
+              <p className={cn("comment-overlay-status", live.phase === "error" && "comment-overlay-status-error")} role="status">
+                {live.message}
+              </p>
+            ) : null}
             <div className="comment-overlay-log">
               {log.length === 0 ? (
                 <p className="comment-overlay-empty">

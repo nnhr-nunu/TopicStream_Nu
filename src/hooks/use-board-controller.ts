@@ -18,13 +18,26 @@ import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { nextBoardName } from "@/lib/ids";
 import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
-import type { AppSnapshot, Board, HistoryEntry, Settings } from "@/lib/types";
+import type { AppSnapshot, Board, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
 
 function currentSnapshot(): AppSnapshot {
   return getBoardSnapshot();
 }
 
 const SHARE_KEY = "topicstream-nu:share-id";
+
+/** AI のお知らせは同じ種類を連続で出さない（上限は再読み込みまで1回、それ以外は10分に1回） */
+const noticeShownAt = new Map<string, number>();
+function showGenerateNotice(result: GenerateResult) {
+  if (!result.warning) return;
+  const kind = result.noticeKind ?? result.warning;
+  const last = noticeShownAt.get(kind);
+  const now = Date.now();
+  if (last !== undefined && (kind === "quota" || now - last < 10 * 60_000)) return;
+  noticeShownAt.set(kind, now);
+  if (kind === "quota") toast.warning(result.warning, { duration: 8_000 });
+  else toast.message(result.warning);
+}
 
 export function useBoardController() {
   const snapshot = useSyncExternalStore(subscribeBoardStore, getBoardSnapshot, getServerBoardSnapshot);
@@ -142,7 +155,7 @@ export function useBoardController() {
       });
       recordUsage(parent.data.label, "expands");
       setBusy(false);
-      if (result.warning) toast.message(result.warning);
+      showGenerateNotice(result);
     },
     [persist],
   );
@@ -259,7 +272,7 @@ export function useBoardController() {
             ops.setLabel(item, nodeId, nextLabel, prefsFromSettings(currentSnapshot().settings, false, item.pinnedNodeId)),
           );
         }
-        if (result.warning) toast.message(result.warning);
+        showGenerateNotice(result);
       } finally {
         regeneratingRef.current.delete(nodeId);
         setRegeneratingIds([...regeneratingRef.current]);

@@ -108,5 +108,7 @@ export type GenerateResult = {
   topics: string[];
   source: GenerateSource;
   warning?: string;
+  /** 同じ種類のお知らせを何度も出さないための分類（quota / busy / slow / unavailable） */
+  noticeKind?: string;
   debug?: GeminiDebug;
 };

@@ -45,7 +45,8 @@ export async function generateRelatedTopics(options: {
       return {
         topics,
         source: "mock",
-        warning: json.warning ?? "AIの返答が空だったので、オフライン生成に切り替えました",
+        warning: json.warning,
+        noticeKind: json.noticeKind,
         debug: json.debug,
       };
     }
@@ -53,13 +54,15 @@ export async function generateRelatedTopics(options: {
       topics,
       source: json.source === "gemini" ? "gemini" : "mock",
       warning: json.warning,
+      noticeKind: json.noticeKind,
       debug: json.debug,
     };
   } catch {
     return {
       topics: mock,
       source: "mock",
-      warning: "Geminiに届かなかったので、オフライン生成を使いました",
+      warning: "AI に届かなかったので、今回はオフラインの候補で広げました。",
+      noticeKind: "unavailable",
       debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
     };
   }
