@@ -89,7 +89,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
 
   return (
     <div
-      className={cn("topic-node relative", overlay && "topic-node-overlay", menu.open && "topic-node-menu")}
+      className={cn(
+        "topic-node relative",
+        overlay && "topic-node-overlay",
+        menu.open && "topic-node-menu",
+        festiveHearts.length > 0 && "topic-node-festive",
+      )}
       data-family={family}
       data-role={role}
       data-cell={data.cellIndex}
@@ -110,7 +115,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
       onPointerUp={clearHold}
       onPointerCancel={clearHold}
       style={{
-        animationDelay: `${data.appearIndex * 58}ms`,
+        ["--sprout-delay" as string]: `${data.appearIndex * 58}ms`,
         ["--sprout-x" as string]: `${Math.max(-72, Math.min(72, (data.sproutX ?? 0) * 0.28))}px`,
         ["--sprout-y" as string]: `${Math.max(-72, Math.min(72, (data.sproutY ?? 16) * 0.28))}px`,
       }}
@@ -163,7 +168,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         <button
           type="button"
           className="topic-memo-badge"
-          aria-label="付箋を開く"
+          aria-label="粘箋を開く"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
