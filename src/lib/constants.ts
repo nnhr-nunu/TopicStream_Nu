@@ -7,15 +7,30 @@ export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
 export const ROOT_LABEL_MAX = 48;
 export const LABEL_EDIT_MAX = 80;
-export const DEFAULT_MODEL = "gemini-2.0-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-flash-latest"] as const;
+export const DEFAULT_MODEL = "gemini-3.5-flash";
+/** 指定モデルが 404 / 混雑のとき、この順で次を試す（キーは付けない）。 */
+export const GEMINI_FALLBACK_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+  "gemini-3.8-flash",
+] as const;
 export const GEMINI_HOST = "generativelanguage.googleapis.com";
+export const RETIRED_GEMINI_MODELS = new Set(["gemini-2.0-flash", "gemini-2.0-flash-lite"]);
+
+export function resolveGeminiModel(raw: unknown): string {
+  if (typeof raw !== "string" || !raw.trim()) return DEFAULT_MODEL;
+  const model = raw.trim();
+  return RETIRED_GEMINI_MODELS.has(model) ? DEFAULT_MODEL : model;
+}
 
 export const GEMINI_MODELS = [
-  { value: "gemini-2.0-flash", label: "gemini-2.0-flash（推奨・速い）" },
-  { value: "gemini-2.0-flash-lite", label: "gemini-2.0-flash-lite（より軽い）" },
+  { value: "gemini-3.5-flash", label: "gemini-3.5-flash（推奨・速い）" },
+  { value: "gemini-3.5-flash-lite", label: "gemini-3.5-flash-lite（より軽い）" },
+  { value: "gemini-3.8-flash", label: "gemini-3.8-flash" },
   { value: "gemini-2.5-flash", label: "gemini-2.5-flash" },
-  { value: "gemini-2.5-flash-lite", label: "gemini-2.5-flash-lite" },
+  { value: "gemini-flash-latest", label: "gemini-flash-latest" },
 ] as const;
 
 export const DEFAULT_SETTINGS = {
