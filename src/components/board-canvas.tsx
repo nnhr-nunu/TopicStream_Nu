@@ -83,7 +83,7 @@ function CanvasInner({
   const { fitView, zoomIn, zoomOut } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
-    .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
+    .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.heartCount ?? 0}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
   const [seenSignature, setSeenSignature] = useState(signature);
