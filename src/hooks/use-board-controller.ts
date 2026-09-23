@@ -151,10 +151,22 @@ export function useBoardController() {
     async (label: string) => {
       const current = currentSnapshot();
       if (!label.trim()) return;
-      const existing = current.boards.find((board) => board.id === current.activeBoardId);
-      if (!existing) return;
-      const rooted = ops.createRootBoard(existing, label, prefsFromSettings(current.settings, false, existing.pinnedNodeId));
-      persist({ ...current, boards: current.boards.map((board) => (board.id === rooted.id ? rooted : board)) });
+      const active = current.boards.find((board) => board.id === current.activeBoardId);
+      if (!active) return;
+      // 今のボードに中身があるときは上書きせず別のボードで始める。
+      // 空のボードが残っていればそれを使い、既定の名前ならキーワードに付け替える。
+      const reuse = active.nodes.length === 0 ? active : current.boards.find((board) => board.nodes.length === 0);
+      const target = reuse ?? emptyBoard();
+      const defaultName = /^(新しいボード( \d+)?|\d+月\d+日の雑談)$/.test(target.name);
+      const named = !reuse || defaultName ? ops.renameBoard(target, label.trim().slice(0, 24)) : target;
+      const rooted = ops.createRootBoard(named, label, prefsFromSettings(current.settings, false, named.pinnedNodeId));
+      persist({
+        ...current,
+        activeBoardId: rooted.id,
+        boards: reuse
+          ? current.boards.map((board) => (board.id === rooted.id ? rooted : board))
+          : [...current.boards, rooted],
+      });
       setUndoStack([]);
       setRedoStack([]);
       const rootId = rooted.nodes[0]?.id;

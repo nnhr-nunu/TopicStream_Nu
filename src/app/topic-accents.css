@@ -1,0 +1,154 @@
+/* カードの装飾: 付箋タグ・NOW リボン・ピン留めの強調・ハートの +N・マンダラートのつながり線 */
+
+/* 付箋: カードの下の縁に貼った黄色いメモ。マス間隔は変えず、隙間にはみ出す */
+.topic-memo-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -0.85rem;
+  z-index: 6;
+  display: flex;
+  max-width: 88%;
+  translate: -50% 0;
+  rotate: -1.5deg;
+  border: 0;
+  border-radius: 0.3rem 0.3rem 0.45rem 0.3rem;
+  background: var(--sticky);
+  color: var(--sticky-foreground);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, black 6%, transparent),
+    0 4px 10px color-mix(in oklab, black 14%, transparent);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.35;
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+  transition:
+    rotate 140ms ease,
+    translate 140ms ease;
+}
+
+.topic-memo-tag::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.3rem;
+  width: 1.6rem;
+  height: 0.55rem;
+  translate: -50% 0;
+  border-radius: 0.1rem;
+  background: color-mix(in oklab, white 55%, var(--sticky));
+  opacity: 0.85;
+}
+
+.topic-memo-tag:hover {
+  rotate: 0deg;
+  translate: -50% -2px;
+}
+
+.topic-memo-tag-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* いま話しているカード: 金色の太枠・ゆっくり光る・NOW のリボン */
+.topic-now-ribbon {
+  position: absolute;
+  left: 50%;
+  top: -0.7rem;
+  z-index: 7;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--now);
+  color: var(--now-foreground);
+  box-shadow: 0 3px 10px color-mix(in oklab, var(--now) 45%, transparent);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  padding: 0.22rem 0.6rem 0.22rem 0.72rem;
+  pointer-events: none;
+}
+
+.topic-heart-mine {
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklab, oklch(0.62 0.2 18) 55%, transparent),
+    0 1px 4px color-mix(in oklab, black 12%, transparent);
+}
+
+/* 届いた瞬間だけ、ハートのすぐ右に +N がふわっと上がって消える */
+.topic-heart-plus {
+  position: absolute;
+  left: calc(100% + 0.2rem);
+  top: 50%;
+  color: oklch(0.58 0.2 18);
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 1px 0 color-mix(in oklab, white 80%, transparent);
+  animation: topic-heart-plus 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes topic-heart-plus {
+  0% {
+    opacity: 0;
+    transform: translateY(-30%) scale(0.7);
+  }
+  18% {
+    opacity: 1;
+    transform: translateY(-55%) scale(1.08);
+  }
+  32% {
+    transform: translateY(-60%) scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-140%) scale(1);
+  }
+}
+
+.topic-heart-on:has(.topic-heart-plus) > span:first-child {
+  animation: topic-heart-beat 0.45s ease-out;
+}
+
+@keyframes topic-heart-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-heart-plus {
+    animation: none;
+    transform: translateY(-50%);
+  }
+  .topic-heart-on:has(.topic-heart-plus) > span:first-child {
+    animation: none;
+  }
+}
+
+/* ピン留め（いま話している）はマンダラートの色より優先して金色にする */
+[data-layout] .topic-chip.topic-chip-now,
+[data-layout="mandala"] .topic-chip.topic-chip-now {
+  border-width: 3px;
+  border-color: var(--now);
+  background: color-mix(in oklab, var(--now) 38%, var(--chip-fill));
+  color: var(--now-foreground);
+  font-weight: 800;
+}
+
+/* マンダラートのつながり線（カードの後ろ） */
+.react-flow__edge-path.flow-edge {
+  fill: none;
+  stroke-linecap: round;
+}
