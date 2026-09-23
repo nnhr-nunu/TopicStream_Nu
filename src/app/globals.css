@@ -204,6 +204,7 @@ html.overlay-mode .react-flow__attribution {
 
 .topic-node {
   position: relative;
+  overflow: visible;
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -236,6 +237,8 @@ html.overlay-mode .react-flow__attribution {
 }
 
 .topic-chip {
+  position: relative;
+  z-index: 4;
   display: inline-flex;
   flex-direction: column;
   max-width: 16rem;
@@ -486,6 +489,58 @@ html.overlay-mode .topic-chip {
 .topic-chip-pulse {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--family-line, var(--primary)) 70%, white);
   animation: topic-id-pulse 0.9s ease-out 2;
+}
+
+.topic-festive {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.topic-festive-heart {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  color: oklch(0.62 0.2 18);
+  font-size: 0.95rem;
+  line-height: 1;
+  text-shadow: 0 1px 0 color-mix(in oklab, white 70%, transparent);
+  animation: topic-festive-float 4.2s ease-out forwards;
+  transform: translate(-50%, -50%) translate(var(--hx), var(--hy)) scale(var(--hs, 1));
+}
+
+@keyframes topic-festive-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--hx), var(--hy)) scale(calc(var(--hs, 1) * 0.35));
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(var(--hx), var(--hy)) scale(var(--hs, 1));
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translate(var(--hx), calc(var(--hy) - 10px)) scale(var(--hs, 1));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(var(--hx), calc(var(--hy) - 22px)) scale(calc(var(--hs, 1) * 0.85));
+  }
+}
+
+@media (max-width: 640px) {
+  .topic-festive-heart {
+    font-size: 0.78rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-festive-heart {
+    animation: none;
+    opacity: 0.92;
+  }
 }
 
 @keyframes topic-id-pulse {
