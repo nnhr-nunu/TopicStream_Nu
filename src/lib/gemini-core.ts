@@ -1,4 +1,10 @@
-import { GEMINI_FALLBACK_MODELS, GEMINI_HOST, LABEL_MAX } from "@/lib/constants";
+import {
+  DEFAULT_MODEL,
+  GEMINI_FALLBACK_MODELS,
+  GEMINI_HOST,
+  LABEL_MAX,
+  RETIRED_GEMINI_MODELS,
+} from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
 import type { GeminiDebug } from "@/lib/types";
 
@@ -21,7 +27,7 @@ JSON配列だけを返すこと。例: ["キーワード1","キーワード2"]`;
 }
 
 function clip(label: string): string {
-  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-・]\s*/, "").trim();
+  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-\u30fb]\s*/, "").trim();
   if (trimmed.length <= LABEL_MAX) return trimmed;
   return `${trimmed.slice(0, LABEL_MAX - 1)}…`;
 }
@@ -109,8 +115,13 @@ export function geminiFailureWarning(error: unknown): string {
   if (reason.startsWith("http-") && ["http-400", "http-401", "http-403"].includes(reason)) {
     return `Gemini がキーを受け付けませんでした（${reason}${google}・${model}）。オフライン生成を使いました。`;
   }
-  if (reason === "http-429") {
-    return `Gemini が混み合っています（${reason}・${model}）。オフライン生成を使いました。`;
+  if (
+    reason === "http-429" ||
+    reason === "http-503" ||
+    debug?.googleStatus === "UNAVAILABLE" ||
+    debug?.googleStatus === "RESOURCE_EXHAUSTED"
+  ) {
+    return `Gemini が混み合っています（${reason}${google}・${model}）。オフライン生成を使いました。`;
   }
   if (reason === "http-404") {
     return `Gemini のモデルが見つかりません（${reason}・${model}）。オフライン生成を使いました。`;
@@ -127,12 +138,55 @@ export function geminiFailureWarning(error: unknown): string {
   return `Gemini に届きませんでした（${reason}・${GEMINI_HOST}・${model}）。オフライン生成を使いました。`;
 }
 
-function fallbackModels(requested: string): string[] {
-  return [requested, ...GEMINI_FALLBACK_MODELS.filter((model) => model !== requested)];
+/** テストで待ちを潰す。本番は短いバックオフと最後の 1.5 秒待ち。 */
+export const geminiRetry = {
+  sameModelMs: 350,
+  lastModelMs: 1_500,
+  sleep(ms: number) {
+    return new Promise<void>((resolve) => setTimeout(resolve, ms));
+  },
+};
+
+export function resolveGeminiModel(requested: string): string {
+  const trimmed = requested.trim();
+  if (!trimmed || (RETIRED_GEMINI_MODELS as readonly string[]).includes(trimmed)) {
+    return DEFAULT_MODEL;
+  }
+  return trimmed;
 }
 
-function shouldTryNextModel(error: GeminiRequestError): boolean {
-  return error.debug.httpStatus === 404 || error.debug.googleStatus === "NOT_FOUND";
+export function fallbackModels(requested: string): string[] {
+  const start = resolveGeminiModel(requested);
+  const seen = new Set<string>();
+  const models: string[] = [];
+  for (const model of [start, ...GEMINI_FALLBACK_MODELS]) {
+    if (seen.has(model)) continue;
+    seen.add(model);
+    models.push(model);
+  }
+  return models;
+}
+
+export function isGeminiBusyError(error: GeminiRequestError): boolean {
+  const status = error.debug.httpStatus;
+  const google = error.debug.googleStatus;
+  return (
+    status === 429 ||
+    status === 503 ||
+    google === "UNAVAILABLE" ||
+    google === "RESOURCE_EXHAUSTED"
+  );
+}
+
+export function shouldTryNextModel(error: GeminiRequestError): boolean {
+  const status = error.debug.httpStatus;
+  const google = error.debug.googleStatus;
+  if (status === 404 || google === "NOT_FOUND") return true;
+  return isGeminiBusyError(error);
+}
+
+function shouldRetrySameModel(error: GeminiRequestError): boolean {
+  return error.debug.httpStatus === 429 || error.debug.httpStatus === 503 || isGeminiBusyError(error);
 }
 
 function networkError(model: string, error: unknown): GeminiRequestError {
@@ -150,6 +204,23 @@ function networkError(model: string, error: unknown): GeminiRequestError {
   );
 }
 
+async function requestGeminiWithSameModelRetry(options: {
+  seed: string;
+  existing: string[];
+  apiKey: string;
+  model: string;
+  count: number;
+}): Promise<string[]> {
+  try {
+    return await requestGeminiOnce(options);
+  } catch (error) {
+    const first = error instanceof GeminiRequestError ? error : networkError(options.model, error);
+    if (!shouldRetrySameModel(first)) throw first;
+    await geminiRetry.sleep(geminiRetry.sameModelMs);
+    return requestGeminiOnce(options);
+  }
+}
+
 export async function requestGemini(options: {
   seed: string;
   existing: string[];
@@ -158,11 +229,13 @@ export async function requestGemini(options: {
   count: number;
 }): Promise<{ topics: string[]; model: string; tried: string[] }> {
   const tried: string[] = [];
+  const models = fallbackModels(options.model);
   let lastError: GeminiRequestError | undefined;
-  for (const model of fallbackModels(options.model)) {
+
+  for (const model of models) {
     tried.push(model);
     try {
-      const topics = await requestGeminiOnce({ ...options, model });
+      const topics = await requestGeminiWithSameModelRetry({ ...options, model });
       return { topics, model, tried };
     } catch (error) {
       lastError = error instanceof GeminiRequestError ? error : networkError(model, error);
@@ -171,6 +244,19 @@ export async function requestGemini(options: {
       throw lastError;
     }
   }
+
+  const lastModel = models[models.length - 1];
+  if (lastError && isGeminiBusyError(lastError) && lastModel) {
+    await geminiRetry.sleep(geminiRetry.lastModelMs);
+    try {
+      const topics = await requestGeminiOnce({ ...options, model: lastModel });
+      return { topics, model: lastModel, tried };
+    } catch (error) {
+      lastError = error instanceof GeminiRequestError ? error : networkError(lastModel, error);
+      lastError.debug.tried = [...tried];
+    }
+  }
+
   throw lastError ?? networkError(options.model, undefined);
 }
 
