@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as ops from "@/lib/board-ops";
 import { layoutBoard, minNodeGap, placeChildren } from "@/lib/layout";
-import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
+import { cellCode, CENTER_CELL_INDEX, familyIndexForGroup } from "@/lib/mandala-ids";
 import { MANDALA_OFFSETS } from "@/lib/mandala";
 import { GLYPH_PAD, hasGlyphOverlap, normalizePrefs } from "@/lib/node-box";
 import { emptyBoard } from "@/lib/storage";
@@ -109,35 +109,38 @@ describe("マンダラート", () => {
     );
   });
 
-  it("マスを開くと新しい3×3の中央はコピーで、線は中心同士だけ", () => {
+  it("マスを開くと中央は同じIDのまま色だけ変わり、線は中心同士", () => {
     const { board, childIds, prefs } = expandTree("mandala");
     const east = board.nodes.find((node) => node.id === childIds.find((id) => {
       const node = board.nodes.find((item) => item.id === id);
       return node?.data.cellIndex === 5;
     }))!;
     const seed = east.data.label;
+    const homeCode = cellCode(east.data.groupId!, east.data.cellIndex!);
     const nested = ops.beginExpand(board, east.id, 8, prefs)!;
     const next = ops.fillExpand(
       nested.board,
       east.id,
       nested.childIds,
-      nested.childIds.filter((_, index) => index > 0).map((_, index) => `次のマス${index + 1}`),
+      nested.childIds.map((_, index) => `次のマス${index + 1}`),
       prefs,
     );
     expect(nested.edgeIds).toHaveLength(1);
     expect(next.edges).toHaveLength(1);
-    expect(next.edges[0]!.source).toBe(east.id);
-    const center = next.nodes.find((node) => node.id === next.edges[0]!.target)!;
+    expect(next.edges[0]!.target).toBe(east.id);
+    const center = next.nodes.find((node) => node.id === east.id)!;
     expect(center.data.label).toBe(seed);
     expect(center.data.role).toBe("source");
-    expect(center.data.copiedFromId).toBe(east.id);
-    expect(center.data.groupId).toBe(2);
-    expect(cellCode(center.data.groupId!, center.data.cellIndex!)).toBe("2E");
+    expect(center.data.hostsGroupId).toBe(2);
+    expect(cellCode(center.data.groupId!, center.data.cellIndex!)).toBe(homeCode);
+    expect(homeCode).toBe("1F");
     const keywords = next.nodes.filter((node) => node.data.groupId === 2 && node.data.role === "keyword");
     expect(keywords).toHaveLength(8);
     expect(new Set(keywords.map((node) => node.data.familyIndex)).size).toBe(1);
     expect(keywords[0]!.data.familyIndex).toBe(center.data.familyIndex);
-    expect(center.data.familyIndex).not.toBe(east.data.familyIndex);
+    expect(center.data.familyIndex).not.toBe(familyIndexForGroup(1));
+    const keywordCodes = keywords.map((node) => cellCode(node.data.groupId!, node.data.cellIndex!)).sort();
+    expect(keywordCodes).toEqual(["2A", "2B", "2C", "2D", "2F", "2G", "2H", "2I"]);
     for (const node of next.nodes) {
       const { pitchX, pitchY } = inferPitch(next);
       expect(Math.abs(node.position.x / pitchX - Math.round(node.position.x / pitchX))).toBeLessThan(0.001);
@@ -146,11 +149,6 @@ describe("マンダラート", () => {
     const used = new Set(next.nodes.map((node) => `${node.position.x},${node.position.y}`));
     expect(used.size).toBe(next.nodes.length);
     expect(hasGlyphOverlap(next.nodes, positionsOf(next), prefs, GLYPH_PAD - 1)).toBe(false);
-    const { pitchX, pitchY } = inferPitch(next);
-    const minDist = Math.min(
-      ...[center, ...keywords].map((node) => Math.hypot(node.position.x - east.position.x, node.position.y - east.position.y)),
-    );
-    expect(minDist).toBeLessThanOrEqual(Math.hypot(pitchX * 3, pitchY * 3) + 1);
   });
 
   it("付箋は3×3のマス間隔を変えない", () => {
@@ -175,8 +173,7 @@ describe("マンダラート", () => {
     const undone = ops.undoExpand(filled, history);
     expect(undone.nodes.some((node) => node.data.groupId === 2)).toBe(false);
     const again = ops.beginExpand(undone, target.id, 8, prefs)!;
-    const center = again.board.nodes.find((node) => node.id === again.childIds[0]!);
-    expect(center?.data.groupId).toBe(2);
+    expect(again.board.nodes.some((node) => node.data.groupId === 2 || node.data.hostsGroupId === 2)).toBe(true);
   });
 });
 

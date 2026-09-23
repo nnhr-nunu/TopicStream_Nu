@@ -240,13 +240,21 @@ export function ensureMandalaMeta(nodes: TNode[]): TNode[] {
 }
 
 function groupCenter(nodes: TNode[], groupId: number): TNode | undefined {
-  return nodes.find((node) => node.data.groupId === groupId && node.data.cellIndex === CENTER_CELL_INDEX)
-    ?? nodes.find((node) => node.data.groupId === groupId && node.data.role === "source");
+  return (
+    nodes.find((node) => node.data.hostsGroupId === groupId) ??
+    nodes.find((node) => node.data.groupId === groupId && node.data.cellIndex === CENTER_CELL_INDEX) ??
+    nodes.find((node) => node.data.groupId === groupId && node.data.role === "source")
+  );
 }
 
 function groupMembers(nodes: TNode[], groupId: number): TNode[] {
+  const hub = nodes.find((node) => node.data.hostsGroupId === groupId);
   return nodes
-    .filter((node) => node.data.groupId === groupId)
+    .filter((node) => {
+      if (hub && node.id === hub.id) return true;
+      if (node.data.hostsGroupId) return false;
+      return node.data.groupId === groupId;
+    })
     .sort((a, b) => (a.data.cellIndex ?? 99) - (b.data.cellIndex ?? 99) || a.id.localeCompare(b.id));
 }
 
@@ -261,22 +269,35 @@ export function layoutMandala(board: Board, prefs: Required<LayoutPrefs>): Board
     taken.add(cellKey(grid.gx, grid.gy));
   }
 
-  const groupIds = [...new Set(nodes.map((node) => node.data.groupId!).filter((id) => typeof id === "number"))].sort(
-    (a, b) => a - b,
-  );
+  const groupIds = [
+    ...new Set(
+      nodes.flatMap((node) => [node.data.groupId, node.data.hostsGroupId]).filter((id): id is number => typeof id === "number"),
+    ),
+  ].sort((a, b) => a - b);
 
   const placedGroups = new Set<number>();
 
   function placeGroup(groupId: number, origin: Grid) {
+    const hub = nodes.find((node) => node.data.hostsGroupId === groupId);
     const members = groupMembers(nodes, groupId);
-    const hasCenter = members.some((node) => node.data.cellIndex === CENTER_CELL_INDEX);
-    for (const member of members) {
-      const index = member.data.cellIndex ?? 0;
-      const offset = MANDALA_CELL_OFFSETS[index] ?? { x: 0, y: 0 };
-      occupy(member.id, { gx: origin.gx + offset.x, gy: origin.gy + offset.y });
+    if (hub) {
+      occupy(hub.id, origin);
+      for (const member of members) {
+        if (member.id === hub.id) continue;
+        const index = member.data.cellIndex ?? 0;
+        const offset = MANDALA_CELL_OFFSETS[index] ?? { x: 0, y: 0 };
+        occupy(member.id, { gx: origin.gx + offset.x, gy: origin.gy + offset.y });
+      }
+      placedGroups.add(groupId);
+      return;
     }
-    if (!hasCenter) {
-      taken.add(cellKey(origin.gx, origin.gy));
+    const byCell = new Map(members.map((node) => [node.data.cellIndex ?? -1, node]));
+    for (let index = 0; index < 9; index += 1) {
+      const offset = MANDALA_CELL_OFFSETS[index] ?? { x: 0, y: 0 };
+      const grid = { gx: origin.gx + offset.x, gy: origin.gy + offset.y };
+      const member = byCell.get(index);
+      if (member) occupy(member.id, grid);
+      else taken.add(cellKey(grid.gx, grid.gy));
     }
     placedGroups.add(groupId);
   }
@@ -293,9 +314,7 @@ export function layoutMandala(board: Board, prefs: Required<LayoutPrefs>): Board
     const grandId = nodes.find((node) => node.id === anchorId)?.data.parentId ?? null;
     const grandGrid = grandId ? grids.get(grandId) : null;
     const outward = grandGrid ? unitStep(grandGrid, anchorGrid) : { x: 1, y: 0 };
-    const members = groupMembers(nodes, groupId);
-    const includeCenter = members.some((node) => node.data.cellIndex === CENTER_CELL_INDEX);
-    return pickBlockOrigin(anchorGrid, outward, taken, includeCenter);
+    return pickBlockOrigin(anchorGrid, outward, taken, true);
   }
 
   for (const groupId of groupIds) {
