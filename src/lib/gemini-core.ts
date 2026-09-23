@@ -17,7 +17,7 @@ JSON配列だけを返すこと。例: ["キーワード1","キーワード2"]`;
 }
 
 function clip(label: string): string {
-  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-\u30fb]\s*/, "").trim();
+  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-・]\s*/, "").trim();
   if (trimmed.length <= LABEL_MAX) return trimmed;
   return `${trimmed.slice(0, LABEL_MAX - 1)}…`;
 }

@@ -92,7 +92,7 @@ export function SettingsSheet({
           <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は粘箋。♡はお気に入り。ピンは NOW。コメントのマスID（最初の中央は 1E）でカードが光ります。ロゴでホームへ。Vercel の長い *-projects.vercel.app は Preview です。GEMINI_API_KEY は Production だけでなく Preview にも入れ、変えたら再デプロイしてください。
+              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は付箋。♡はお気に入り。ピンは NOW。コメントのマスID（最初の中央は 1E）でカードが光ります。ロゴでホームへ。Vercel の長い *-projects.vercel.app は Preview です。GEMINI_API_KEY は Production だけでなく Preview にも入れ、変えたら再デプロイしてください。
             </p>
           </section>
 
