@@ -228,6 +228,14 @@ export function useBoardController() {
       }),
     [updateBoard],
   );
+  const setLabel = useCallback(
+    (nodeId: string, label: string) =>
+      updateBoard((board) => {
+        const current = currentSnapshot();
+        return ops.setLabel(board, nodeId, label, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+      }),
+    [updateBoard],
+  );
   const pinNode = useCallback(
     (nodeId: string | null) => {
       const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
@@ -314,7 +322,10 @@ export function useBoardController() {
   const importCatalogBoard = useCallback(
     (catalog: CatalogBoard) => {
       const current = currentSnapshot();
-      const board = catalogBoardToBoard(catalog);
+      const board = layoutBoard(
+        catalogBoardToBoard(catalog),
+        prefsFromSettings(current.settings, false, catalog.nodes[0]?.id ?? null),
+      );
       persist({
         ...current,
         boards: [...current.boards, board],
@@ -453,6 +464,7 @@ export function useBoardController() {
     undo,
     redo,
     setMemo,
+    setLabel,
     pinNode,
     focusNode,
     syncPositions,
