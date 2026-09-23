@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
+import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
@@ -25,6 +26,8 @@ export function LiveChatDock({
   youtubeApiKey,
   pinnedCode,
   showComments,
+  commentScale = 1,
+  onCommentScaleChange,
   onHeart,
   onStreamUrlChange,
   onShowCommentsChange,
@@ -35,6 +38,8 @@ export function LiveChatDock({
   youtubeApiKey?: string;
   pinnedCode?: string;
   showComments: boolean;
+  commentScale?: number;
+  onCommentScaleChange?: (scale: number) => void;
   /** コメントで届いたハートをカードに +1 する。 */
   onHeart: (nodeId: string) => void;
   onStreamUrlChange: (url: string) => void;
@@ -147,10 +152,38 @@ export function LiveChatDock({
     <div className="map-live-shell">
       <div className="map-live-row">
         {showComments ? (
-          <aside className="comment-overlay" aria-label="コメント">
-            <p className="comment-overlay-title">
-              コメント{log.length > 0 ? <span className="comment-overlay-count">{log.length}</span> : null}
-            </p>
+          <aside
+            className="comment-overlay"
+            aria-label="コメント"
+            style={{ ["--comment-scale" as string]: String(commentScale) }}
+          >
+            <div className="comment-overlay-head">
+              <p className="comment-overlay-title">
+                コメント{log.length > 0 ? <span className="comment-overlay-count">{log.length}</span> : null}
+              </p>
+              {onCommentScaleChange ? (
+                <div className="comment-size" role="group" aria-label="コメントの文字の大きさ">
+                  <button
+                    type="button"
+                    aria-label="文字を小さく"
+                    title="文字を小さく"
+                    disabled={commentScale <= COMMENT_SCALE_MIN}
+                    onClick={() => onCommentScaleChange(Math.max(COMMENT_SCALE_MIN, Math.round((commentScale - 0.2) * 10) / 10))}
+                  >
+                    A−
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="文字を大きく"
+                    title="文字を大きく"
+                    disabled={commentScale >= COMMENT_SCALE_MAX}
+                    onClick={() => onCommentScaleChange(Math.min(COMMENT_SCALE_MAX, Math.round((commentScale + 0.2) * 10) / 10))}
+                  >
+                    A＋
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <div className="comment-overlay-log">
               {log.length === 0 ? (
                 <p className="comment-overlay-empty">まだありません。配信と連携するか、下のテストコメントで試せます。</p>

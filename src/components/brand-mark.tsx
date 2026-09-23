@@ -25,7 +25,9 @@ export function BrandMark({
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
       <img src={`${base}/topicstream-logo.svg`} alt="" width={26} height={26} className="size-[26px] shrink-0 rounded-lg" />
-      <span className="hidden text-sm font-semibold tracking-tight sm:inline">TopicStream</span>
+      <span className="hidden text-sm font-semibold tracking-tight sm:inline">
+        TopicStream<span className="ml-0.5 text-xs font-medium text-muted-foreground">(ぬ)</span>
+      </span>
     </button>
   );
 }

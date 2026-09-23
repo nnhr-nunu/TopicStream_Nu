@@ -69,6 +69,8 @@ export type Settings = {
   streamUrl: string;
   youtubeApiKey: string;
   showComments: boolean;
+  /** コメント欄の文字の倍率（配信画面に映す人向け） */
+  commentScale: number;
 };
 
 export type AppSnapshot = {

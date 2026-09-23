@@ -61,7 +61,7 @@ export function StreamDirectory({
       <div className="mb-4 text-center">
         <h2 className="text-lg font-semibold">このサービスを利用している配信</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          いま TopicStream で話題マップを出している枠です。タイトルから本編の YouTube / Twitch へ飛べます。
+          いま TopicStream(ぬ) で話題マップを出している枠です。タイトルから本編の YouTube / Twitch へ飛べます。
         </p>
       </div>
       {streams.length === 0 ? (

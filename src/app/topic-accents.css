@@ -4,12 +4,13 @@
 .topic-memo-tag {
   position: absolute;
   left: 50%;
-  bottom: -0.85rem;
+  top: calc(100% - 0.55rem);
   z-index: 6;
-  display: flex;
-  max-width: 88%;
+  display: block;
+  width: max-content;
+  max-width: 92%;
   translate: -50% 0;
-  rotate: -1.5deg;
+  rotate: -1.2deg;
   border: 0;
   border-radius: 0.3rem 0.3rem 0.45rem 0.3rem;
   background: var(--sticky);
@@ -20,7 +21,8 @@
   font-size: 0.72rem;
   font-weight: 650;
   line-height: 1.35;
-  padding: 0.2rem 0.55rem;
+  text-align: left;
+  padding: 0.25rem 0.55rem;
   cursor: pointer;
   transition:
     rotate 140ms ease,
@@ -40,15 +42,113 @@
   opacity: 0.85;
 }
 
-.topic-memo-tag:hover {
+.topic-memo-tag:hover,
+.topic-memo-tag:focus-visible {
   rotate: 0deg;
   translate: -50% -2px;
 }
 
+/* 2行まで。それ以上はホバーで全文 */
 .topic-memo-tag-text {
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.topic-memo-tag-full {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 0.35rem);
+  z-index: 20;
+  display: none;
+  width: max-content;
+  max-width: 17rem;
+  translate: -50% 0;
+  border-radius: 0.5rem;
+  background: var(--sticky);
+  color: var(--sticky-foreground);
+  box-shadow: 0 10px 28px color-mix(in oklab, black 22%, transparent);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 0.55rem 0.7rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.topic-memo-tag:hover .topic-memo-tag-full,
+.topic-memo-tag:focus-visible .topic-memo-tag-full {
+  display: block;
+}
+
+.react-flow__node:has(.topic-memo-tag:hover) {
+  z-index: 13 !important;
+}
+
+/* 文を作り直している最中: 光が流れ、「作り直し中…」を出す */
+.topic-chip-regen {
+  position: relative;
+  overflow: hidden;
+}
+
+.topic-chip-regen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, white 55%, transparent) 50%,
+    transparent 80%
+  );
+  background-size: 220% 100%;
+  animation: topic-shimmer 1.1s linear infinite;
+  pointer-events: none;
+}
+
+.topic-chip-regen .topic-label {
+  opacity: 0.45;
+}
+
+.topic-regen-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 82%, transparent);
+  color: var(--background);
+  font-size: 0.64rem;
+  font-weight: 750;
+  padding: 0.12rem 0.5rem;
   white-space: nowrap;
+}
+
+.topic-regen-spinner {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in oklab, var(--background) 45%, transparent);
+  border-top-color: var(--background);
+  animation: topic-regen-spin 0.7s linear infinite;
+}
+
+@keyframes topic-regen-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-chip-regen::after,
+  .topic-regen-spinner {
+    animation: none;
+  }
 }
 
 /* いま話しているカード: 金色の太枠・ゆっくり光る・NOW のリボン */

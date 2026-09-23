@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TopicStream",
+  title: "TopicStream(ぬ)",
   description: "雑談配信向けの話題マインドマップ。クリックで関連トークが広がります。",
 };
 

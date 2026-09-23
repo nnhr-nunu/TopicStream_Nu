@@ -21,9 +21,11 @@
   flex: 1;
 }
 
+/* コメント欄: --comment-scale で文字を大きくできる（配信に映す人向け）。大きいほど欄も少し広げる */
 .comment-overlay {
+  --comment-scale: 1;
   display: flex;
-  width: min(16.5rem, 42vw);
+  width: min(calc(16.5rem * (0.55 + 0.45 * var(--comment-scale))), 45vw);
   flex-shrink: 0;
   flex-direction: column;
   padding-top: 4.6rem;
@@ -32,13 +34,50 @@
   z-index: 16;
 }
 
+.comment-overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.45rem 0.5rem 0.25rem 0.7rem;
+}
+
 .comment-overlay-title {
   margin: 0;
-  padding: 0.45rem 0.7rem 0.25rem;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   color: var(--muted-foreground);
+}
+
+.comment-size {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+
+.comment-size button {
+  min-width: 2rem;
+  height: 1.6rem;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0 0.45rem;
+}
+
+.comment-size button + button {
+  border-left: 1px solid var(--border);
+}
+
+.comment-size button:hover:not(:disabled) {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.comment-size button:disabled {
+  opacity: 0.4;
 }
 
 .comment-overlay-log {
@@ -59,15 +98,15 @@
   padding: 0;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 0.35rem;
+  gap: calc(0.35rem * var(--comment-scale));
   list-style: none;
 }
 
 .comment-overlay-log li {
   border-radius: 0.7rem;
   background: color-mix(in oklab, var(--card) 88%, var(--muted));
-  padding: 0.35rem 0.5rem;
-  font-size: 0.78rem;
+  padding: calc(0.35rem * var(--comment-scale)) calc(0.5rem * var(--comment-scale));
+  font-size: calc(0.78rem * var(--comment-scale));
   line-height: 1.4;
   word-break: break-word;
 }
@@ -437,4 +476,50 @@
 .home-start:focus-within {
   border-color: color-mix(in oklab, var(--primary) 60%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+/* 新しいボードを始めたときの注意書き: ふわっと出て、数秒でふわっと消える */
+.privacy-notice {
+  pointer-events: none;
+  position: fixed;
+  left: 50%;
+  bottom: 4.5rem;
+  z-index: 60;
+  display: flex;
+  max-width: calc(100vw - 2rem);
+  align-items: center;
+  gap: 0.5rem;
+  translate: -50% 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--now) 55%, var(--border));
+  background: color-mix(in oklab, var(--background) 86%, var(--now));
+  color: var(--foreground);
+  box-shadow: 0 10px 30px color-mix(in oklab, black 14%, transparent);
+  font-size: 0.8rem;
+  font-weight: 650;
+  line-height: 1.4;
+  padding: 0.55rem 1rem;
+  animation: privacy-notice 6.5s ease both;
+}
+
+@keyframes privacy-notice {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  8%,
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .privacy-notice {
+    animation: none;
+  }
 }

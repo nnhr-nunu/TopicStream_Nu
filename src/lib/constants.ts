@@ -3,6 +3,8 @@ export const USAGE_KEY = "topicstream-nu:usage";
 export const IDENTITY_KEY = "topicstream-nu:identity";
 export const FAVORITES_KEY = "topicstream-nu:favorites";
 export const CHILD_COUNT = 8;
+export const COMMENT_SCALE_MIN = 0.9;
+export const COMMENT_SCALE_MAX = 2.2;
 export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
 export const ROOT_LABEL_MAX = 48;
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS = {
   streamUrl: "",
   youtubeApiKey: "",
   showComments: false,
+  commentScale: 1,
 };
 
 export const RADIUS = {
