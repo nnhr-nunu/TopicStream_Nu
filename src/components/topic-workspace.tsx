@@ -131,17 +131,11 @@ export function TopicWorkspace() {
           />
         ) : (
           <>
-            <PinBanner label={pinnedLabel} />
-            <BoardCanvas
-              board={board}
-              layout={settings.generationLayout}
-              onFocus={controller.focusNode}
-              onPositions={controller.syncPositions}
-            />
             <LiveChatDock
               board={board}
               streamUrl={settings.streamUrl}
               youtubeApiKey={settings.youtubeApiKey}
+              showComments={settings.showComments}
               pinnedCode={
                 board.pinnedNodeId
                   ? (() => {
@@ -153,7 +147,18 @@ export function TopicWorkspace() {
                   : ""
               }
               onHeart={(id) => controller.bumpHeart(id, 1)}
-            />
+              onFrameHeart={(id) => controller.bumpFrameHearts(id, 1)}
+              onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
+              onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
+            >
+              <PinBanner label={pinnedLabel} />
+              <BoardCanvas
+                board={board}
+                layout={settings.generationLayout}
+                onFocus={controller.focusNode}
+                onPositions={controller.syncPositions}
+              />
+            </LiveChatDock>
           </>
         )}
       </div>
