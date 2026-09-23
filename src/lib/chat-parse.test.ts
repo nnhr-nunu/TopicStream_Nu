@@ -29,8 +29,27 @@ describe("配信URL", () => {
       videoId: "jfKfPfyJRdk",
       url: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
     });
+    expect(parseStreamUrl("https://youtu.be/jfKfPfyJRdk")).toMatchObject({
+      kind: "youtube",
+      videoId: "jfKfPfyJRdk",
+    });
     expect(parseStreamUrl("https://www.twitch.tv/nunu")).toMatchObject({ kind: "twitch", channel: "nunu" });
     expect(parseStreamUrl("not-a-url")).toBeNull();
+  });
+
+  it("Studioのライブ配信ページとチャットポップアウトから同じ動画IDを取る", () => {
+    const liveChat = "https://studio.youtube.com/live_chat?is_popout=1&v=NUCX55gmkkM";
+    const livestreaming = "https://studio.youtube.com/video/NUCX55gmkkM/livestreaming";
+    expect(parseStreamUrl(liveChat)).toEqual({
+      kind: "youtube",
+      videoId: "NUCX55gmkkM",
+      url: liveChat,
+    });
+    expect(parseStreamUrl(livestreaming)).toEqual({
+      kind: "youtube",
+      videoId: "NUCX55gmkkM",
+      url: livestreaming,
+    });
   });
 });
 
