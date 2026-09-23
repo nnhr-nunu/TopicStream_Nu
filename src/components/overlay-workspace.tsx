@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { PinBanner } from "@/components/pin-banner";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 
@@ -65,10 +66,12 @@ export function OverlayWorkspace() {
         expandNode: (id) => void controller.expandNode(id, false, true),
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
+        setLabel: controller.setLabel,
         copyLabel: (id) => void controller.copyLabel(id),
         overlay: true,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
+        generationLayout: settings.generationLayout,
       }}
     >
       <div
@@ -81,9 +84,11 @@ export function OverlayWorkspace() {
         }
         data-layout={settings.generationLayout}
       >
+        <PinBanner label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""} />
         <BoardCanvas
           board={board}
           overlay
+          layout={settings.generationLayout}
           onFocus={controller.focusNode}
           onPositions={controller.syncPositions}
         />

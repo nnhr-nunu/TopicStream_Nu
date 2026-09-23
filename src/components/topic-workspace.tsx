@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { PinBanner } from "@/components/pin-banner";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
@@ -46,6 +47,9 @@ export function TopicWorkspace() {
   }
 
   const showHome = atHome || board.nodes.length === 0;
+  const pinnedLabel = board.pinnedNodeId
+    ? board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""
+    : "";
 
   return (
     <BoardActionsProvider
@@ -54,9 +58,11 @@ export function TopicWorkspace() {
         regenerateNode: (id) => void controller.regenerateNode(id),
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
+        setLabel: controller.setLabel,
         copyLabel: (id) => void controller.copyLabel(id),
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
+        generationLayout: settings.generationLayout,
       }}
     >
       <div
@@ -121,11 +127,15 @@ export function TopicWorkspace() {
             busy={controller.busy}
           />
         ) : (
-          <BoardCanvas
-            board={board}
-            onFocus={controller.focusNode}
-            onPositions={controller.syncPositions}
-          />
+          <>
+            <PinBanner label={pinnedLabel} />
+            <BoardCanvas
+              board={board}
+              layout={settings.generationLayout}
+              onFocus={controller.focusNode}
+              onPositions={controller.syncPositions}
+            />
+          </>
         )}
       </div>
     </BoardActionsProvider>
