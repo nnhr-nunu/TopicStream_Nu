@@ -14,6 +14,12 @@ describe("コメントのID", () => {
     expect(normalizeCellCode("3e")).toBe("3E");
   });
 
+  it("IDだけのコメントは反応対象で、ハート絵文字なしでもコードが残る", () => {
+    expect(parseChatComment("4F").highlightCodes).toEqual(["4F"]);
+    expect(parseChatComment("4Fが聞きたい").highlightCodes).toEqual(["4F"]);
+    expect(parseChatComment("4F").heartCodes).toEqual([]);
+  });
+
   it("❤ や 好き はそのIDのハートにする", () => {
     expect(parseChatComment("3E ❤").heartCodes).toEqual(["3E"]);
     expect(parseChatComment("3E好き").heartCodes).toEqual(["3E"]);

@@ -1,6 +1,6 @@
 import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
-import { geminiDebug, geminiFailureWarning, GeminiRequestError, requestGemini } from "@/lib/gemini-core";
+import { geminiDebug, geminiFailureWarning, GeminiRequestError, padTopics, requestGemini } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult, GeminiDebug } from "@/lib/types";
 
@@ -73,23 +73,19 @@ export async function POST(request: Request) {
   try {
     const remote = await requestGemini({ seed, existing, apiKey, model, count });
     const mock = mockRelatedTopics(seed, existing, count, preferred);
-    const merged = [...remote.topics];
-    for (const extra of mock) {
-      if (merged.length >= count) break;
-      if (!merged.includes(extra) && extra !== seed) merged.push(extra);
-    }
+    const topics = padTopics(remote.topics, mock, count, seed);
     if (remote.topics.length === 0) {
       const debug = geminiDebug({ reason: "empty", model: remote.model, tried: remote.tried });
       logDebug(debug);
       return Response.json({
-        topics: merged.slice(0, count),
+        topics,
         source: "mock" as const,
         warning: `AIの返答が空だったので、オフライン生成に切り替えました（empty・${remote.model}）。`,
         debug,
       });
     }
     return Response.json({
-      topics: merged.slice(0, count),
+      topics,
       source: "gemini" as const,
     });
   } catch (error) {
