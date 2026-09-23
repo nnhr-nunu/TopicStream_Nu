@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Eye, EyeOff, MonitorPlay, Settings } from "lucide-react";
+import { Eye, EyeOff, MonitorPlay, Palette, Settings, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -28,21 +28,77 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { GEMINI_MODELS } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
+const LAYOUT_ITEMS = [
+  { value: "mandala", label: "マンダラート（3×3）" },
+  { value: "radial", label: "放射" },
+] as const;
+
 function Row({
   label,
   htmlFor,
+  hint,
   children,
 }: {
   label: string;
   htmlFor?: string;
+  hint?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-2">
-      <Label htmlFor={htmlFor} className="truncate text-xs font-medium text-muted-foreground">
+    <div className="space-y-1">
+      <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
+        <Label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">
+          {label}
+        </Label>
+        <div className="min-w-0">{children}</div>
+      </div>
+      {hint ? <p className="pl-[6rem] text-[11px] leading-4 text-muted-foreground/80">{hint}</p> : null}
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-3">
+      <div>
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold [&_svg]:size-4 [&_svg]:text-primary">
+          {icon}
+          {title}
+        </h3>
+        {description ? <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SwitchRow({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Label htmlFor={id} className="text-xs text-muted-foreground">
         {label}
       </Label>
-      <div className="min-w-0">{children}</div>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
     </div>
   );
 }
@@ -70,26 +126,33 @@ export function SettingsSheet({
 
   return (
     <Sheet>
-      <SheetTrigger render={<Button variant="ghost" size="icon-sm" aria-label="設定" />}>
+      <SheetTrigger render={<Button variant="ghost" size="icon-sm" aria-label="設定" title="設定" />}>
         <Settings />
       </SheetTrigger>
-      <SheetContent side="right" className="w-[min(100%,22rem)] overflow-y-auto">
-        <SheetHeader className="gap-0 pb-1">
+      <SheetContent side="right" className="w-[min(100%,24rem)] gap-0 overflow-y-auto">
+        <SheetHeader className="gap-0.5 pb-3">
           <SheetTitle>設定</SheetTitle>
-          <SheetDescription className="text-xs">このブラウザだけ</SheetDescription>
+          <SheetDescription className="text-xs">変更はすぐ保存されます（このブラウザだけ）。</SheetDescription>
         </SheetHeader>
 
-        <div className="flex flex-col gap-5 px-4 pb-8">
-          <section className="space-y-2">
-            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">AI</p>
-            <Row label="Gemini" htmlFor="gemini-key">
+        <div className="flex flex-col gap-3 px-4 pb-8">
+          <Section
+            icon={<Sparkles />}
+            title="AIで話題を作る"
+            description={
+              hostConfigured
+                ? "サーバーにキーが設定済みです。自分のキーを使うときだけ入れてください。"
+                : "キーが無くてもオフラインの候補で動きます。"
+            }
+          >
+            <Row label="Gemini キー" htmlFor="gemini-key">
               <div className="flex gap-1">
                 <Input
                   id="gemini-key"
                   type={showKey ? "text" : "password"}
                   autoComplete="off"
                   value={settings.geminiApiKey}
-                  placeholder={hostConfigured ? "ホストのキーを使う" : "任意・上書き"}
+                  placeholder={hostConfigured ? "サーバーのキーを使う" : "任意"}
                   onChange={(event) => onPatch({ geminiApiKey: event.target.value })}
                 />
                 <Button
@@ -105,6 +168,7 @@ export function SettingsSheet({
             </Row>
             <Row label="モデル">
               <Select
+                items={GEMINI_MODELS}
                 value={settings.geminiModel}
                 onValueChange={(value) => {
                   if (typeof value === "string") onPatch({ geminiModel: value });
@@ -122,12 +186,12 @@ export function SettingsSheet({
                 </SelectContent>
               </Select>
             </Row>
-          </section>
+          </Section>
 
-          <section className="space-y-2">
-            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">マップ</p>
-            <Row label="広げかた">
+          <Section icon={<Palette />} title="マップの見た目">
+            <Row label="広げかた" hint="マンダラートは3×3のマス、放射は中心から広がります。">
               <Select
+                items={LAYOUT_ITEMS}
                 value={settings.generationLayout}
                 onValueChange={(value) => {
                   if (value === "radial" || value === "mandala") onPatch({ generationLayout: value });
@@ -137,16 +201,16 @@ export function SettingsSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mandala">マンダラート</SelectItem>
-                  <SelectItem value="radial">放射</SelectItem>
+                  {LAYOUT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </Row>
-            <Row label="テーマ">
-              <ThemeSwitcher
-                value={settings.colorTheme}
-                onChange={(colorTheme) => onPatch({ colorTheme })}
-              />
+            <Row label="配色">
+              <ThemeSwitcher value={settings.colorTheme} onChange={(colorTheme) => onPatch({ colorTheme })} />
             </Row>
             <Row label="文字サイズ">
               <div className="flex items-center gap-2">
@@ -165,67 +229,56 @@ export function SettingsSheet({
                 </span>
               </div>
             </Row>
-          </section>
+            <SwitchRow
+              id="density"
+              label="カードの間隔を詰める"
+              checked={settings.density === "compact"}
+              onChange={(checked) => onPatch({ density: checked ? "compact" : "comfortable" })}
+            />
+          </Section>
 
-          <details className="rounded-lg border border-border/70 px-3 py-2">
-            <summary className="cursor-pointer text-[11px] font-semibold text-muted-foreground">その他</summary>
-            <div className="mt-3 space-y-2">
-              <Row label="呼び名" htmlFor="nickname">
-                <Input
-                  id="nickname"
-                  value={settings.nickname}
-                  placeholder="いっしょに見る"
-                  maxLength={24}
-                  onChange={(event) => onPatch({ nickname: event.target.value })}
-                />
-              </Row>
-              <Row label="YouTube" htmlFor="youtube-key">
-                <Input
-                  id="youtube-key"
-                  type={showKey ? "text" : "password"}
-                  autoComplete="off"
-                  value={settings.youtubeApiKey}
-                  placeholder="任意"
-                  onChange={(event) => onPatch({ youtubeApiKey: event.target.value })}
-                />
-              </Row>
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="density" className="text-xs text-muted-foreground">
-                  密度を詰める
-                </Label>
-                <Switch
-                  id="density"
-                  checked={settings.density === "compact"}
-                  onCheckedChange={(checked) => onPatch({ density: checked ? "compact" : "comfortable" })}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <Label htmlFor="overlay-transparent" className="text-xs text-muted-foreground">
-                  OBS背景を透過
-                </Label>
-                <Switch
-                  id="overlay-transparent"
-                  checked={settings.overlayTransparent}
-                  onCheckedChange={(checked) => onPatch({ overlayTransparent: checked })}
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                nativeButton={false}
-                render={
-                  <Link
-                    href={settings.overlayTransparent ? "/overlay?transparent=1" : "/overlay"}
-                    target="_blank"
-                  />
-                }
-              >
-                <MonitorPlay />
-                OBSを開く
-              </Button>
-            </div>
-          </details>
+          <Section icon={<Users />} title="配信・視聴者" description="配信URLは画面下の「配信と連携」から設定します。">
+            <Row label="呼び名" htmlFor="nickname" hint="「いっしょに見るリンク」で視聴者に表示されます。">
+              <Input
+                id="nickname"
+                value={settings.nickname}
+                placeholder="配信者の名前"
+                maxLength={24}
+                onChange={(event) => onPatch({ nickname: event.target.value })}
+              />
+            </Row>
+            <Row label="YouTube キー" htmlFor="youtube-key" hint="任意。サーバー側に無いときだけ使います。">
+              <Input
+                id="youtube-key"
+                type={showKey ? "text" : "password"}
+                autoComplete="off"
+                value={settings.youtubeApiKey}
+                placeholder="任意"
+                onChange={(event) => onPatch({ youtubeApiKey: event.target.value })}
+              />
+            </Row>
+          </Section>
+
+          <Section icon={<MonitorPlay />} title="OBS オーバーレイ" description="ブラウザソースに読み込む、配信画面用のページです。">
+            <SwitchRow
+              id="overlay-transparent"
+              label="背景を透過する"
+              checked={settings.overlayTransparent}
+              onChange={(checked) => onPatch({ overlayTransparent: checked })}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              nativeButton={false}
+              render={
+                <Link href={settings.overlayTransparent ? "/overlay?transparent=1" : "/overlay"} target="_blank" />
+              }
+            >
+              <MonitorPlay />
+              OBS 用ページを開く
+            </Button>
+          </Section>
         </div>
       </SheetContent>
     </Sheet>

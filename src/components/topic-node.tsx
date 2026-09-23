@@ -16,7 +16,8 @@ import { MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
 import { cn } from "@/lib/utils";
 import type { TopicNodeData } from "@/lib/types";
 
-export type TopicFlowNode = Node<TopicNodeData, "topic">;
+/** openedCode: マンダラートで開いた先の中央コード（画面表示用。保存しない） */
+export type TopicFlowNode = Node<TopicNodeData & { openedCode?: string }, "topic">;
 
 function useCoarsePointer() {
   const [coarse, setCoarse] = useState(false);
@@ -202,7 +203,16 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           </span>
         ) : (
           <>
-            {code ? <span className="topic-id">{code}</span> : null}
+            {code ? (
+              <span className="topic-id">
+                {code}
+                {data.openedCode ? (
+                  <span className="topic-opened" title={`${data.openedCode} に広げました`}>
+                    →{data.openedCode}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
             <span className="topic-label" style={{ fontSize: `${fontSize}px` }}>
               {data.label}
             </span>

@@ -310,20 +310,23 @@ export function useBoardController() {
     [persist],
   );
 
-  const duplicateActive = useCallback(() => {
-    const current = currentSnapshot();
-    const board = current.boards.find((item) => item.id === current.activeBoardId);
-    if (!board) return;
-    const copy = ops.duplicateBoard(board);
-    persist({
-      ...current,
-      boards: [...current.boards, copy],
-      activeBoardId: copy.id,
-    });
-    setUndoStack([]);
-    setRedoStack([]);
-    toast.success(`「${copy.name}」を複製しました`);
-  }, [persist]);
+  const duplicateBoard = useCallback(
+    (boardId?: string) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === (boardId ?? current.activeBoardId));
+      if (!board) return;
+      const copy = ops.duplicateBoard(board);
+      persist({
+        ...current,
+        boards: [...current.boards, copy],
+        activeBoardId: copy.id,
+      });
+      setUndoStack([]);
+      setRedoStack([]);
+      toast.success(`「${copy.name}」を複製しました`);
+    },
+    [persist],
+  );
 
   const switchBoard = useCallback(
     (boardId: string) => {
@@ -334,27 +337,41 @@ export function useBoardController() {
     [persist],
   );
 
-  const renameActive = useCallback(
-    (name: string) => updateBoard((board) => ops.renameBoard(board, name)),
-    [updateBoard],
+  const renameBoard = useCallback(
+    (name: string, boardId?: string) => {
+      const current = currentSnapshot();
+      const targetId = boardId ?? current.activeBoardId;
+      persist({
+        ...current,
+        boards: current.boards.map((board) => (board.id === targetId ? ops.renameBoard(board, name) : board)),
+      });
+    },
+    [persist],
   );
 
-  const deleteActive = useCallback(() => {
-    const current = currentSnapshot();
-    if (current.boards.length <= 1) {
-      toast.error("最後のボードは削除できません");
-      return;
-    }
-    const remaining = current.boards.filter((board) => board.id !== current.activeBoardId);
-    persist({
-      ...current,
-      boards: remaining,
-      activeBoardId: remaining[0]!.id,
-    });
-    setUndoStack([]);
-    setRedoStack([]);
-    toast.success("ボードを削除しました");
-  }, [persist]);
+  const deleteBoard = useCallback(
+    (boardId?: string) => {
+      const current = currentSnapshot();
+      if (current.boards.length <= 1) {
+        toast.error("最後のボードは削除できません");
+        return;
+      }
+      const targetId = boardId ?? current.activeBoardId;
+      const remaining = current.boards.filter((board) => board.id !== targetId);
+      const activeGone = targetId === current.activeBoardId;
+      persist({
+        ...current,
+        boards: remaining,
+        activeBoardId: activeGone ? remaining[0]!.id : current.activeBoardId,
+      });
+      if (activeGone) {
+        setUndoStack([]);
+        setRedoStack([]);
+      }
+      toast.success("ボードを削除しました");
+    },
+    [persist],
+  );
 
   const resetActive = useCallback(() => {
     updateBoard((board) => ({
@@ -520,10 +537,10 @@ export function useBoardController() {
     focusNode,
     syncPositions,
     createBoard,
-    duplicateActive,
+    duplicateBoard,
     switchBoard,
-    renameActive,
-    deleteActive,
+    renameBoard,
+    deleteBoard,
     resetActive,
     importCatalogBoard,
     patchSettings,

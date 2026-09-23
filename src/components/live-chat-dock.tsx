@@ -2,13 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { ChevronUp, MessageSquareText, Radio } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type ChatLine = {
   id: number;
@@ -137,19 +141,19 @@ export function LiveChatDock({
     };
   }, [applyText, streamUrl, youtubeApiKey]);
 
-  const linkedLabel = streamRef
-    ? `${streamLabel(streamRef)} 連携中`
-    : "未連携";
+  const linkedLabel = streamRef ? `${streamLabel(streamRef)} 連携中` : "配信と連携";
 
   return (
     <div className="map-live-shell">
       <div className="map-live-row">
         {showComments ? (
           <aside className="comment-overlay" aria-label="コメント">
-            <p className="comment-overlay-title">コメント</p>
+            <p className="comment-overlay-title">
+              コメント{log.length > 0 ? <span className="comment-overlay-count">{log.length}</span> : null}
+            </p>
             <div className="comment-overlay-log">
               {log.length === 0 ? (
-                <p className="comment-overlay-empty">コメントはまだありません。下のテスト欄か配信チャットから届きます。</p>
+                <p className="comment-overlay-empty">まだありません。配信と連携するか、下のテストコメントで試せます。</p>
               ) : (
                 <ul>
                   {log.map((line) => (
@@ -165,29 +169,55 @@ export function LiveChatDock({
       </div>
 
       <div className="map-bottom-bar">
-        <div className="map-bottom-url">
-          <label className="map-bottom-label" htmlFor="map-stream-url">
-            配信URL
-          </label>
-          <Input
-            id="map-stream-url"
-            value={streamUrl}
-            placeholder="Studio / watch / チャット / Twitch"
-            onChange={(event) => onStreamUrlChange(event.target.value)}
-            aria-label="配信URLまたはチャットURL"
-          />
-          <span className={linked ? "map-link-badge map-link-on" : "map-link-badge"} aria-live="polite">
-            {linkedLabel}
-          </span>
-        </div>
-        <label className="map-comment-toggle">
-          <input
-            type="checkbox"
-            checked={showComments}
-            onChange={(event) => onShowCommentsChange(event.target.checked)}
-          />
-          コメント表示
-        </label>
+        <Popover>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                className={cn("map-link-pill", linked && "map-link-pill-on")}
+                aria-label={`配信との連携: ${linkedLabel}（URLを設定）`}
+              />
+            }
+          >
+            <span className="map-link-dot" aria-hidden />
+            <Radio className="size-3.5" aria-hidden />
+            <span className="truncate">{linkedLabel}</span>
+            <ChevronUp className="size-3 opacity-60" aria-hidden />
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" className="w-[min(92vw,24rem)] gap-2 p-3">
+            <label className="text-xs font-semibold" htmlFor="map-stream-url">
+              配信URL
+            </label>
+            <Input
+              id="map-stream-url"
+              value={streamUrl}
+              placeholder="YouTube の watch / Studio / チャット、または Twitch"
+              onChange={(event) => onStreamUrlChange(event.target.value)}
+              aria-label="配信URLまたはチャットURL"
+              autoFocus
+            />
+            <p className="text-[11px] leading-4 text-muted-foreground">
+              貼るとコメントを読み始めます。視聴者が「1E」「1E ❤」と書くと、そのカードが光ってハートが付きます。
+            </p>
+            {status ? <p className="map-link-status">{status}</p> : null}
+            {streamUrl ? (
+              <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => onStreamUrlChange("")}>
+                連携をやめる
+              </Button>
+            ) : null}
+          </PopoverContent>
+        </Popover>
+
+        <button
+          type="button"
+          className={cn("map-comment-toggle", showComments && "map-comment-toggle-on")}
+          aria-pressed={showComments}
+          onClick={() => onShowCommentsChange(!showComments)}
+        >
+          <MessageSquareText className="size-3.5" aria-hidden />
+          コメント欄
+        </button>
+
         <form
           className="map-test-comment"
           onSubmit={(event) => {
@@ -201,15 +231,14 @@ export function LiveChatDock({
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="テストコメント（例: 4F）"
+            placeholder="テストコメント（例: 1E ❤）"
             aria-label="テストコメント"
-            className="h-9 bg-background/90 text-xs"
+            className="h-8 bg-background/90 text-xs"
           />
-          <Button type="submit" size="sm" className="h-9 shrink-0">
+          <Button type="submit" size="sm" variant="secondary" className="h-8 shrink-0" disabled={!draft.trim()}>
             送る
           </Button>
         </form>
-        {status ? <p className="map-bottom-status">{status}</p> : null}
       </div>
     </div>
   );
