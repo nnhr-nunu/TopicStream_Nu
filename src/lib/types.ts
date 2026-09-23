@@ -11,6 +11,8 @@ export type LayoutPrefs = {
   pinnedNodeId?: string | null;
 };
 
+export type TopicNodeRole = "source" | "keyword";
+
 export type TopicNodeData = {
   label: string;
   memo: string;
@@ -22,6 +24,11 @@ export type TopicNodeData = {
   appearIndex: number;
   sproutX?: number;
   sproutY?: number;
+  groupId?: number;
+  cellIndex?: number;
+  familyIndex?: number;
+  role?: TopicNodeRole;
+  copiedFromId?: string;
 };
 
 export type TNode = {
@@ -59,7 +66,7 @@ export type Settings = {
 };
 
 export type AppSnapshot = {
-  version: 1;
+  version: 1 | 2;
   boards: Board[];
   activeBoardId: string;
   settings: Settings;
