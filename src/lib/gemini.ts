@@ -51,7 +51,7 @@ export async function generateRelatedTopics(options: {
       topics: mock,
       source: "mock",
       warning: "Geminiに届かなかったので、オフライン生成を使いました",
-      debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
+      debug: { reason: "proxy", kind: "network", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
     };
   }
 }
