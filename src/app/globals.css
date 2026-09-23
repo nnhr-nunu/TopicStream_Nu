@@ -294,11 +294,39 @@ html.overlay-mode .topic-chip {
 
 .topic-chip-now {
   border-color: var(--now);
-  background: color-mix(in oklab, var(--now) 22%, var(--chip-fill));
+  border-width: 3px;
+  background: color-mix(in oklab, var(--now) 30%, var(--chip-fill));
   box-shadow:
-    0 0 0 3px color-mix(in oklab, var(--now) 30%, transparent),
-    0 10px 24px color-mix(in oklab, var(--now) 16%, transparent);
+    0 0 0 5px color-mix(in oklab, var(--now) 32%, transparent),
+    0 14px 34px color-mix(in oklab, var(--now) 30%, transparent);
+  scale: 1.06;
+  animation: topic-now-glow 2.4s ease-in-out infinite;
 }
+
+@keyframes topic-now-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 5px color-mix(in oklab, var(--now) 32%, transparent),
+      0 14px 34px color-mix(in oklab, var(--now) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9px color-mix(in oklab, var(--now) 18%, transparent),
+      0 14px 40px color-mix(in oklab, var(--now) 40%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-chip-now {
+    animation: none;
+  }
+}
+
+.react-flow__node:has(.topic-chip-now) {
+  z-index: 10 !important;
+}
+
 
 .topic-chip-busy {
   opacity: 0.94;
@@ -392,23 +420,6 @@ html.overlay-mode .topic-chip {
 
 .sticky-note {
   display: none;
-}
-
-.topic-memo-badge {
-  position: absolute;
-  left: 0.2rem;
-  bottom: 0.15rem;
-  z-index: 4;
-  display: flex;
-  width: 1.45rem;
-  height: 1.45rem;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
 }
 
 .topic-heart {
@@ -512,73 +523,6 @@ html.overlay-mode .topic-chip {
 .topic-chip-pulse {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--family-line, var(--primary)) 70%, white);
   animation: topic-id-pulse 0.9s ease-out 2;
-}
-
-.topic-heart-mine {
-  box-shadow:
-    0 0 0 1.5px color-mix(in oklab, oklch(0.62 0.2 18) 55%, transparent),
-    0 1px 4px color-mix(in oklab, black 12%, transparent);
-}
-
-/* 届いた瞬間だけ、ハートのすぐ右に +N がふわっと上がって消える */
-.topic-heart-plus {
-  position: absolute;
-  left: calc(100% + 0.2rem);
-  top: 50%;
-  color: oklch(0.58 0.2 18);
-  font-size: 0.78rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  white-space: nowrap;
-  pointer-events: none;
-  text-shadow: 0 1px 0 color-mix(in oklab, white 80%, transparent);
-  animation: topic-heart-plus 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes topic-heart-plus {
-  0% {
-    opacity: 0;
-    transform: translateY(-30%) scale(0.7);
-  }
-  18% {
-    opacity: 1;
-    transform: translateY(-55%) scale(1.08);
-  }
-  32% {
-    transform: translateY(-60%) scale(1);
-  }
-  75% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-140%) scale(1);
-  }
-}
-
-.topic-heart-on:has(.topic-heart-plus) > span:first-child {
-  animation: topic-heart-beat 0.45s ease-out;
-}
-
-@keyframes topic-heart-beat {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  40% {
-    transform: scale(1.3);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .topic-heart-plus {
-    animation: none;
-    transform: translateY(-50%);
-  }
-  .topic-heart-on:has(.topic-heart-plus) > span:first-child {
-    animation: none;
-  }
 }
 
 @keyframes topic-id-pulse {

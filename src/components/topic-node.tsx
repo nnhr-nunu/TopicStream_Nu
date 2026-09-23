@@ -157,18 +157,25 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         </button>
       )}
 
-      {data.memo && !data.placeholder ? (
+      {isPinned && !data.placeholder ? (
+        <span className="topic-now-ribbon" aria-hidden>
+          NOW
+        </span>
+      ) : null}
+
+      {data.memo && !data.placeholder && !overlay ? (
         <button
           type="button"
-          className="topic-memo-badge"
-          aria-label="付箋を開く"
+          className="topic-memo-tag nodrag"
+          title={data.memo}
+          aria-label={`付箋: ${data.memo}（開いて編集）`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             setMemoOpen(true);
           }}
         >
-          📝
+          <span className="topic-memo-tag-text">{data.memo}</span>
         </button>
       ) : null}
 

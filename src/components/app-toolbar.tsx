@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronRight, Redo2, RefreshCw, Share2, Undo2 } from "lucide-react";
+import { ChevronRight, Redo2, Share2, Undo2 } from "lucide-react";
 
 import { BoardPanel } from "@/components/board-panel";
 import { BrandMark } from "@/components/brand-mark";
@@ -35,10 +35,8 @@ export function AppToolbar({
   atHome,
   canUndo,
   canRedo,
-  canRegenerate,
   hasNodes,
   onHome,
-  onResume,
   onSwitch,
   onCreate,
   onRename,
@@ -48,7 +46,6 @@ export function AppToolbar({
   onImport,
   onUndo,
   onRedo,
-  onRegenerate,
   onShare,
   onPatchSettings,
 }: {
@@ -58,10 +55,8 @@ export function AppToolbar({
   atHome: boolean;
   canUndo: boolean;
   canRedo: boolean;
-  canRegenerate: boolean;
   hasNodes: boolean;
   onHome: () => void;
-  onResume: () => void;
   onSwitch: (id: string) => void;
   onCreate: () => void;
   onRename: (name: string, id: string) => void;
@@ -71,7 +66,6 @@ export function AppToolbar({
   onImport: (text: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onRegenerate: () => void;
   onShare: () => void;
   onPatchSettings: (patch: Partial<Settings>) => void;
 }) {
@@ -82,10 +76,15 @@ export function AppToolbar({
         className="app-bar pointer-events-auto flex min-w-0 items-center gap-0.5 py-1 pr-1.5 pl-1"
       >
         <BrandMark onHome={onHome} active={atHome} />
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+        {atHome ? (
+          <span className="app-bar-divider" aria-hidden />
+        ) : (
+          <ChevronRight className="size-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+        )}
         <BoardPanel
           boards={boards}
           activeBoard={activeBoard}
+          atHome={atHome}
           onOpen={onSwitch}
           onCreate={onCreate}
           onRename={onRename}
@@ -94,12 +93,6 @@ export function AppToolbar({
           onExport={onExport}
           onImport={onImport}
         />
-        {atHome && hasNodes ? (
-          <Button size="sm" className="ml-1 shrink-0 rounded-lg" onClick={onResume}>
-            マップに戻る
-            <ArrowRight />
-          </Button>
-        ) : null}
       </nav>
 
       <div className="app-bar pointer-events-auto flex shrink-0 items-center gap-0.5 p-1">
@@ -113,11 +106,6 @@ export function AppToolbar({
             <Tip label="進む (Y)">
               <Button size="icon-sm" variant="ghost" aria-label="進む" onClick={onRedo} disabled={!canRedo}>
                 <Redo2 />
-              </Button>
-            </Tip>
-            <Tip label="選んだマスを作り直す (G)">
-              <Button size="icon-sm" variant="ghost" aria-label="選んだマスを作り直す" onClick={onRegenerate} disabled={!canRegenerate}>
-                <RefreshCw />
               </Button>
             </Tip>
             <span className="app-bar-divider" aria-hidden />

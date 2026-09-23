@@ -14,6 +14,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { FlowEdge } from "@/components/flow-edge";
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
 import { ZoomDock } from "@/components/zoom-dock";
 import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
@@ -21,13 +22,20 @@ import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const nodeTypes = { topic: TopicNode };
+const edgeTypes = { flow: FlowEdge };
+/** 既定の辺スタイル（細い線）はインラインで付くので、流れの線は明示して上書きする */
+const FLOW_EDGE_STYLE = {
+  stroke: "color-mix(in oklab, var(--primary) 80%, var(--foreground))",
+  strokeWidth: 3,
+  strokeOpacity: 0.7,
+};
 
 function canvasFitPadding(overlay: boolean, pinned = false) {
   if (overlay) return 0.16;
   const narrow = typeof window !== "undefined" && window.innerWidth < 720;
   const px = (value: number): `${number}px` => `${value}px`;
   // ピン留めの帯（ヘッダーの下）がある間は、その分だけ上を空ける
-  const banner = pinned ? (narrow ? 64 : 76) : 0;
+  const banner = pinned ? (narrow ? 76 : 96) : 0;
   return {
     top: px((narrow ? 108 : 88) + banner),
     bottom: px(narrow ? 96 : 86),
@@ -73,8 +81,6 @@ function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
     .filter((edge) => {
       if (layout !== "mandala") return true;
       const target = board.nodes.find((node) => node.id === edge.target);
-      // 開いたマス → 写しの中央 は隣り合うので線を引かず、カードの「→2E」で示す
-      if (target?.data.copiedFromId) return false;
       return target?.data.role === "source" || target?.data.cellIndex === CENTER_CELL_INDEX;
     })
     .map((edge) => ({
@@ -82,6 +88,7 @@ function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
       source: edge.source,
       target: edge.target,
       selectable: false,
+      ...(layout === "mandala" ? { type: "flow", style: FLOW_EDGE_STYLE } : {}),
     }));
 }
 
@@ -257,6 +264,7 @@ function CanvasInner({
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onNodeClick={(_, node) => onFocus(node.id)}
       onPaneClick={() => undefined}

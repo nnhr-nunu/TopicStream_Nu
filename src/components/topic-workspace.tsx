@@ -85,10 +85,8 @@ export function TopicWorkspace() {
           atHome={showHome}
           canUndo={controller.undoStack.length > 0}
           canRedo={controller.redoStack.length > 0}
-          canRegenerate={Boolean(focusedId) && !showHome}
           hasNodes={board.nodes.length > 0}
           onHome={() => setAtHome(true)}
-          onResume={() => setAtHome(false)}
           onSwitch={(id) => {
             setAtHome(false);
             controller.switchBoard(id);
@@ -110,15 +108,18 @@ export function TopicWorkspace() {
           }}
           onUndo={controller.undo}
           onRedo={controller.redo}
-          onRegenerate={() => {
-            if (focusedId) void controller.regenerateNode(focusedId);
-          }}
           onShare={() => void controller.publishWatchLink()}
           onPatchSettings={controller.patchSettings}
         />
 
         {showHome ? (
           <StartScreen
+            boards={controller.snapshot?.boards ?? [board]}
+            activeBoardId={board.id}
+            onOpenBoard={(id) => {
+              setAtHome(false);
+              if (id !== board.id) controller.switchBoard(id);
+            }}
             onStart={(keyword) => {
               setAtHome(false);
               void controller.startWithKeyword(keyword);
@@ -127,7 +128,6 @@ export function TopicWorkspace() {
               setAtHome(false);
               controller.importCatalogBoard(catalog);
             }}
-            onResume={board.nodes.length > 0 ? () => setAtHome(false) : undefined}
             busy={controller.busy}
             linkedUrl={settings.streamUrl}
             linkedTitle={board.name}

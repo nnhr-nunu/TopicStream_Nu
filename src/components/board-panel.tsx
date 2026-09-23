@@ -174,6 +174,7 @@ function BoardRow({
 export function BoardPanel({
   boards,
   activeBoard,
+  atHome = false,
   onOpen,
   onCreate,
   onRename,
@@ -184,6 +185,8 @@ export function BoardPanel({
 }: {
   boards: Board[];
   activeBoard: Board;
+  /** ホームでは「ボード一覧」ボタンとして出す（まだどのボードも開いていない見た目） */
+  atHome?: boolean;
   onOpen: (id: string) => void;
   onCreate: () => void;
   onRename: (name: string, id: string) => void;
@@ -204,11 +207,12 @@ export function BoardPanel({
             variant="ghost"
             size="sm"
             className="app-crumb-board max-w-[min(52vw,18rem)]"
-            aria-label={`ボード「${activeBoard.name}」— ボードの一覧を開く`}
+            aria-label={atHome ? "ボードの一覧を開く" : `ボード「${activeBoard.name}」— ボードの一覧を開く`}
           />
         }
       >
-        <span className="truncate font-semibold">{activeBoard.name}</span>
+        {atHome ? <LayoutGrid className="size-3.5 shrink-0 opacity-70" /> : null}
+        <span className="truncate font-semibold">{atHome ? `ボード一覧（${boards.length}）` : activeBoard.name}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(100%,24rem)] gap-0">
