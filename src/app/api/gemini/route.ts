@@ -1,4 +1,4 @@
-import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST } from "@/lib/constants";
+import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST, resolveGeminiModel } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import { geminiDebug, geminiFailureWarning, GeminiRequestError, requestGemini } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     ? body.preferred.filter((item): item is string => typeof item === "string")
     : [];
   const count = typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT;
-  const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
+  const model = resolveGeminiModel(typeof body?.model === "string" ? body.model : DEFAULT_MODEL);
   const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
   const apiKey = override || readGeminiApiKey();
 
