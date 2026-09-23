@@ -25,7 +25,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { GEMINI_MODELS } from "@/lib/constants";
+import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, GEMINI_MODELS } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
 const LAYOUT_ITEMS = [
@@ -352,6 +352,23 @@ export function SettingsSheet({
                 maxLength={24}
                 onChange={(event) => onPatch({ nickname: event.target.value })}
               />
+            </Row>
+            <Row label="コメントの文字" hint="コメント欄を配信に映すときは大きめが見やすいです。欄の A−/A＋ でも変えられます。">
+              <div className="flex items-center gap-2">
+                <Slider
+                  min={COMMENT_SCALE_MIN}
+                  max={COMMENT_SCALE_MAX}
+                  step={0.1}
+                  value={[settings.commentScale]}
+                  onValueChange={(value) => {
+                    const next = Array.isArray(value) ? value[0] : value;
+                    if (typeof next === "number") onPatch({ commentScale: next });
+                  }}
+                />
+                <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
+                  {Math.round(settings.commentScale * 100)}%
+                </span>
+              </div>
             </Row>
             <Row label="YouTube キー" htmlFor="youtube-key" hint="任意。サーバー側に無いときだけ使います。">
               <Input

@@ -7,6 +7,7 @@ import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
 import { LiveChatDock } from "@/components/live-chat-dock";
 import { PinBanner } from "@/components/pin-banner";
+import { PrivacyNotice } from "@/components/privacy-notice";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
@@ -18,6 +19,8 @@ export function TopicWorkspace() {
   const settings = controller.settings;
   const focusedId = board?.focusedNodeId ?? board?.pinnedNodeId ?? null;
   const [atHome, setAtHome] = useState(false);
+  const [privacyNotice, setPrivacyNotice] = useState(0);
+  const notifyPrivacy = () => setPrivacyNotice((value) => value + 1);
 
   useHotkeys({
     expand: () => {
@@ -64,6 +67,7 @@ export function TopicWorkspace() {
         toggleHeart: controller.toggleHeart,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
+        regeneratingIds: controller.regeneratingIds,
         generationLayout: settings.generationLayout,
       }}
     >
@@ -92,6 +96,7 @@ export function TopicWorkspace() {
             controller.switchBoard(id);
           }}
           onCreate={() => {
+            notifyPrivacy();
             setAtHome(true);
             controller.createBoard();
           }}
@@ -121,6 +126,7 @@ export function TopicWorkspace() {
               if (id !== board.id) controller.switchBoard(id);
             }}
             onStart={(keyword) => {
+              notifyPrivacy();
               setAtHome(false);
               void controller.startWithKeyword(keyword);
             }}
@@ -141,6 +147,8 @@ export function TopicWorkspace() {
               streamUrl={settings.streamUrl}
               youtubeApiKey={settings.youtubeApiKey}
               showComments={settings.showComments}
+              commentScale={settings.commentScale}
+              onCommentScaleChange={(commentScale) => controller.patchSettings({ commentScale })}
               pinnedCode={
                 board.pinnedNodeId
                   ? (() => {
@@ -166,6 +174,7 @@ export function TopicWorkspace() {
           </>
         )}
       </div>
+      <PrivacyNotice trigger={privacyNotice} />
     </BoardActionsProvider>
   );
 }

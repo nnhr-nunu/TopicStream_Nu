@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Dices, History, Sparkles } from "lucide-react";
+import { ArrowRight, Dices, History, ShieldAlert, Sparkles } from "lucide-react";
 
+import { DeveloperFooter } from "@/components/developer-footer";
+import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { Button } from "@/components/ui/button";
@@ -80,7 +82,9 @@ export function StartScreen({
         <header className="flex flex-col items-center text-center">
           {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
           <img src={`${base}/topicstream-logo.svg`} alt="" width={64} height={64} className="size-16 rounded-2xl" />
-          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">TopicStream</h1>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+            TopicStream<span className="ml-1 text-2xl font-semibold text-muted-foreground sm:text-3xl">(ぬ)</span>
+          </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
             雑談配信のための話題マップ。キーワードから、話したいことがすぐ広がります。
           </p>
@@ -160,6 +164,11 @@ export function StartScreen({
             </Button>
           </form>
 
+          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
+            {PRIVACY_NOTICE}
+          </p>
+
           <div className="mt-4">
             <p className="mb-2 text-xs text-muted-foreground">よく選ばれているトピックから始める</p>
             <ul className="flex flex-wrap gap-2">
@@ -192,6 +201,8 @@ export function StartScreen({
         <h2 className="mb-4 text-center text-lg font-semibold">みんなのトークテーマ</h2>
         <ThemeBoardList onImport={onImport} busy={busy} />
       </div>
+
+      <DeveloperFooter />
     </div>
   );
 }

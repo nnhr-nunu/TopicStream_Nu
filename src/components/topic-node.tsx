@@ -43,6 +43,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     overlay,
     pinnedNodeId,
     focusedNodeId,
+    regeneratingIds,
     generationLayout,
   } = useBoardActions();
   const [copied, setCopied] = useState(false);
@@ -54,6 +55,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const suppressClick = useRef(false);
   const holdTimer = useRef<number | null>(null);
   const isPinned = pinnedNodeId === id;
+  const regenerating = Boolean(regeneratingIds?.includes(id));
+  // メニューから別の画面（付箋・作り直し）へ進んだら、メニューは閉じてフォーカスも外す
+  const leaveMenu = () => {
+    menu.hideNow();
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  };
   const isFocused = focusedNodeId === id || selected;
   const isRoot = data.parentId === null;
   const isMandala = generationLayout === "mandala";
@@ -167,7 +174,6 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         <button
           type="button"
           className="topic-memo-tag nodrag"
-          title={data.memo}
           aria-label={`付箋: ${data.memo}（開いて編集）`}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
@@ -176,6 +182,9 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           }}
         >
           <span className="topic-memo-tag-text">{data.memo}</span>
+          <span className="topic-memo-tag-full" aria-hidden>
+            {data.memo}
+          </span>
         </button>
       ) : null}
 
@@ -186,7 +195,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isRoot && "topic-chip-root",
           isPinned && "topic-chip-now",
           isFocused && "topic-chip-focus",
-          data.expanding && "topic-chip-busy",
+          (data.expanding || regenerating) && "topic-chip-busy",
+          regenerating && "topic-chip-regen",
           data.placeholder && "topic-chip-skeleton",
           role === "source" && "topic-chip-source",
           role === "keyword" && "topic-chip-keyword",
@@ -195,7 +205,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
-          if (data.placeholder || data.expanding) return;
+          if (data.placeholder || data.expanding || regenerating) return;
           if (suppressClick.current) {
             suppressClick.current = false;
             return;
@@ -223,6 +233,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
             <span className="topic-label" style={{ fontSize: `${fontSize}px` }}>
               {data.label}
             </span>
+            {regenerating ? (
+              <span className="topic-regen-badge" role="status">
+                <span className="topic-regen-spinner" aria-hidden />
+                作り直し中…
+              </span>
+            ) : null}
           </>
         )}
       </button>
@@ -257,14 +273,20 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isPinned={isPinned}
           copied={copied}
           onPin={() => pinNode(id)}
-          onRegenerate={() => regenerateNode?.(id)}
+          onRegenerate={() => {
+            leaveMenu();
+            regenerateNode?.(id);
+          }}
           onCopy={async () => {
             await copyLabel(id);
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1200);
           }}
           onEditLabel={openLabel}
-          onEditMemo={() => setMemoOpen(true)}
+          onEditMemo={() => {
+            leaveMenu();
+            setMemoOpen(true);
+          }}
           onPointerEnter={menu.show}
           onPointerLeave={menu.hideSoon}
         />

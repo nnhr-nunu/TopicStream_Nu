@@ -38,7 +38,8 @@ export function StickyNotePanel({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" showCloseButton>
+      {/* 閉じたときにカードのメニューへフォーカスを戻さない（メニューが開いたまま残るため） */}
+      <DialogContent className="sm:max-w-md" showCloseButton finalFocus={false}>
         <DialogHeader>
           <DialogTitle>📝 {title || "付箋"}</DialogTitle>
           <DialogDescription>

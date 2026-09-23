@@ -490,8 +490,9 @@ html.overlay-mode .topic-chip {
   height: 10px;
 }
 
+/* キーボードで操作しているときだけフォーカスで開いたままにする（クリック後に残らないように） */
 .topic-actions-open,
-.topic-node:focus-within .topic-actions {
+.topic-node:has(.topic-actions :focus-visible) .topic-actions {
   opacity: 1;
   pointer-events: auto;
   translate: -50% 0;

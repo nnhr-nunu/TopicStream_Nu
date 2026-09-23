@@ -38,6 +38,8 @@ export function useBoardController() {
   const [busy, setBusy] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const expandTokens = useRef(new Map<string, number>());
+  const regeneratingRef = useRef(new Set<string>());
+  const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
 
   const persist = useCallback((next: AppSnapshot) => {
     writeBoardSnapshot(next);
@@ -234,23 +236,38 @@ export function useBoardController() {
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       const node = board?.nodes.find((item) => item.id === nodeId);
-      if (!board || !node) return;
-      toast.message("このマスの文だけ作り直します");
-      const parent = board.nodes.find((item) => item.id === node.data.parentId);
-      const result = await generateRelatedTopics({
-        seed: parent?.data.label || node.data.label,
-        existing: board.nodes.map((item) => item.data.label),
-        apiKey: current.settings.geminiApiKey,
-        model: current.settings.geminiModel,
-        count: 1,
-        preferred: preferredForSeed(parent?.data.label || node.data.label),
-      });
-      const nextLabel = result.topics[0];
-      if (!nextLabel) return;
-      updateBoard((item) =>
-        ops.setLabel(item, nodeId, nextLabel, prefsFromSettings(currentSnapshot().settings, false, item.pinnedNodeId)),
-      );
-      if (result.warning) toast.message(result.warning);
+      if (!board || !node || regeneratingRef.current.has(nodeId)) return;
+      // 文が変わるので「いま話している」は外す
+      if (board.pinnedNodeId === nodeId) {
+        updateBoard((item) => ops.pinNode(item, null, prefsFromSettings(currentSnapshot().settings, false, null)));
+      }
+      regeneratingRef.current.add(nodeId);
+      setRegeneratingIds([...regeneratingRef.current]);
+      try {
+        const parent = board.nodes.find((item) => item.id === node.data.parentId);
+        // オフライン生成は一瞬で終わるので、作り直したと分かるよう最低 0.6 秒は「作り直し中」を見せる
+        const [result] = await Promise.all([
+          generateRelatedTopics({
+            seed: parent?.data.label || node.data.label,
+            existing: board.nodes.map((item) => item.data.label),
+            apiKey: current.settings.geminiApiKey,
+            model: current.settings.geminiModel,
+            count: 1,
+            preferred: preferredForSeed(parent?.data.label || node.data.label),
+          }),
+          new Promise((resolve) => window.setTimeout(resolve, 600)),
+        ]);
+        const nextLabel = result.topics[0];
+        if (nextLabel) {
+          updateBoard((item) =>
+            ops.setLabel(item, nodeId, nextLabel, prefsFromSettings(currentSnapshot().settings, false, item.pinnedNodeId)),
+          );
+        }
+        if (result.warning) toast.message(result.warning);
+      } finally {
+        regeneratingRef.current.delete(nodeId);
+        setRegeneratingIds([...regeneratingRef.current]);
+      }
     },
     [updateBoard],
   );
@@ -505,7 +522,9 @@ export function useBoardController() {
     const url = `${window.location.origin}${base}/watch?id=${encodeURIComponent(json.id)}`;
     try {
       await navigator.clipboard.writeText(url);
-      toast.success("いっしょに見るリンクをコピーしました");
+      toast.success("いっしょに見るリンクをコピーしました", {
+        description: "リンクを知っている人はボードを見られます。個人情報は書かないでください。",
+      });
     } catch {
       toast.message(url);
     }
@@ -561,6 +580,7 @@ export function useBoardController() {
     copyLabel,
     publishWatchLink,
     toggleHeart,
+    regeneratingIds,
     bumpHeart,
     bumpFrameHearts,
   };

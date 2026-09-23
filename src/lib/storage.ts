@@ -1,5 +1,5 @@
 import { asColorTheme } from "@/lib/color-theme";
-import { DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
+import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
 
@@ -128,6 +128,10 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
     streamUrl: typeof settings.streamUrl === "string" ? settings.streamUrl.slice(0, 400) : "",
     youtubeApiKey: typeof settings.youtubeApiKey === "string" ? settings.youtubeApiKey : "",
     showComments: settings.showComments === true,
+    commentScale:
+      typeof settings.commentScale === "number" && Number.isFinite(settings.commentScale)
+        ? Math.min(COMMENT_SCALE_MAX, Math.max(COMMENT_SCALE_MIN, settings.commentScale))
+        : 1,
   };
 }
 

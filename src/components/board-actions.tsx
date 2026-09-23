@@ -15,6 +15,8 @@ type BoardActions = {
   overlay?: boolean;
   pinnedNodeId: string | null;
   focusedNodeId: string | null;
+  /** 文を作り直している最中のカード */
+  regeneratingIds?: string[];
   generationLayout?: GenerationLayout;
 };
 
