@@ -1,5 +1,5 @@
 import { asColorTheme } from "@/lib/color-theme";
-import { DEFAULT_SETTINGS, STORAGE_KEY } from "@/lib/constants";
+import { DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
 

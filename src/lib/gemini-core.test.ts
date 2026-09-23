@@ -14,6 +14,7 @@ import {
   parseTopics,
   requestGemini,
   shouldTryNextModel,
+  thinkingConfigFor,
 } from "@/lib/gemini-core";
 
 describe("Gemini の返答パース", () => {
@@ -119,18 +120,49 @@ describe("Gemini の失敗メッセージ", () => {
 
 describe("Gemini のモデル列とフォールバック", () => {
   it("既定の試行順は重複なしで Flash 系を並べる", () => {
-    expect(DEFAULT_MODEL).toBe("gemini-2.5-flash");
+    expect(DEFAULT_MODEL).toBe("gemini-3.5-flash-lite");
     expect([...GEMINI_FALLBACK_MODELS]).toEqual([
-      "gemini-2.5-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-flash-latest",
-      "gemini-2.5-flash-lite",
+      "gemini-3.5-flash-lite",
       "gemini-3.5-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-latest",
+      "gemini-3.6-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
     ]);
+    // 提供終了・新規キーでは使えない 2.x を保存していても既定から試す
     expect(fallbackModels("gemini-2.0-flash")).toEqual([...GEMINI_FALLBACK_MODELS]);
+    expect(fallbackModels("gemini-2.5-flash")).toEqual([...GEMINI_FALLBACK_MODELS]);
+    expect(fallbackModels("gemini-3.8-flash")[0]).toBe("gemini-3.8-flash");
     expect(new Set(fallbackModels(DEFAULT_MODEL)).size).toBe(GEMINI_FALLBACK_MODELS.length);
+  });
+
+  it("思考は最小にする（遅さと空の返答の原因）", () => {
+    expect(thinkingConfigFor("gemini-3.5-flash-lite")).toEqual({ thinkingLevel: "minimal" });
+    expect(thinkingConfigFor("gemini-3.5-flash")).toEqual({ thinkingLevel: "minimal" });
+    expect(thinkingConfigFor("gemini-3.8-flash")).toEqual({ thinkingLevel: "low" });
+    expect(thinkingConfigFor("gemini-2.5-flash")).toEqual({ thinkingBudget: 0 });
+    expect(thinkingConfigFor("gemini-flash-latest")).toBeUndefined();
+  });
+
+  it("時間切れも次のモデルへ進む", () => {
+    expect(shouldTryNextModel(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "x" })))).toBe(true);
+  });
+
+  it("利用枠の無い 429 は混雑と分けて伝える", () => {
+    const quota = new GeminiRequestError(
+      "http",
+      geminiDebug({
+        reason: "http-429",
+        httpStatus: 429,
+        googleStatus: "RESOURCE_EXHAUSTED",
+        googleMessage: "You exceeded your current quota. limit: 0",
+        model: "gemini-3.5-flash",
+        attempts: ["gemini-3.5-flash-lite: http-429 RESOURCE_EXHAUSTED", "gemini-3.5-flash: http-429 RESOURCE_EXHAUSTED"],
+      }),
+    );
+    const warning = geminiFailureWarning(quota);
+    expect(warning).toContain("利用枠がありません");
+    expect(warning).toContain("試したモデル");
+    expect(warning).not.toContain("混み合って");
   });
 
   it("404・429・503・UNAVAILABLE・RESOURCE_EXHAUSTED は次モデルへ進む", () => {
@@ -181,15 +213,17 @@ describe("Gemini の混雑リトライ", () => {
     const sleep = vi.fn(async () => {});
     geminiRetry.sleep = sleep;
     const calls: string[] = [];
+    const bodies: string[] = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: string | URL) => {
+      vi.fn(async (input: string | URL, init?: { body?: string }) => {
         const url = String(input);
         calls.push(url);
-        if (url.includes("gemini-2.5-flash") && !url.includes("lite")) return googleError(404, "NOT_FOUND");
-        if (url.includes("gemini-2.0-flash-lite")) {
-          const liteCalls = calls.filter((item) => item.includes("gemini-2.0-flash-lite")).length;
-          if (liteCalls === 1) return googleError(503, "UNAVAILABLE", "This model is currently experiencing high demand.");
+        bodies.push(init?.body ?? "");
+        if (url.includes("gemini-3.5-flash-lite")) return googleError(404, "NOT_FOUND");
+        if (url.includes("models/gemini-3.5-flash:")) {
+          const hits = calls.filter((item) => item.includes("models/gemini-3.5-flash:")).length;
+          if (hits === 1) return googleError(503, "UNAVAILABLE", "This model is currently experiencing high demand.");
           return googleOk(["温泉", "湯けむり"]);
         }
         return googleError(503, "UNAVAILABLE");
@@ -204,11 +238,28 @@ describe("Gemini の混雑リトライ", () => {
       count: 8,
     });
 
-    expect(result.model).toBe("gemini-2.0-flash-lite");
+    expect(result.model).toBe("gemini-3.5-flash");
     expect(result.topics).toContain("温泉");
-    expect(result.tried.slice(0, 2)).toEqual(["gemini-2.5-flash", "gemini-2.0-flash-lite"]);
-    expect(calls.filter((item) => item.includes("gemini-2.0-flash-lite")).length).toBeGreaterThanOrEqual(2);
+    expect(result.tried.slice(0, 2)).toEqual(["gemini-3.5-flash-lite", "gemini-3.5-flash"]);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.sameModelMs);
+    const sent = JSON.parse(bodies[1]!) as { generationConfig: Record<string, unknown> };
+    expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
+    expect(sent.generationConfig.responseMimeType).toBe("application/json");
+  });
+
+  it("利用枠の無い 429 は同じモデルで待たず、試した結果を残す", async () => {
+    const sleep = vi.fn(async () => {});
+    geminiRetry.sleep = sleep;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => googleError(429, "RESOURCE_EXHAUSTED", "Quota exceeded for metric. limit: 0")),
+    );
+    const error = await requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(GeminiRequestError);
+    expect((error as GeminiRequestError).debug.attempts).toHaveLength(GEMINI_FALLBACK_MODELS.length);
+    expect(sleep).not.toHaveBeenCalled();
   });
 
   it("有効な語が8個未満なら同じモデルでもう一度頼み、ゴミは残さない", async () => {
@@ -248,7 +299,7 @@ describe("Gemini の混雑リトライ", () => {
       "fetch",
       vi.fn(async (input: string | URL) => {
         const url = String(input);
-        if (url.includes("gemini-1.5-flash-latest")) {
+        if (url.includes("gemini-flash-latest")) {
           lastHits += 1;
           if (lastHits >= 3) return googleOk(["再試行"]);
         }
@@ -264,7 +315,7 @@ describe("Gemini の混雑リトライ", () => {
       count: 8,
     });
 
-    expect(result.model).toBe("gemini-1.5-flash-latest");
+    expect(result.model).toBe("gemini-flash-latest");
     expect(result.topics).toContain("再試行");
     expect(result.tried).toEqual([...GEMINI_FALLBACK_MODELS]);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.lastModelMs);

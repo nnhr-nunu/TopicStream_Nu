@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Eye, EyeOff, MonitorPlay, Palette, Settings, Sparkles, Users } from "lucide-react";
+import { Eye, EyeOff, MonitorPlay, Palette, PlugZap, Settings, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -103,6 +103,81 @@ function SwitchRow({
   );
 }
 
+type KeyCheck = {
+  ok: boolean;
+  source?: "browser" | "server" | "none";
+  httpStatus?: number;
+  googleStatus?: string;
+  googleMessage?: string;
+  models: string[];
+};
+
+function describeKeyCheck(result: KeyCheck, model: string): { tone: "ok" | "warn" | "error"; text: string } {
+  const where = result.source === "browser" ? "この画面のキー" : "サーバーのキー";
+  if (result.source === "none") {
+    return { tone: "error", text: "キーがありません。上に入れるか、サーバーの GEMINI_API_KEY を設定してください。" };
+  }
+  if (!result.ok) {
+    const code = [result.httpStatus, result.googleStatus].filter(Boolean).join(" ");
+    const message = result.googleMessage ? `「${result.googleMessage}」` : "";
+    return { tone: "error", text: `${where}が使えません（${code || "通信エラー"}）${message}` };
+  }
+  if (!result.models.includes(model)) {
+    return {
+      tone: "warn",
+      text: `${where}は有効ですが、${model} は使えません。使える例: ${result.models.slice(0, 4).join(", ") || "なし"}`,
+    };
+  }
+  return { tone: "ok", text: `${where}は有効です。${model} を使えます。` };
+}
+
+function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
+  const [state, setState] = useState<"idle" | "busy" | KeyCheck>("idle");
+  const result = typeof state === "object" ? describeKeyCheck(state, model) : null;
+  return (
+    <div className="space-y-1.5">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full"
+        disabled={state === "busy"}
+        onClick={async () => {
+          setState("busy");
+          try {
+            const response = await fetch("/api/gemini/check", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ apiKey: apiKey || undefined }),
+            });
+            if (!response.ok) throw new Error(String(response.status));
+            setState((await response.json()) as KeyCheck);
+          } catch {
+            setState({ ok: false, googleMessage: "接続テストはサーバー版（Vercel / npm run dev）でだけ使えます", models: [] });
+          }
+        }}
+      >
+        <PlugZap />
+        {state === "busy" ? "確認中…" : "接続テスト"}
+      </Button>
+      {result ? (
+        <p
+          role="status"
+          className={
+            result.tone === "ok"
+              ? "rounded-md bg-primary/10 px-2 py-1.5 text-[11px] leading-4 text-foreground"
+              : result.tone === "warn"
+                ? "rounded-md bg-amber-500/15 px-2 py-1.5 text-[11px] leading-4 text-foreground"
+                : "rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] leading-4 text-destructive"
+          }
+        >
+          {result.text}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function SettingsSheet({
   settings,
   onPatch,
@@ -186,6 +261,7 @@ export function SettingsSheet({
                 </SelectContent>
               </Select>
             </Row>
+            <GeminiKeyCheck apiKey={settings.geminiApiKey} model={settings.geminiModel} />
           </Section>
 
           <Section icon={<Palette />} title="マップの見た目">
