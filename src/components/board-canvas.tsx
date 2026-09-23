@@ -7,6 +7,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
+  useNodesInitialized,
   useReactFlow,
   type Edge,
   type NodeChange,
@@ -15,7 +16,7 @@ import "@xyflow/react/dist/style.css";
 
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
 import { ZoomDock } from "@/components/zoom-dock";
-import { CENTER_CELL_INDEX } from "@/lib/mandala-ids";
+import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -43,12 +44,25 @@ function canvasFitZoom(overlay: boolean) {
   };
 }
 
+/** マンダラートで開いたマス → 開いた先の3×3の中央コード（例: 1F → 2E）。 */
+function openedCodes(board: Board): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const node of board.nodes) {
+    const from = node.data.copiedFromId;
+    if (!from || typeof node.data.groupId !== "number" || typeof node.data.cellIndex !== "number") continue;
+    const code = cellCode(node.data.groupId, node.data.cellIndex);
+    if (code) map.set(from, code);
+  }
+  return map;
+}
+
 function toFlowNodes(board: Board, overlay: boolean): TopicFlowNode[] {
+  const opened = openedCodes(board);
   return board.nodes.map((node) => ({
     id: node.id,
     type: "topic",
     position: node.position,
-    data: node.data,
+    data: opened.has(node.id) ? { ...node.data, openedCode: opened.get(node.id) } : node.data,
     selected: board.focusedNodeId === node.id,
     draggable: !overlay,
   }));
@@ -59,6 +73,8 @@ function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
     .filter((edge) => {
       if (layout !== "mandala") return true;
       const target = board.nodes.find((node) => node.id === edge.target);
+      // 開いたマス → 写しの中央 は隣り合うので線を引かず、カードの「→2E」で示す
+      if (target?.data.copiedFromId) return false;
       return target?.data.role === "source" || target?.data.cellIndex === CENTER_CELL_INDEX;
     })
     .map((edge) => ({
@@ -181,6 +197,18 @@ function CanvasInner({
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- idsKey is the node-identity key; listing board.nodes spreads and changes dep count
   }, [board.id, fitCluster, fitView, idsKey, overlay, pinned]);
+
+  // 非表示のタブで開いたときなど、最初の fit の時点でカードの寸法が測れていないことがある。
+  // 寸法が取れた最初のタイミングで、そのボードを一度だけ画面に合わせ直す。
+  const nodesInitialized = useNodesInitialized();
+  const initialFitBoard = useRef<string | null>(null);
+  useEffect(() => {
+    if (!nodesInitialized || board.nodes.length === 0) return;
+    if (initialFitBoard.current === board.id) return;
+    initialFitBoard.current = board.id;
+    void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 0, ...canvasFitZoom(overlay) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ボードごとに最初の1回だけ
+  }, [nodesInitialized, board.id]);
 
   useEffect(() => {
     if (overlay) return;

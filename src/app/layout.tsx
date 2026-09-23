@@ -3,6 +3,7 @@ import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 
 import { AppProviders } from "@/components/app-providers";
 import "./globals.css";
+import "./app-chrome.css";
 
 const notoSans = Noto_Sans_JP({
   variable: "--font-sans",

@@ -4,38 +4,28 @@ import { cn } from "@/lib/utils";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
+/** ロゴ兼「ホーム」ボタン。パンくずの先頭に置く。 */
 export function BrandMark({
   onHome,
-  compact = false,
+  active = false,
   className,
 }: {
   onHome?: () => void;
-  compact?: boolean;
+  active?: boolean;
   className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onHome}
-      className={cn(
-        "flex min-w-0 items-center gap-2 rounded-xl px-1.5 py-1 text-left transition hover:bg-muted/60",
-        className,
-      )}
-      aria-label="TopicStream のホームへ"
+      className={cn("app-crumb-home", active && "app-crumb-home-active", className)}
+      aria-label="ホームへ（キーワード入力とテーマ一覧）"
+      aria-current={active ? "page" : undefined}
+      title="ホーム"
     >
-      <img
-        src={`${base}/topicstream-logo.svg`}
-        alt=""
-        width={compact ? 28 : 32}
-        height={compact ? 28 : 32}
-        className="size-7 shrink-0 rounded-lg sm:size-8"
-      />
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold leading-none tracking-tight">TopicStream</span>
-        {compact ? null : (
-          <span className="mt-0.5 hidden text-[10px] tracking-[0.18em] text-muted-foreground sm:block">HOME</span>
-        )}
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
+      <img src={`${base}/topicstream-logo.svg`} alt="" width={26} height={26} className="size-[26px] shrink-0 rounded-lg" />
+      <span className="hidden text-sm font-semibold tracking-tight sm:inline">TopicStream</span>
     </button>
   );
 }

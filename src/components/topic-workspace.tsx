@@ -82,11 +82,13 @@ export function TopicWorkspace() {
           boards={controller.snapshot?.boards ?? [board]}
           activeBoard={board}
           settings={settings}
+          atHome={showHome}
           canUndo={controller.undoStack.length > 0}
           canRedo={controller.redoStack.length > 0}
           canRegenerate={Boolean(focusedId) && !showHome}
           hasNodes={board.nodes.length > 0}
           onHome={() => setAtHome(true)}
+          onResume={() => setAtHome(false)}
           onSwitch={(id) => {
             setAtHome(false);
             controller.switchBoard(id);
@@ -95,9 +97,12 @@ export function TopicWorkspace() {
             setAtHome(true);
             controller.createBoard();
           }}
-          onRename={controller.renameActive}
-          onDelete={controller.deleteActive}
-          onDuplicate={controller.duplicateActive}
+          onRename={controller.renameBoard}
+          onDelete={controller.deleteBoard}
+          onDuplicate={(id) => {
+            setAtHome(false);
+            controller.duplicateBoard(id);
+          }}
           onExport={controller.exportJson}
           onImport={(text) => {
             setAtHome(false);
