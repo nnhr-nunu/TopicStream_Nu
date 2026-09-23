@@ -94,5 +94,9 @@ describe("展開のやり直し", () => {
     expect(board.nodes[0]!.data.heartCount).toBe(3);
     board = ops.toggleHeart(board, id);
     expect(board.nodes[0]!.data.heartCount).toBeUndefined();
+    board = ops.bumpFrameHearts(board, id, 1);
+    expect(board.nodes[0]!.data.frameHearts).toBe(1);
+    board = ops.bumpFrameHearts(board, id, 2);
+    expect(board.nodes[0]!.data.frameHearts).toBe(3);
   });
 });

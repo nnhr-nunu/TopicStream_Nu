@@ -65,6 +65,10 @@ function asNode(value: unknown): TNode | null {
         typeof node.data.heartCount === "number" && node.data.heartCount > 0
           ? Math.min(9999, Math.round(node.data.heartCount))
           : undefined,
+      frameHearts:
+        typeof node.data.frameHearts === "number" && node.data.frameHearts > 0
+          ? Math.min(9999, Math.round(node.data.frameHearts))
+          : undefined,
     },
   };
 }
@@ -118,6 +122,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
     generationLayout,
     streamUrl: typeof settings.streamUrl === "string" ? settings.streamUrl.slice(0, 400) : "",
     youtubeApiKey: typeof settings.youtubeApiKey === "string" ? settings.youtubeApiKey : "",
+    showComments: settings.showComments === true,
   };
 }
 

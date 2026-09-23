@@ -289,6 +289,10 @@ export function useBoardController() {
     (nodeId: string, delta = 1) => updateBoard((board) => ops.bumpHeart(board, nodeId, delta)),
     [updateBoard],
   );
+  const bumpFrameHearts = useCallback(
+    (nodeId: string, delta = 1) => updateBoard((board) => ops.bumpFrameHearts(board, nodeId, delta)),
+    [updateBoard],
+  );
 
   const createBoard = useCallback(
     (name?: string) => {
@@ -529,6 +533,7 @@ export function useBoardController() {
     publishWatchLink,
     toggleHeart,
     bumpHeart,
+    bumpFrameHearts,
   };
 }
 

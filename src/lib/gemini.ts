@@ -1,5 +1,6 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
+import { isJunkTopic, padTopics } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult } from "@/lib/types";
 
@@ -32,16 +33,20 @@ export async function generateRelatedTopics(options: {
       throw new Error(`gemini proxy ${response.status}`);
     }
     const json = (await response.json()) as GenerateResult;
-    if (!Array.isArray(json.topics) || json.topics.length === 0) {
+    const parsed = (Array.isArray(json.topics) ? json.topics : []).filter(
+      (item): item is string => typeof item === "string" && !isJunkTopic(item),
+    );
+    const topics = padTopics(parsed, mock, count, options.seed);
+    if (parsed.length === 0) {
       return {
-        topics: mock,
+        topics,
         source: "mock",
         warning: json.warning ?? "AIの返答が空だったので、オフライン生成に切り替えました",
         debug: json.debug,
       };
     }
     return {
-      topics: json.topics.slice(0, count),
+      topics,
       source: json.source === "gemini" ? "gemini" : "mock",
       warning: json.warning,
       debug: json.debug,
