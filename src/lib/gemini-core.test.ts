@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTopics, GeminiRequestError, geminiFailureWarning } from "@/lib/gemini-core";
+import {
+  GeminiRequestError,
+  geminiDebug,
+  geminiFailureWarning,
+  parseGoogleError,
+  parseTopics,
+} from "@/lib/gemini-core";
+import { redactSecret } from "@/lib/env-secret";
 
 describe("Gemini の返答パース", () => {
   it("JSON配列から重複とお題を除く", () => {
@@ -10,10 +17,36 @@ describe("Gemini の返答パース", () => {
 });
 
 describe("Gemini の失敗メッセージ", () => {
-  it("キーやURLを含めず、日本語で理由を返す", () => {
-    const warning = geminiFailureWarning(new GeminiRequestError("http", 403));
-    expect(warning).toContain("キーを受け付けませんでした");
+  it("キーやURLを含めず、reason を日本語に載せる", () => {
+    const error = new GeminiRequestError(
+      "http",
+      geminiDebug({
+        reason: "http-403",
+        httpStatus: 403,
+        googleStatus: "PERMISSION_DENIED",
+        model: "gemini-2.0-flash",
+      }),
+    );
+    const warning = geminiFailureWarning(error);
+    expect(warning).toContain("http-403");
+    expect(warning).toContain("PERMISSION_DENIED");
+    expect(warning).toContain("gemini-2.0-flash");
     expect(warning).not.toMatch(/AIza|key=/i);
-    expect(geminiFailureWarning(new GeminiRequestError("timeout"))).toContain("遅かった");
+    expect(geminiFailureWarning(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "gemini-2.0-flash" })))).toContain(
+      "timeout",
+    );
+  });
+
+  it("Google の error JSON から status と message を取り、キーを消す", () => {
+    const parsed = parseGoogleError({
+      error: {
+        status: "PERMISSION_DENIED",
+        message: "API key AIzaSyExample leaked key=secret",
+      },
+    });
+    expect(parsed.googleStatus).toBe("PERMISSION_DENIED");
+    expect(parsed.googleMessage).toContain("[redacted]");
+    expect(parsed.googleMessage).not.toContain("AIzaSyExample");
+    expect(redactSecret("key=AIzaSyExample")).toBe("key=[redacted]");
   });
 });

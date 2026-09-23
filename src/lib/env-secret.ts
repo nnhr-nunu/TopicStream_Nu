@@ -12,3 +12,11 @@ export function sanitizeSecret(raw: string | undefined | null): string {
 export function readGeminiApiKey(): string {
   return sanitizeSecret(process.env.GEMINI_API_KEY);
 }
+
+/** ログや画面にキーが混ざらないようにする。 */
+export function redactSecret(text: string): string {
+  return text
+    .replace(/AIza[0-9A-Za-z_-]{8,}/g, "[redacted]")
+    .replace(/key=[^&\s"'`]+/gi, "key=[redacted]")
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]");
+}

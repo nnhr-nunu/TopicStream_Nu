@@ -37,18 +37,21 @@ export async function generateRelatedTopics(options: {
         topics: mock,
         source: "mock",
         warning: json.warning ?? "AIの返答が空だったので、オフライン生成に切り替えました",
+        debug: json.debug,
       };
     }
     return {
       topics: json.topics.slice(0, count),
       source: json.source === "gemini" ? "gemini" : "mock",
       warning: json.warning,
+      debug: json.debug,
     };
   } catch {
     return {
       topics: mock,
       source: "mock",
       warning: "Geminiに届かなかったので、オフライン生成を使いました",
+      debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
     };
   }
 }
