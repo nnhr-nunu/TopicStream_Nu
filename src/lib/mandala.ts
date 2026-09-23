@@ -40,11 +40,24 @@ function childrenOf(nodes: TNode[], parentId: string | null): TNode[] {
     .sort((a, b) => a.data.appearIndex - b.data.appearIndex || a.id.localeCompare(b.id));
 }
 
-function unitStep(from: Grid, to: Grid): Point {
+export function mandalaOutward(from: Grid, to: Grid): Point {
   const dx = Math.sign(to.gx - from.gx);
   const dy = Math.sign(to.gy - from.gy);
   if (dx === 0 && dy === 0) return { x: 1, y: 0 };
   return { x: dx, y: dy };
+}
+
+function unitStep(from: Grid, to: Grid): Point {
+  return mandalaOutward(from, to);
+}
+
+export function pickMandalaAttachOrigin(
+  clicked: Grid,
+  outward: Point,
+  occupied: Grid[],
+): Grid {
+  const taken = new Set(occupied.map((cell) => cellKey(cell.gx, cell.gy)));
+  return pickBlockOrigin(clicked, outward, taken, true);
 }
 
 function neighborsFree(origin: Grid, taken: Set<string>, includeCenter = true): boolean {
@@ -125,12 +138,15 @@ export function placeMandalaChildren(options: {
   }));
   const { pitchX, pitchY } = mandalaPitch(dummy, prefs);
   const outward = awayFrom
-    ? { x: Math.sign(parent.x - awayFrom.x) || 1, y: Math.sign(parent.y - awayFrom.y) }
+    ? {
+        x: Math.sign(parent.x - awayFrom.x),
+        y: Math.sign(parent.y - awayFrom.y),
+      }
     : { x: 0, y: 0 };
   const origin =
     outward.x === 0 && outward.y === 0
       ? { gx: 0, gy: 0 }
-      : { gx: outward.x * 2, gy: outward.y * 2 };
+      : { gx: (outward.x || 0) * 2, gy: (outward.y || 0) * 2 };
   return Array.from({ length: count }, (_, index) => {
     const offset =
       count === 9
@@ -303,6 +319,32 @@ export function layoutMandala(board: Board, prefs: Required<LayoutPrefs>): Board
   }
 
   function attachOrigin(groupId: number): Grid {
+    const hub = nodes.find((node) => node.data.hostsGroupId === groupId);
+    if (hub) {
+      const homeGroup = hub.data.groupId;
+      const homeCenter =
+        typeof homeGroup === "number"
+          ? nodes.find(
+              (node) =>
+                node.id !== hub.id &&
+                node.data.groupId === homeGroup &&
+                (node.data.cellIndex === CENTER_CELL_INDEX || node.data.role === "source"),
+            )
+          : undefined;
+      const parentGrid =
+        (homeCenter ? grids.get(homeCenter.id) : undefined) ??
+        (hub.data.parentId ? grids.get(hub.data.parentId) : undefined);
+      const cellOffset =
+        typeof hub.data.cellIndex === "number"
+          ? (MANDALA_CELL_OFFSETS[hub.data.cellIndex] ?? { x: 0, y: 0 })
+          : { x: 0, y: 0 };
+      const hubHome: Grid = parentGrid
+        ? { gx: parentGrid.gx + cellOffset.x, gy: parentGrid.gy + cellOffset.y }
+        : grids.get(hub.id) ?? { gx: cellOffset.x, gy: cellOffset.y };
+      const outward = parentGrid ? unitStep(parentGrid, hubHome) : { x: 1, y: 0 };
+      return pickBlockOrigin(hubHome, outward, taken, true);
+    }
+
     const center = groupCenter(nodes, groupId);
     const anchorId = center?.data.copiedFromId ?? center?.data.parentId ?? null;
     const anchorGrid = anchorId ? grids.get(anchorId) : undefined;
