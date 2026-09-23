@@ -42,9 +42,9 @@ export function SettingsSheet({
   useEffect(() => {
     void fetch("/api/gemini")
       .then((response) => response.json())
-      .then((json: { configured?: boolean; hint?: string }) => {
+      .then((json: { configured?: boolean; hint?: string; note?: string }) => {
         setHostConfigured(Boolean(json.configured));
-        setHostHint(typeof json.hint === "string" ? json.hint : "");
+        setHostHint(typeof json.hint === "string" ? json.hint : typeof json.note === "string" ? json.note : "");
       })
       .catch(() => {
         setHostConfigured(false);
@@ -159,7 +159,7 @@ export function SettingsSheet({
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
               {hostConfigured
-                ? "ホストに GEMINI_API_KEY があります。空欄のままでも AI が使えます。"
+                ? "ホストに GEMINI_API_KEY があります（configured: true はキーがあるだけで、Google が通ったとは限りません）。空欄のままでもサーバー側のキーを使います。"
                 : hostHint ||
                   "空欄・失敗時はオフライン生成です。Vercel なら Preview と Production の両方にキーを入れて再デプロイしてください。GitHub Pages ではサーバーキーは使えません。"}
               発行は{" "}
