@@ -251,40 +251,18 @@ function beginNewMandala(
 ): { board: Board; childIds: string[]; edgeIds: string[] } {
   const groupId = nextGroupId(board.nodes);
   const familyIndex = familyIndexForGroup(groupId);
-  const centerId = createId("n");
-  const center: TNode = {
-    id: centerId,
-    position: { ...parent.position },
-    data: {
-      label: parent.data.label,
-      memo: "",
-      parentId: parent.id,
-      expanded: true,
-      expanding: false,
-      placeholder: false,
-      depth: parent.data.depth + 1,
-      appearIndex: 0,
-      sproutX: 0,
-      sproutY: 0,
-      groupId,
-      cellIndex: CENTER_CELL_INDEX,
-      familyIndex,
-      role: "source",
-      copiedFromId: parent.id,
-    },
-  };
   const keywords: TNode[] = KEYWORD_CELL_INDICES.map((cellIndex, index) => ({
     id: createId("n"),
     position: { ...parent.position },
     data: {
       label: "…",
       memo: "",
-      parentId: centerId,
+      parentId: parent.id,
       expanded: false,
       expanding: false,
       placeholder: true,
-      depth: parent.data.depth + 2,
-      appearIndex: index + 1,
+      depth: parent.data.depth + 1,
+      appearIndex: index,
       sproutX: 0,
       sproutY: 0,
       groupId,
@@ -293,22 +271,41 @@ function beginNewMandala(
       role: "keyword",
     },
   }));
-  const edge: TEdge = { id: createId("e"), source: parent.id, target: centerId };
-  const childIds = [centerId, ...keywords.map((node) => node.id)];
+  const parentCenterId = parent.data.parentId;
+  const edgeIds: string[] = [];
+  const edges = [...board.edges];
+  if (parentCenterId && !edges.some((edge) => edge.source === parentCenterId && edge.target === parent.id)) {
+    const edge: TEdge = { id: createId("e"), source: parentCenterId, target: parent.id };
+    edges.push(edge);
+    edgeIds.push(edge.id);
+  }
+  const childIds = keywords.map((node) => node.id);
   const next = applyLayout(
     touch(board, {
       nodes: board.nodes
         .map((node) =>
-          node.id === parent.id ? { ...node, data: { ...node.data, expanding: true, expanded: true } } : node,
+          node.id === parent.id
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  expanding: true,
+                  expanded: true,
+                  role: "source" as const,
+                  familyIndex,
+                  hostsGroupId: groupId,
+                },
+              }
+            : node,
         )
-        .concat(center, keywords),
-      edges: [...board.edges, edge],
+        .concat(keywords),
+      edges,
       focusedNodeId: parent.id,
     }),
     densityOrPrefs,
     overlay,
   );
-  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds: [edge.id] };
+  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds };
 }
 
 function isIncompleteMandalaCenter(board: Board, parent: TNode): boolean {
@@ -420,18 +417,27 @@ export function undoExpand(board: Board, action: HistoryEntry): Board {
   const remainingIds = new Set(remaining.map((node) => node.id));
   const dropEdges = new Set(action.edgeIds);
   return touch(board, {
-    nodes: remaining.map((node) =>
-      node.id === action.parentId
-        ? {
-            ...node,
-            data: {
-              ...node.data,
-              expanded: remaining.some((child) => child.data.parentId === action.parentId),
-              expanding: false,
-            },
-          }
-        : node,
-    ),
+    nodes: remaining.map((node) => {
+      if (node.id !== action.parentId) return node;
+      const stillHasKids = remaining.some((child) => child.data.parentId === action.parentId);
+      const homeFamily =
+        typeof node.data.groupId === "number" ? familyIndexForGroup(node.data.groupId) : node.data.familyIndex;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          expanded: stillHasKids,
+          expanding: false,
+          hostsGroupId: stillHasKids ? node.data.hostsGroupId : undefined,
+          role: stillHasKids
+            ? node.data.role
+            : node.data.cellIndex === CENTER_CELL_INDEX || node.data.parentId === null
+              ? "source"
+              : "keyword",
+          familyIndex: stillHasKids ? node.data.familyIndex : homeFamily,
+        },
+      };
+    }),
     edges: board.edges.filter(
       (edge) =>
         remainingIds.has(edge.source) &&
@@ -550,6 +556,41 @@ export function focusNode(board: Board, nodeId: string | null): Board {
 export function renameBoard(board: Board, name: string): Board {
   const trimmed = name.trim();
   return touch(board, { name: trimmed || board.name });
+}
+
+export function duplicateBoard(board: Board, name?: string): Board {
+  const now = Date.now();
+  return {
+    ...board,
+    id: createId("board"),
+    name: name?.trim() || `${board.name}のコピー`,
+    createdAt: now,
+    updatedAt: now,
+    nodes: board.nodes.map(cloneNode),
+    edges: board.edges.map(cloneEdge),
+  };
+}
+
+export function toggleHeart(board: Board, nodeId: string): Board {
+  return touch(board, {
+    nodes: board.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const current = node.data.heartCount ?? 0;
+      const next = current > 0 ? 0 : 1;
+      return { ...node, data: { ...node.data, heartCount: next || undefined } };
+    }),
+  });
+}
+
+export function bumpHeart(board: Board, nodeId: string, delta = 1): Board {
+  if (delta === 0) return board;
+  return touch(board, {
+    nodes: board.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const next = Math.max(0, Math.min(9999, (node.data.heartCount ?? 0) + delta));
+      return { ...node, data: { ...node.data, heartCount: next || undefined } };
+    }),
+  });
 }
 
 export function syncPositions(board: Board, positions: Record<string, { x: number; y: number }>): Board {
