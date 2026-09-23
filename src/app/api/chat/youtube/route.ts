@@ -6,8 +6,8 @@ type YoutubeMessage = { id: string; text: string };
 export type YoutubeChatProblem = "no-key" | "not-live" | "quota" | "forbidden" | "ended" | "network";
 
 /**
- * liveChat/messages は1回5ユニット。1日1万ユニットの枠を2時間ほどで使い切らないよう、
- * YouTube が指定する間隔より短くは読まない。
+ * 1日1万ユニットの枠（Google Cloud プロジェクト単位）を配信中に使い切らないよう、
+ * YouTube が指定する間隔より短くは読まない（公式表では list は1ユニット、実測で5ユニットとの報告もある）。
  */
 const MIN_POLL_MS = 8_000;
 
