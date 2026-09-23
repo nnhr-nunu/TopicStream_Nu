@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = {
   generationLayout: "mandala" as const,
   streamUrl: "",
   youtubeApiKey: "",
+  showComments: false,
 };
 
 export const RADIUS = {
