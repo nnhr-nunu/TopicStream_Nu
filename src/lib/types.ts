@@ -90,6 +90,7 @@ export type GenerateSource = "gemini" | "mock";
 
 export type GeminiDebug = {
   reason: string;
+  kind: string;
   googleStatus?: string;
   googleMessage?: string;
   httpStatus?: number;
