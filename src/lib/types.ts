@@ -98,6 +98,8 @@ export type GeminiDebug = {
   host: string;
   model: string;
   tried?: string[];
+  /** 試したモデルごとの結果（例: "gemini-3.5-flash: timeout"）。キーは含めない。 */
+  attempts?: string[];
 };
 
 export type GenerateResult = {

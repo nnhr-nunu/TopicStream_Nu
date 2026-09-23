@@ -4,7 +4,8 @@ import { geminiDebug, geminiFailureWarning, GeminiRequestError, padTopics, reque
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult, GeminiDebug } from "@/lib/types";
 
-export const maxDuration = 15;
+/** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
+export const maxDuration = 30;
 
 function mockResult(
   seed: string,
