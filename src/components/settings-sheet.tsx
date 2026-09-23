@@ -81,18 +81,6 @@ export function SettingsSheet({
 
         <div className="flex flex-col gap-5 px-4 pb-8">
           <section className="space-y-2">
-            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">配信</p>
-            <Row label="配信URL" htmlFor="stream-url">
-              <Input
-                id="stream-url"
-                value={settings.streamUrl}
-                placeholder="Studio / watch / Twitch"
-                onChange={(event) => onPatch({ streamUrl: event.target.value })}
-              />
-            </Row>
-          </section>
-
-          <section className="space-y-2">
             <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">AI</p>
             <Row label="Gemini" htmlFor="gemini-key">
               <div className="flex gap-1">
