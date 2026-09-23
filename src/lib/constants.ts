@@ -7,8 +7,18 @@ export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
 export const ROOT_LABEL_MAX = 48;
 export const LABEL_EDIT_MAX = 80;
-export const DEFAULT_MODEL = "gemini-2.0-flash";
-export const GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-flash-latest"] as const;
+export const DEFAULT_MODEL = "gemini-2.5-flash";
+/** キーや時期で欠けるモデルがあるので、重複なしで順に試す。廃止の gemini-2.0-flash は含めない。 */
+export const GEMINI_FALLBACK_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-flash-latest",
+  "gemini-2.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+] as const;
+export const RETIRED_GEMINI_MODELS = ["gemini-2.0-flash"] as const;
 export const GEMINI_HOST = "generativelanguage.googleapis.com";
 
 export const GEMINI_MODELS = [
@@ -29,6 +39,7 @@ export const DEFAULT_SETTINGS = {
   generationLayout: "mandala" as const,
   streamUrl: "",
   youtubeApiKey: "",
+  showComments: false,
 };
 
 export const RADIUS = {

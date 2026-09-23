@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as ops from "@/lib/board-ops";
 import { layoutBoard, minNodeGap, placeChildren } from "@/lib/layout";
 import { cellCode, CENTER_CELL_INDEX, familyIndexForGroup } from "@/lib/mandala-ids";
-import { MANDALA_OFFSETS } from "@/lib/mandala";
+import { MANDALA_OFFSETS, mandalaOutward, pickMandalaAttachOrigin } from "@/lib/mandala";
 import { GLYPH_PAD, hasGlyphOverlap, normalizePrefs } from "@/lib/node-box";
 import { emptyBoard } from "@/lib/storage";
 import type { Board } from "@/lib/types";
@@ -149,6 +149,77 @@ describe("マンダラート", () => {
     const used = new Set(next.nodes.map((node) => `${node.position.x},${node.position.y}`));
     expect(used.size).toBe(next.nodes.length);
     expect(hasGlyphOverlap(next.nodes, positionsOf(next), prefs, GLYPH_PAD - 1)).toBe(false);
+  });
+
+  it("クリックしたマスの向きに新しい3×3が付く（反対側へ飛ばない）", () => {
+    const occupied = [
+      { gx: -1, gy: -1 },
+      { gx: 0, gy: -1 },
+      { gx: 1, gy: -1 },
+      { gx: -1, gy: 0 },
+      { gx: 0, gy: 0 },
+      { gx: 1, gy: 0 },
+      { gx: -1, gy: 1 },
+      { gx: 0, gy: 1 },
+      { gx: 1, gy: 1 },
+    ];
+    const parent = { gx: 0, gy: 0 };
+    const cases = [
+      { clicked: { gx: 1, gy: 0 }, side: "right" as const },
+      { clicked: { gx: -1, gy: 0 }, side: "left" as const },
+      { clicked: { gx: 0, gy: -1 }, side: "up" as const },
+      { clicked: { gx: 0, gy: 1 }, side: "down" as const },
+      { clicked: { gx: 1, gy: -1 }, side: "ne" as const },
+      { clicked: { gx: -1, gy: 1 }, side: "sw" as const },
+    ];
+    for (const item of cases) {
+      const outward = mandalaOutward(parent, item.clicked);
+      const origin = pickMandalaAttachOrigin(item.clicked, outward, occupied);
+      if (item.side === "right" || item.side === "ne") expect(origin.gx).toBeGreaterThan(item.clicked.gx);
+      if (item.side === "left" || item.side === "sw") expect(origin.gx).toBeLessThan(item.clicked.gx);
+      if (item.side === "up" || item.side === "ne") expect(origin.gy).toBeLessThan(item.clicked.gy);
+      if (item.side === "down" || item.side === "sw") expect(origin.gy).toBeGreaterThan(item.clicked.gy);
+      if (item.side === "right") expect(origin.gy).toBe(item.clicked.gy);
+      if (item.side === "left") expect(origin.gy).toBe(item.clicked.gy);
+      if (item.side === "up") expect(origin.gx).toBe(item.clicked.gx);
+      if (item.side === "down") expect(origin.gx).toBe(item.clicked.gx);
+    }
+  });
+
+  it("左のマスを開くと新しいまとまりは左に付き、右へ飛ばない", () => {
+    const { board, prefs } = expandTree("mandala");
+    const west = board.nodes.find((node) => node.data.cellIndex === 3)!;
+    expect(cellCode(west.data.groupId!, west.data.cellIndex!)).toBe("1D");
+    const nested = ops.beginExpand(board, west.id, 8, prefs)!;
+    const next = ops.fillExpand(
+      nested.board,
+      west.id,
+      nested.childIds,
+      nested.childIds.map((_, index) => `西の話${index + 1}`),
+      prefs,
+    );
+    const parentCenter = next.nodes.find((node) => node.data.groupId === 1 && node.data.cellIndex === CENTER_CELL_INDEX)!;
+    const moved = next.nodes.find((node) => node.id === west.id)!;
+    expect(moved.position.x).toBeLessThan(parentCenter.position.x);
+    const keywords = next.nodes.filter((node) => node.data.groupId === 2 && node.data.role === "keyword");
+    expect(keywords.every((node) => node.position.x < parentCenter.position.x)).toBe(true);
+  });
+
+  it("上のマスを開くと新しいまとまりは上に付く", () => {
+    const { board, prefs } = expandTree("mandala");
+    const north = board.nodes.find((node) => node.data.cellIndex === 1)!;
+    expect(cellCode(north.data.groupId!, north.data.cellIndex!)).toBe("1B");
+    const nested = ops.beginExpand(board, north.id, 8, prefs)!;
+    const next = ops.fillExpand(
+      nested.board,
+      north.id,
+      nested.childIds,
+      nested.childIds.map((_, index) => `北の話${index + 1}`),
+      prefs,
+    );
+    const parentCenter = next.nodes.find((node) => node.data.groupId === 1 && node.data.cellIndex === CENTER_CELL_INDEX)!;
+    const keywords = next.nodes.filter((node) => node.data.groupId === 2 && node.data.role === "keyword");
+    expect(keywords.every((node) => node.position.y < parentCenter.position.y)).toBe(true);
   });
 
   it("付箋は3×3のマス間隔を変えない", () => {

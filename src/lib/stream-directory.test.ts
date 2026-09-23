@@ -39,4 +39,13 @@ describe("配信一覧", () => {
     expect(same[0]?.watchId).toBe("share_demo");
     expect(same[0]?.live).toBe(true);
   });
+
+  it("StudioのチャットURLも同じ動画として一覧に載る", () => {
+    const linked = publicStreamFromLink({
+      url: "https://studio.youtube.com/live_chat?is_popout=1&v=NUCX55gmkkM",
+      title: "Studioの枠",
+    });
+    expect(linked?.id).toBe("linked_youtube_NUCX55gmkkM");
+    expect(linked?.platform).toBe("youtube");
+  });
 });

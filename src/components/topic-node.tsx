@@ -6,9 +6,11 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { useBoardActions } from "@/components/board-actions";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
 import { StickyNotePanel } from "@/components/sticky-note-panel";
+import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { usePulseCodes } from "@/hooks/use-pulse-codes";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { fitLabelFontSize } from "@/lib/fit-label";
+import { frameHeartOrbit, visibleFrameHeartCount } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
 import { MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     typeof data.groupId === "number" && typeof data.cellIndex === "number"
       ? cellCode(data.groupId, data.cellIndex)
       : "";
+  const festiveHearts = useChatHearts(code);
+  const frameHeartTotal = data.frameHearts ?? 0;
+  const frameHearts = Array.from({ length: visibleFrameHeartCount(frameHeartTotal) }, (_, index) => ({
+    id: index,
+    ...frameHeartOrbit(index),
+  }));
   const family = data.familyIndex ?? 0;
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   const canExpand = !data.expanded && !data.expanding && !data.placeholder;
@@ -115,6 +123,43 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     >
       <Handle type="target" position={Position.Top} className="!opacity-0 !h-1 !w-1 !border-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-1 !w-1 !border-0" />
+
+      {frameHearts.length > 0 ? (
+        <div className="topic-frame-hearts" aria-label={`コメントのハート ${frameHeartTotal}`}>
+          {frameHearts.map((heart) => (
+            <span
+              key={heart.id}
+              className="topic-frame-heart"
+              style={{
+                ["--hx" as string]: `${heart.dx}px`,
+                ["--hy" as string]: `${heart.dy}px`,
+                ["--hs" as string]: String(heart.scale),
+              }}
+            >
+              ❤
+            </span>
+          ))}
+          {frameHeartTotal > 1 ? <span className="topic-frame-heart-count">{frameHeartTotal}</span> : null}
+        </div>
+      ) : null}
+
+      {festiveHearts.length > 0 ? (
+        <div className="topic-festive" aria-hidden>
+          {festiveHearts.map((heart) => (
+            <span
+              key={heart.id}
+              className="topic-festive-heart"
+              style={{
+                ["--hx" as string]: `${heart.dx}px`,
+                ["--hy" as string]: `${heart.dy}px`,
+                ["--hs" as string]: String(heart.scale),
+              }}
+            >
+              ❤
+            </span>
+          ))}
+        </div>
+      ) : null}
 
       {data.placeholder ? null : overlay ? (
         hearts > 0 ? (
