@@ -27,7 +27,7 @@ function canvasFitPadding(overlay: boolean) {
   const px = (value: number): `${number}px` => `${value}px`;
   return {
     top: px(narrow ? 108 : 88),
-    bottom: px(narrow ? 88 : 72),
+    bottom: px(narrow ? 96 : 86),
     left: px(narrow ? 12 : 28),
     right: px(narrow ? 12 : 28),
   };

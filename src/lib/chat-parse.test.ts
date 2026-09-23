@@ -14,6 +14,12 @@ describe("コメントのID", () => {
     expect(normalizeCellCode("3e")).toBe("3E");
   });
 
+  it("IDだけのコメントは反応対象で、ハート絵文字なしでもコードが残る", () => {
+    expect(parseChatComment("4F").highlightCodes).toEqual(["4F"]);
+    expect(parseChatComment("4Fが聞きたい").highlightCodes).toEqual(["4F"]);
+    expect(parseChatComment("4F").heartCodes).toEqual([]);
+  });
+
   it("❤ や 好き はそのIDのハートにする", () => {
     expect(parseChatComment("3E ❤").heartCodes).toEqual(["3E"]);
     expect(parseChatComment("3E好き").heartCodes).toEqual(["3E"]);
@@ -29,8 +35,27 @@ describe("配信URL", () => {
       videoId: "jfKfPfyJRdk",
       url: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
     });
+    expect(parseStreamUrl("https://youtu.be/jfKfPfyJRdk")).toMatchObject({
+      kind: "youtube",
+      videoId: "jfKfPfyJRdk",
+    });
     expect(parseStreamUrl("https://www.twitch.tv/nunu")).toMatchObject({ kind: "twitch", channel: "nunu" });
     expect(parseStreamUrl("not-a-url")).toBeNull();
+  });
+
+  it("Studioのライブ配信ページとチャットポップアウトから同じ動画IDを取る", () => {
+    const liveChat = "https://studio.youtube.com/live_chat?is_popout=1&v=NUCX55gmkkM";
+    const livestreaming = "https://studio.youtube.com/video/NUCX55gmkkM/livestreaming";
+    expect(parseStreamUrl(liveChat)).toEqual({
+      kind: "youtube",
+      videoId: "NUCX55gmkkM",
+      url: liveChat,
+    });
+    expect(parseStreamUrl(livestreaming)).toEqual({
+      kind: "youtube",
+      videoId: "NUCX55gmkkM",
+      url: livestreaming,
+    });
   });
 });
 
