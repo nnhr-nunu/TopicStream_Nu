@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { findNodeByCode, parseChatComment } from "@/lib/chat-parse";
+import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
@@ -39,7 +40,11 @@ export function LiveChatDock({
     (text: string) => {
       if (!board) return;
       const parsed = parseChatComment(text, pinnedCode ?? "");
-      if (parsed.highlightCodes.length > 0) emitPulse(parsed.highlightCodes);
+      if (parsed.highlightCodes.length > 0) {
+        emitPulse(parsed.highlightCodes);
+        emitChatHearts(parsed.highlightCodes, 3);
+      }
+      if (parsed.heartCodes.length > 0) emitChatHearts(parsed.heartCodes, 4);
       for (const code of parsed.heartCodes) {
         const node = findNodeByCode(board.nodes, code);
         if (node) onHeart(node.id);
