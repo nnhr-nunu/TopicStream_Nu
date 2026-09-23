@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as ops from "@/lib/board-ops";
 import { layoutBoard, minNodeGap, placeChildren } from "@/lib/layout";
+import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import { MANDALA_OFFSETS } from "@/lib/mandala";
 import { GLYPH_PAD, hasGlyphOverlap, normalizePrefs } from "@/lib/node-box";
 import { emptyBoard } from "@/lib/storage";
@@ -30,7 +31,7 @@ function expandTree(
   const first = ops.beginExpand(board, rootId, 8, prefs);
   expect(first).not.toBeNull();
   board = ops.fillExpand(first!.board, rootId, first!.childIds, labels, prefs);
-  return { board, rootId, childIds: first!.childIds, prefs };
+  return { board, rootId, childIds: first!.childIds, prefs, edgeIds: first!.edgeIds };
 }
 
 describe("実サイズの重なり", () => {
@@ -80,46 +81,102 @@ describe("実サイズの重なり", () => {
 });
 
 describe("マンダラート", () => {
-  it("中央が親で、周囲8マスがマス目に乗る", () => {
-    const { board, rootId, prefs } = expandTree("mandala");
+  it("最初の展開は同じグループの9マスで、線はなく ID は 1A〜1I", () => {
+    const { board, rootId, childIds, prefs } = expandTree("mandala");
     const { pitchX, pitchY } = inferPitch(board);
     const root = board.nodes.find((node) => node.id === rootId)!;
     expect(root.position.x).toBe(0);
     expect(root.position.y).toBe(0);
+    expect(root.data.groupId).toBe(1);
+    expect(root.data.cellIndex).toBe(CENTER_CELL_INDEX);
+    expect(cellCode(root.data.groupId!, root.data.cellIndex!)).toBe("1E");
+    expect(board.edges).toHaveLength(0);
+    expect(board.nodes).toHaveLength(9);
     const kids = board.nodes.filter((node) => node.data.parentId === rootId);
     expect(kids).toHaveLength(8);
+    expect(childIds).toHaveLength(8);
+    const codes = board.nodes.map((node) => cellCode(node.data.groupId!, node.data.cellIndex!)).sort();
+    expect(codes).toEqual(["1A", "1B", "1C", "1D", "1E", "1F", "1G", "1H", "1I"]);
     const expected = new Set(MANDALA_OFFSETS.map((offset) => `${offset.x * pitchX},${offset.y * pitchY}`));
     for (const kid of kids) {
+      expect(kid.data.groupId).toBe(1);
+      expect(kid.data.familyIndex).toBe(root.data.familyIndex);
+      expect(kid.data.role).toBe("keyword");
       expect(expected.has(`${kid.position.x},${kid.position.y}`)).toBe(true);
     }
-    expect(hasGlyphOverlap(board.nodes, positionsOf(board), { ...prefs, pinnedNodeId: board.pinnedNodeId }, GLYPH_PAD - 1)).toBe(false);
+    expect(hasGlyphOverlap(board.nodes, positionsOf(board), { ...prefs, pinnedNodeId: board.pinnedNodeId }, GLYPH_PAD - 1)).toBe(
+      false,
+    );
   });
 
-  it("マスを開くと、次の3×3がマス目のままくっつく", () => {
+  it("マスを開くと新しい3×3の中央はコピーで、線は中心同士だけ", () => {
     const { board, childIds, prefs } = expandTree("mandala");
-    const east = board.nodes.find((node) => node.id === childIds[4])!;
+    const east = board.nodes.find((node) => node.id === childIds.find((id) => {
+      const node = board.nodes.find((item) => item.id === id);
+      return node?.data.cellIndex === 5;
+    }))!;
+    const seed = east.data.label;
     const nested = ops.beginExpand(board, east.id, 8, prefs)!;
     const next = ops.fillExpand(
       nested.board,
       east.id,
       nested.childIds,
-      nested.childIds.map((_, index) => `次のマス${index + 1}`),
+      nested.childIds.filter((_, index) => index > 0).map((_, index) => `次のマス${index + 1}`),
       prefs,
     );
-    const { pitchX, pitchY } = inferPitch(next);
-    const grands = next.nodes.filter((node) => node.data.parentId === east.id);
-    expect(grands).toHaveLength(8);
+    expect(nested.edgeIds).toHaveLength(1);
+    expect(next.edges).toHaveLength(1);
+    expect(next.edges[0]!.source).toBe(east.id);
+    const center = next.nodes.find((node) => node.id === next.edges[0]!.target)!;
+    expect(center.data.label).toBe(seed);
+    expect(center.data.role).toBe("source");
+    expect(center.data.copiedFromId).toBe(east.id);
+    expect(center.data.groupId).toBe(2);
+    expect(cellCode(center.data.groupId!, center.data.cellIndex!)).toBe("2E");
+    const keywords = next.nodes.filter((node) => node.data.groupId === 2 && node.data.role === "keyword");
+    expect(keywords).toHaveLength(8);
+    expect(new Set(keywords.map((node) => node.data.familyIndex)).size).toBe(1);
+    expect(keywords[0]!.data.familyIndex).toBe(center.data.familyIndex);
+    expect(center.data.familyIndex).not.toBe(east.data.familyIndex);
     for (const node of next.nodes) {
+      const { pitchX, pitchY } = inferPitch(next);
       expect(Math.abs(node.position.x / pitchX - Math.round(node.position.x / pitchX))).toBeLessThan(0.001);
       expect(Math.abs(node.position.y / pitchY - Math.round(node.position.y / pitchY))).toBeLessThan(0.001);
     }
     const used = new Set(next.nodes.map((node) => `${node.position.x},${node.position.y}`));
     expect(used.size).toBe(next.nodes.length);
     expect(hasGlyphOverlap(next.nodes, positionsOf(next), prefs, GLYPH_PAD - 1)).toBe(false);
+    const { pitchX, pitchY } = inferPitch(next);
     const minDist = Math.min(
-      ...grands.map((node) => Math.hypot(node.position.x - east.position.x, node.position.y - east.position.y)),
+      ...[center, ...keywords].map((node) => Math.hypot(node.position.x - east.position.x, node.position.y - east.position.y)),
     );
-    expect(minDist).toBeLessThanOrEqual(Math.hypot(pitchX * 2, pitchY * 2) + 1);
+    expect(minDist).toBeLessThanOrEqual(Math.hypot(pitchX * 3, pitchY * 3) + 1);
+  });
+
+  it("付箋は3×3のマス間隔を変えない", () => {
+    const { board, childIds, prefs } = expandTree("mandala");
+    const before = inferPitch(board);
+    const withMemo = ops.setMemo(board, childIds[0]!, "とても長い付箋でもマスの幅は変えない。隣のカードも押し出さない。", prefs);
+    const after = inferPitch(withMemo);
+    expect(after.pitchX).toBe(before.pitchX);
+    expect(after.pitchY).toBe(before.pitchY);
+    expect(withMemo.nodes.map((node) => `${node.position.x},${node.position.y}`)).toEqual(
+      board.nodes.map((node) => `${node.position.x},${node.position.y}`),
+    );
+  });
+
+  it("戻すとグループ番号を再利用できる", () => {
+    const { board, childIds, prefs } = expandTree("mandala");
+    const target = board.nodes.find((node) => node.id === childIds[0]!)!;
+    const nested = ops.beginExpand(board, target.id, 8, prefs)!;
+    const filled = ops.fillExpand(nested.board, target.id, nested.childIds, ["A", "B", "C", "D", "E", "F", "G", "H"], prefs);
+    expect(filled.nodes.some((node) => node.data.groupId === 2)).toBe(true);
+    const history = ops.historyFromChildren(filled, target.id, nested.childIds, nested.edgeIds);
+    const undone = ops.undoExpand(filled, history);
+    expect(undone.nodes.some((node) => node.data.groupId === 2)).toBe(false);
+    const again = ops.beginExpand(undone, target.id, 8, prefs)!;
+    const center = again.board.nodes.find((node) => node.id === again.childIds[0]!);
+    expect(center?.data.groupId).toBe(2);
   });
 });
 
@@ -131,6 +188,7 @@ describe("placeChildren の互換", () => {
       existing: [{ x: 0, y: 0 }],
       density: "comfortable",
       parentDepth: 0,
+      generationLayout: "radial",
     });
     expect(points).toHaveLength(8);
   });
