@@ -320,4 +320,35 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.tried).toEqual([...GEMINI_FALLBACK_MODELS]);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.lastModelMs);
   });
+
+  it("ストリーミングで8個そろったら、続きを待たずに打ち切る", async () => {
+    const encoder = new TextEncoder();
+    let pulledAfterEnough = 0;
+    const sse = (text: string) => encoder.encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}
+
+`);
+    const pieces = [
+      sse('["地元あるある","深夜のコンビニ","失敗談",'),
+      sse('"推しの話","雨の日","初配信","マイブーム","部活の話"]'),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        body: new ReadableStream<Uint8Array>({
+          pull(controller) {
+            const next = pieces.shift();
+            if (next) controller.enqueue(next);
+            else pulledAfterEnough += 1; // ここに来たら「終わらない返答」を待ち続けている
+          },
+        }),
+      })),
+    );
+
+    const result = await requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 });
+    expect(result.topics).toHaveLength(8);
+    expect(result.topics).toContain("部活の話");
+    expect(pulledAfterEnough).toBeLessThanOrEqual(1);
+  });
 });
