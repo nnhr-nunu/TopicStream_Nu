@@ -6,8 +6,14 @@ export function createId(prefix = "n"): string {
 }
 
 export function todayBoardName(now = new Date()): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}/${m}/${d} 雑談枠`;
+  return `${now.getMonth() + 1}月${now.getDate()}日の雑談`;
+}
+
+export function nextBoardName(existing: string[], now = new Date()): string {
+  const today = todayBoardName(now);
+  if (!existing.includes(today)) return today;
+  if (!existing.includes("新しいボード")) return "新しいボード";
+  let index = 2;
+  while (existing.includes(`新しいボード ${index}`)) index += 1;
+  return `新しいボード ${index}`;
 }

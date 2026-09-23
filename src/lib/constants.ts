@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS = {
   nickname: "",
   colorTheme: "fresh" as const,
   generationLayout: "mandala" as const,
+  streamUrl: "",
+  youtubeApiKey: "",
 };
 
 export const RADIUS = {
