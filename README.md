@@ -38,7 +38,7 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 1. Vercel の Project → Settings → Environment Variables に `GEMINI_API_KEY` を入れる。値の前後に `"` や `'` を付けない
 2. **Production と Preview の両方** にチェックする。長い `*-projects.vercel.app` は Preview なので、Production だけだとそこではオフライン生成になります
 3. 変えたあとは **Production** を Redeploy する。`topic-stream-amber.vercel.app` は Production ドメインなので、Preview だけ直してもここには乗らない
-4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。Google が通ったかは POST の `source` と `debug` を見る
+4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。実際に生成できるかは、設定画面の「AI の話題づくりがうまくいかないとき」→「AI を試す」で確かめる
 5. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
 
 ## キー（任意・コミットしない）
@@ -46,7 +46,7 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 | 名前 | 用途 |
 | --- | --- |
 | `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成。サーバーの `/api/gemini` だけが読む |
-| `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント |
+| `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント。1日1万ユニットの枠があるので、8秒より短い間隔では読まない |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
 
-手元は `.env.local` か設定画面。マップ下の「配信URL」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
+キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。

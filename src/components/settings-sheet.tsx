@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { Eye, EyeOff, MonitorPlay, Palette, PlugZap, Settings, Sparkles, Users } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { MonitorPlay, Palette, PlugZap, Settings, Users } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -25,12 +24,12 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, GEMINI_MODELS } from "@/lib/constants";
+import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
 const LAYOUT_ITEMS = [
   { value: "mandala", label: "マンダラート（3×3）" },
-  { value: "radial", label: "放射" },
+  { value: "radial", label: "放射（マインドマップ）" },
 ] as const;
 
 function Row({
@@ -128,9 +127,9 @@ function seconds(ms?: number): string {
 }
 
 function describeKeyCheck(result: KeyCheck): { tone: "ok" | "warn" | "error"; text: string } {
-  const where = result.source === "browser" ? "この画面のキー" : "サーバーのキー";
+  const where = "AI";
   if (result.source === "none") {
-    return { tone: "error", text: "キーがありません。上に入れるか、サーバーの GEMINI_API_KEY を設定してください。" };
+    return { tone: "error", text: "この公開版では AI を使いません（オフラインの候補で動きます）。" };
   }
   if (!result.ok) {
     const code = [result.httpStatus, result.googleStatus].filter(Boolean).join(" ");
@@ -157,11 +156,11 @@ function describeKeyCheck(result: KeyCheck): { tone: "ok" | "warn" | "error"; te
         : "";
   return {
     tone: "error",
-    text: `キーは有効ですが、${gen.model} で生成できませんでした（${google}・${seconds(gen.totalMs)}）${message}。${hint}`,
+    text: `AI に接続できましたが、${gen.model} で生成できませんでした（${google}・${seconds(gen.totalMs)}）${message}。${hint}`,
   };
 }
 
-function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
+function GeminiKeyCheck() {
   const [state, setState] = useState<"idle" | "busy" | KeyCheck>("idle");
   const result = typeof state === "object" ? describeKeyCheck(state) : null;
   return (
@@ -178,17 +177,17 @@ function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
             const response = await fetch("/api/gemini/check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ apiKey: apiKey || undefined, model }),
+              body: JSON.stringify({}),
             });
             if (!response.ok) throw new Error(String(response.status));
             setState((await response.json()) as KeyCheck);
           } catch {
-            setState({ ok: false, googleMessage: "接続テストはサーバー版（Vercel / npm run dev）でだけ使えます", models: [] });
+            setState({ ok: false, googleMessage: "この公開版では AI を使いません（オフラインの候補で動きます）", models: [] });
           }
         }}
       >
         <PlugZap />
-        {state === "busy" ? "生成して確認中…" : "接続テスト（実際に生成して確認）"}
+        {state === "busy" ? "生成して確認中…" : "AI を試す"}
       </Button>
       {result ? (
         <p
@@ -215,20 +214,6 @@ export function SettingsSheet({
   settings: AppSettings;
   onPatch: (patch: Partial<AppSettings>) => void;
 }) {
-  const [showKey, setShowKey] = useState(false);
-  const [hostConfigured, setHostConfigured] = useState(false);
-
-  useEffect(() => {
-    void fetch("/api/gemini")
-      .then((response) => response.json())
-      .then((json: { configured?: boolean }) => {
-        setHostConfigured(Boolean(json.configured));
-      })
-      .catch(() => {
-        setHostConfigured(false);
-      });
-  }, []);
-
   return (
     <Sheet>
       <SheetTrigger render={<Button variant="ghost" size="icon-sm" aria-label="設定" title="設定" />}>
@@ -241,61 +226,8 @@ export function SettingsSheet({
         </SheetHeader>
 
         <div className="flex flex-col gap-3 px-4 pb-8">
-          <Section
-            icon={<Sparkles />}
-            title="AIで話題を作る"
-            description={
-              hostConfigured
-                ? "サーバーにキーが設定済みです。自分のキーを使うときだけ入れてください。"
-                : "キーが無くてもオフラインの候補で動きます。"
-            }
-          >
-            <Row label="Gemini キー" htmlFor="gemini-key">
-              <div className="flex gap-1">
-                <Input
-                  id="gemini-key"
-                  type={showKey ? "text" : "password"}
-                  autoComplete="off"
-                  value={settings.geminiApiKey}
-                  placeholder={hostConfigured ? "サーバーのキーを使う" : "任意"}
-                  onChange={(event) => onPatch({ geminiApiKey: event.target.value })}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label={showKey ? "キーを隠す" : "キーを表示"}
-                  onClick={() => setShowKey((value) => !value)}
-                >
-                  {showKey ? <EyeOff /> : <Eye />}
-                </Button>
-              </div>
-            </Row>
-            <Row label="モデル">
-              <Select
-                items={GEMINI_MODELS}
-                value={settings.geminiModel}
-                onValueChange={(value) => {
-                  if (typeof value === "string") onPatch({ geminiModel: value });
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {GEMINI_MODELS.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Row>
-            <GeminiKeyCheck apiKey={settings.geminiApiKey} model={settings.geminiModel} />
-          </Section>
-
           <Section icon={<Palette />} title="マップの見た目">
-            <Row label="広げかた" hint="マンダラートは3×3のマス、放射は中心から広がります。">
+            <Row label="広げかた" hint="マンダラートは3×3のマス、放射（マインドマップ）は中心から枝分かれして広がります。">
               <Select
                 items={LAYOUT_ITEMS}
                 value={settings.generationLayout}
@@ -343,16 +275,7 @@ export function SettingsSheet({
             />
           </Section>
 
-          <Section icon={<Users />} title="配信・視聴者" description="配信URLは画面下の「配信と連携」から設定します。">
-            <Row label="呼び名" htmlFor="nickname" hint="「いっしょに見るリンク」で視聴者に表示されます。">
-              <Input
-                id="nickname"
-                value={settings.nickname}
-                placeholder="配信者の名前"
-                maxLength={24}
-                onChange={(event) => onPatch({ nickname: event.target.value })}
-              />
-            </Row>
+          <Section icon={<Users />} title="配信" description="配信URLは画面下の「配信と連携」から設定します。">
             <Row label="コメントの文字" hint="コメント欄を配信に映すときは大きめが見やすいです。欄の A−/A＋ でも変えられます。">
               <div className="flex items-center gap-2">
                 <Slider
@@ -369,16 +292,6 @@ export function SettingsSheet({
                   {Math.round(settings.commentScale * 100)}%
                 </span>
               </div>
-            </Row>
-            <Row label="YouTube キー" htmlFor="youtube-key" hint="任意。サーバー側に無いときだけ使います。">
-              <Input
-                id="youtube-key"
-                type={showKey ? "text" : "password"}
-                autoComplete="off"
-                value={settings.youtubeApiKey}
-                placeholder="任意"
-                onChange={(event) => onPatch({ youtubeApiKey: event.target.value })}
-              />
             </Row>
           </Section>
 
@@ -402,6 +315,17 @@ export function SettingsSheet({
               OBS 用ページを開く
             </Button>
           </Section>
+          <details className="rounded-xl border border-border/70 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
+              AI の話題づくりがうまくいかないとき
+            </summary>
+            <div className="mt-3 space-y-2">
+              <p className="text-[11px] leading-4 text-muted-foreground">
+                AI が使えないときも、オフラインの候補で話題は広がります。うまく出ないときは、ここで実際に生成して確かめられます。
+              </p>
+              <GeminiKeyCheck />
+            </div>
+          </details>
         </div>
       </SheetContent>
     </Sheet>

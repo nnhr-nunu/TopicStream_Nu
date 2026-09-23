@@ -98,8 +98,6 @@ export function useBoardController() {
       const result = await generateRelatedTopics({
         seed: parent.data.label,
         existing: existingLabels,
-        apiKey: current.settings.geminiApiKey,
-        model: current.settings.geminiModel,
         preferred: preferredForSeed(parent.data.label),
       });
 
@@ -250,8 +248,6 @@ export function useBoardController() {
           generateRelatedTopics({
             seed: parent?.data.label || node.data.label,
             existing: board.nodes.map((item) => item.data.label),
-            apiKey: current.settings.geminiApiKey,
-            model: current.settings.geminiModel,
             count: 1,
             preferred: preferredForSeed(parent?.data.label || node.data.label),
           }),

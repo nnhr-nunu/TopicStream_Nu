@@ -68,7 +68,8 @@ export async function POST(request: Request) {
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });
     logDebug(debug);
-    return Response.json(mockResult(seed, existing, count, preferred, `${MISSING_KEY_HINT} オフライン生成を使いました。`, debug));
+    // キーの無い公開版ではオフライン生成が普通の動きなので、利用者には何も出さない（原因は debug とサーバーログに残す）
+    return Response.json({ topics: mockRelatedTopics(seed, existing, count, preferred), source: "mock" as const, debug });
   }
 
   try {

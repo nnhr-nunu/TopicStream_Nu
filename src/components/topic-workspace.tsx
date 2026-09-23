@@ -145,7 +145,6 @@ export function TopicWorkspace() {
             <LiveChatDock
               board={board}
               streamUrl={settings.streamUrl}
-              youtubeApiKey={settings.youtubeApiKey}
               showComments={settings.showComments}
               commentScale={settings.commentScale}
               onCommentScaleChange={(commentScale) => controller.patchSettings({ commentScale })}
