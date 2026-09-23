@@ -58,9 +58,34 @@ export function SettingsSheet({
 
         <div className="flex flex-col gap-6 px-4 pb-8">
           <section className="space-y-2">
+            <Label htmlFor="stream-url">配信URL</Label>
+            <Input
+              id="stream-url"
+              value={settings.streamUrl}
+              placeholder="YouTube か Twitch の配信URL"
+              onChange={(event) => onPatch({ streamUrl: event.target.value })}
+            />
+            <p className="text-xs leading-5 text-muted-foreground">
+              このマップのコメントを読むためのURLです。ホームの一覧は TopicStream を使っている枠の案内で、貼った配信はそこに一行で出ます。Pages ではテストコメントで 3E を確認できます。Twitchは匿名、YouTubeはキーか YOUTUBE_API_KEY が必要です。
+            </p>
+          </section>
+
+          <section className="space-y-2">
+            <Label htmlFor="youtube-key">YouTube Data APIキー（任意）</Label>
+            <Input
+              id="youtube-key"
+              type={showKey ? "text" : "password"}
+              autoComplete="off"
+              value={settings.youtubeApiKey}
+              placeholder="空ならホストの YOUTUBE_API_KEY"
+              onChange={(event) => onPatch({ youtubeApiKey: event.target.value })}
+            />
+          </section>
+
+          <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードを押すと、同じ色の 3×3（9マス）が広がります。中央は元の話題のコピー、周囲が新しいキーワードです。カード左上の 1A・2C は読み順（左→右、上→下。中央は E）。線は中心同士だけです。ホバー／タップでメニュー。ペンで文を直し、付箋はマスの大きさを変えません。ピンした話題は画面上に NOW として残ります。左下の − ＋ とホイール／ピンチで拡大。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
+              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は付箋。♡はお気に入り。ピンは NOW。コメントの 3E でカードが光ります。ロゴでホームへ。
             </p>
           </section>
 
@@ -81,7 +106,7 @@ export function SettingsSheet({
               </SelectContent>
             </Select>
             <p className="text-xs leading-6 text-muted-foreground">
-              マンダラートはクリックすると新しい 3×3 が9マス出ます。中央は元の話題のコピー（同じ色・太線）、周囲8マスは薄い同じ色です。ID はグループ番号＋A〜I（読み順）。線は関連する中心同士だけ。放射は親のまわりに円で広がります。
+              マンダラートはクリックすると新しい 3×3 が9マス出ます。中央は元の話題（同じID・太線・新しい色）、周囲8マスは薄い同じ色です。線は関連する中心同士だけ。放射は親のまわりに円で広がります。
             </p>
           </section>
 
