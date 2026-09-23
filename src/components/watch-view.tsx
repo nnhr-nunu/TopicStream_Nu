@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { PinBanner } from "@/components/pin-banner";
 import { Button } from "@/components/ui/button";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 import type { Board } from "@/lib/types";
@@ -81,6 +82,7 @@ export function WatchView({ shareId }: { shareId: string }) {
         expandNode: () => undefined,
         pinNode: () => undefined,
         setMemo: () => undefined,
+        setLabel: () => undefined,
         copyLabel: async (id) => {
           const label = viewBoard.nodes.find((node) => node.id === id)?.data.label;
           if (!label) return;
@@ -90,6 +92,7 @@ export function WatchView({ shareId }: { shareId: string }) {
         overlay: true,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: viewBoard.focusedNodeId,
+        generationLayout: board.nodes.some((node) => typeof node.data.groupId === "number") ? "mandala" : "radial",
       }}
     >
       <div className="relative h-svh overflow-hidden">
@@ -128,6 +131,7 @@ export function WatchView({ shareId }: { shareId: string }) {
             </Button>
           </div>
         </header>
+        <PinBanner label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""} />
         <BoardCanvas board={viewBoard} overlay onFocus={setLocalFocus} onPositions={() => undefined} />
       </div>
     </BoardActionsProvider>
