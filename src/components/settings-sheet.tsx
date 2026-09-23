@@ -60,7 +60,7 @@ export function SettingsSheet({
           <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードをクリックすると周りに話題が生えます。展開したあとは、その親と新しい子だけが画面の中央に来ます。左下の − ＋ とホイール／ピンチで拡大。全体でマップ全体に合わせます。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
+              キーワードを押すと、同じ色の 3×3（9マス）が広がります。中央は元の話題のコピー、周囲が新しいキーワードです。カード左上の 1A・2C は読み順（左→右、上→下。中央は E）。線は中心同士だけです。ホバー／タップでメニュー。ペンで文を直し、付箋はマスの大きさを変えません。ピンした話題は画面上に NOW として残ります。左下の − ＋ とホイール／ピンチで拡大。左上のロゴでホームへ。E 展開 · Z 戻る · G 再生成 · ＋− 拡大 · 0 全体
             </p>
           </section>
 
@@ -76,12 +76,12 @@ export function SettingsSheet({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="radial">放射（初期値）</SelectItem>
-                <SelectItem value="mandala">マンダラート（3×3マス）</SelectItem>
+                <SelectItem value="mandala">マンダラート（初期値・3×3の9マス）</SelectItem>
+                <SelectItem value="radial">放射</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs leading-6 text-muted-foreground">
-              放射は親のまわりに円で広がります。マンダラートは中央が今の話題、周囲8マスが新しいキーワードです。マスを開くと、そのマスに次の3×3がマス目のままくっつきます。
+              マンダラートはクリックすると新しい 3×3 が9マス出ます。中央は元の話題のコピー（同じ色・太線）、周囲8マスは薄い同じ色です。ID はグループ番号＋A〜I（読み順）。線は関連する中心同士だけ。放射は親のまわりに円で広がります。
             </p>
           </section>
 
