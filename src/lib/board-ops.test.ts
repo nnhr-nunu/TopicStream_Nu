@@ -83,4 +83,16 @@ describe("展開のやり直し", () => {
     expect(redone.nodes).toHaveLength(9);
     expect(redone.edges).toHaveLength(0);
   });
+
+  it("ハートはトグルと加算ができる", () => {
+    const prefs = normalizePrefs({ generationLayout: "mandala" });
+    let board = ops.createRootBoard(emptyBoard("test"), "根", prefs);
+    const id = board.nodes[0]!.id;
+    board = ops.toggleHeart(board, id);
+    expect(board.nodes[0]!.data.heartCount).toBe(1);
+    board = ops.bumpHeart(board, id, 2);
+    expect(board.nodes[0]!.data.heartCount).toBe(3);
+    board = ops.toggleHeart(board, id);
+    expect(board.nodes[0]!.data.heartCount).toBeUndefined();
+  });
 });

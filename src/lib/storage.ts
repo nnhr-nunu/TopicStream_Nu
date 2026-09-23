@@ -57,6 +57,14 @@ function asNode(value: unknown): TNode | null {
           : undefined,
       role: node.data.role === "source" || node.data.role === "keyword" ? node.data.role : undefined,
       copiedFromId: typeof node.data.copiedFromId === "string" ? node.data.copiedFromId : undefined,
+      hostsGroupId:
+        typeof node.data.hostsGroupId === "number" && node.data.hostsGroupId > 0
+          ? node.data.hostsGroupId
+          : undefined,
+      heartCount:
+        typeof node.data.heartCount === "number" && node.data.heartCount > 0
+          ? Math.min(9999, Math.round(node.data.heartCount))
+          : undefined,
     },
   };
 }
@@ -108,6 +116,8 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
     nickname: typeof settings.nickname === "string" ? settings.nickname.slice(0, 24) : "",
     colorTheme: asColorTheme(settings.colorTheme),
     generationLayout,
+    streamUrl: typeof settings.streamUrl === "string" ? settings.streamUrl.slice(0, 400) : "",
+    youtubeApiKey: typeof settings.youtubeApiKey === "string" ? settings.youtubeApiKey : "",
   };
 }
 
@@ -160,8 +170,9 @@ export function exportSnapshot(snapshot: AppSnapshot, includeApiKey = false): st
     ...snapshot,
     settings: {
       ...snapshot.settings,
-      geminiApiKey: includeApiKey ? snapshot.settings.geminiApiKey : "",
-    },
+        geminiApiKey: includeApiKey ? snapshot.settings.geminiApiKey : "",
+        youtubeApiKey: includeApiKey ? snapshot.settings.youtubeApiKey : "",
+      },
   };
   return JSON.stringify(payload, null, 2);
 }
