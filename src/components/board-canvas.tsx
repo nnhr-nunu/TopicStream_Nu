@@ -15,7 +15,8 @@ import "@xyflow/react/dist/style.css";
 
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
 import { ZoomDock } from "@/components/zoom-dock";
-import type { Board } from "@/lib/types";
+import { CENTER_CELL_INDEX } from "@/lib/mandala-ids";
+import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const nodeTypes = { topic: TopicNode };
@@ -31,29 +32,37 @@ function toFlowNodes(board: Board, overlay: boolean): TopicFlowNode[] {
   }));
 }
 
-function toFlowEdges(board: Board): Edge[] {
-  return board.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    selectable: false,
-  }));
+function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
+  return board.edges
+    .filter((edge) => {
+      if (layout !== "mandala") return true;
+      const target = board.nodes.find((node) => node.id === edge.target);
+      return target?.data.role === "source" || target?.data.cellIndex === CENTER_CELL_INDEX;
+    })
+    .map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      selectable: false,
+    }));
 }
 
 function CanvasInner({
   board,
   overlay,
+  layout,
   onFocus,
   onPositions,
 }: {
   board: Board;
   overlay: boolean;
+  layout: GenerationLayout;
   onFocus: (id: string | null) => void;
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
   const { fitView, zoomIn, zoomOut, setCenter, getZoom } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
-  const signature = `${board.id}:${overlay}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
+  const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
@@ -62,7 +71,7 @@ function CanvasInner({
   const boardIdRef = useRef(board.id);
   const clusterRef = useRef<string[]>([]);
   const clusterUntil = useRef(0);
-  const edges = useMemo(() => toFlowEdges(board), [board]);
+  const edges = useMemo(() => toFlowEdges(board, layout), [board, layout]);
   if (signature !== seenSignature) {
     setSeenSignature(signature);
     setNodes(toFlowNodes(board, overlay));
@@ -95,8 +104,6 @@ function CanvasInner({
   );
 
   const idsKey = board.nodes.map((node) => node.id).join(",");
-  const labelKey = board.nodes.map((node) => `${node.id}:${node.data.label}`).join("|");
-  const posKey = board.nodes.map((node) => `${Math.round(node.position.x)},${Math.round(node.position.y)}`).join(";");
 
   useEffect(() => {
     const ids = new Set(board.nodes.map((node) => node.id));
@@ -144,12 +151,8 @@ function CanvasInner({
       return () => window.clearTimeout(timer);
     }
 
-    if (Date.now() < clusterUntil.current && clusterRef.current.length > 0) {
-      const timer = window.setTimeout(() => fitCluster(clusterRef.current), 60);
-      return () => window.clearTimeout(timer);
-    }
     return undefined;
-  }, [board.id, board.nodes, fitCluster, fitView, idsKey, labelKey, overlay, posKey]);
+  }, [board.id, board.nodes, fitCluster, fitView, idsKey, overlay]);
 
   useEffect(() => {
     if (overlay) return;
@@ -243,13 +246,17 @@ function CanvasInner({
 export function BoardCanvas(props: {
   board: Board;
   overlay?: boolean;
+  layout?: GenerationLayout;
   onFocus: (id: string | null) => void;
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
+  const layout =
+    props.layout ??
+    (props.board.nodes.some((node) => typeof node.data.groupId === "number") ? "mandala" : "radial");
   return (
     <div className="h-full min-h-0 w-full flex-1">
       <ReactFlowProvider>
-        <CanvasInner {...props} overlay={props.overlay ?? false} />
+        <CanvasInner {...props} overlay={props.overlay ?? false} layout={layout} />
       </ReactFlowProvider>
     </div>
   );
