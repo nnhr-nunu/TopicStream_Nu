@@ -16,6 +16,8 @@ export const GLYPH_PAD = 16;
 const REM = 16;
 const CHIP_MAX = 16 * REM;
 const LABEL_LINES = 2;
+export const MANDALA_CHIP_W = 11.5 * REM;
+export const MANDALA_CHIP_H = 5.25 * REM;
 
 export function normalizePrefs(input?: Density | LayoutPrefs, overlay = false): Required<LayoutPrefs> {
   if (!input || typeof input === "string") {
@@ -23,7 +25,7 @@ export function normalizePrefs(input?: Density | LayoutPrefs, overlay = false): 
       density: input === "compact" ? "compact" : "comfortable",
       overlay,
       fontScale: 1,
-      generationLayout: "radial",
+      generationLayout: "mandala",
       pinnedNodeId: null,
     };
   }
@@ -31,7 +33,7 @@ export function normalizePrefs(input?: Density | LayoutPrefs, overlay = false): 
     density: input.density ?? "comfortable",
     overlay: input.overlay ?? overlay,
     fontScale: input.fontScale ?? 1,
-    generationLayout: input.generationLayout ?? "radial",
+    generationLayout: input.generationLayout ?? "mandala",
     pinnedNodeId: input.pinnedNodeId ?? null,
   };
 }
@@ -104,8 +106,14 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const lineHeight = fontSize * 1.25;
   let chipH = padY * 2 + Math.max(1, lineWidths.length) * lineHeight + 2;
   if (prefs.generationLayout === "mandala") {
-    chipW = 11.5 * REM;
-    chipH = 4 * REM;
+    chipW = MANDALA_CHIP_W;
+    chipH = MANDALA_CHIP_H;
+    return {
+      left: -chipW / 2,
+      right: chipW / 2,
+      top: -chipH / 2,
+      bottom: chipH / 2,
+    };
   }
 
   const left = -chipW / 2;
