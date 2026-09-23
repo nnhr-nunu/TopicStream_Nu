@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseChatComment, normalizeCellCode } from "@/lib/chat-parse";
+import { commentHeartCodes, parseChatComment, normalizeCellCode } from "@/lib/chat-parse";
 import { nextBoardName, todayBoardName } from "@/lib/ids";
 import { parseStreamUrl } from "@/lib/stream-url";
 
@@ -18,6 +18,22 @@ describe("コメントのID", () => {
     expect(parseChatComment("4F").highlightCodes).toEqual(["4F"]);
     expect(parseChatComment("4Fが聞きたい").highlightCodes).toEqual(["4F"]);
     expect(parseChatComment("4F").heartCodes).toEqual([]);
+  });
+
+  it("全角の １Ｅ・１ｅ・１２Ｃ も半角と同じに拾う", () => {
+    expect(parseChatComment("１Ｅ").highlightCodes).toEqual(["1E"]);
+    expect(parseChatComment("１ｅが聞きたい").highlightCodes).toEqual(["1E"]);
+    expect(parseChatComment("１２Ｃ　❤").heartCodes).toEqual(["12C"]);
+    expect(parseChatComment("ＡＢＣ").highlightCodes).toEqual([]);
+    expect(normalizeCellCode("３Ｆ")).toBe("3F");
+  });
+
+  it("コメント1件はカード1枚につき +1（ID＋❤でも二重に数えない）", () => {
+    expect(commentHeartCodes(parseChatComment("3E"))).toEqual(["3E"]);
+    expect(commentHeartCodes(parseChatComment("3E ❤"))).toEqual(["3E"]);
+    expect(commentHeartCodes(parseChatComment("3E 4F 3E"))).toEqual(["3E", "4F"]);
+    expect(commentHeartCodes(parseChatComment("❤", "1C"))).toEqual(["1C"]);
+    expect(commentHeartCodes(parseChatComment("こんばんは", "1C"))).toEqual([]);
   });
 
   it("❤ や 好き はそのIDのハートにする", () => {

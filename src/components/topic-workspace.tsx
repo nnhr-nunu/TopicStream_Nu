@@ -146,8 +146,7 @@ export function TopicWorkspace() {
                     })()
                   : ""
               }
-              onHeart={(id) => controller.bumpHeart(id, 1)}
-              onFrameHeart={(id) => controller.bumpFrameHearts(id, 1)}
+              onHeart={(id) => controller.bumpFrameHearts(id, 1)}
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >

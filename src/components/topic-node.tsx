@@ -10,7 +10,7 @@ import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { usePulseCodes } from "@/hooks/use-pulse-codes";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { fitLabelFontSize } from "@/lib/fit-label";
-import { frameHeartOrbit, visibleFrameHeartCount } from "@/lib/live-hearts";
+import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
 import { MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
 import { cn } from "@/lib/utils";
@@ -60,19 +60,17 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     typeof data.groupId === "number" && typeof data.cellIndex === "number"
       ? cellCode(data.groupId, data.cellIndex)
       : "";
-  const festiveHearts = useChatHearts(code);
-  const frameHeartTotal = data.frameHearts ?? 0;
-  const frameHearts = Array.from({ length: visibleFrameHeartCount(frameHeartTotal) }, (_, index) => ({
-    id: index,
-    ...frameHeartOrbit(index),
-  }));
+  const heartBurst = useChatHearts(code);
   const family = data.familyIndex ?? 0;
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   const canExpand = !data.expanded && !data.expanding && !data.placeholder;
   const fontSize = isMandala
     ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 36, MANDALA_CHIP_H - 28, isRoot ? 16 : 15, 9)
     : fitLabelFontSize(data.label, 16 * 16 - 36, 72, isRoot ? 17 : 15, 10);
-  const hearts = data.heartCount ?? 0;
+  const hearts = totalHearts(data);
+  const liked = (data.heartCount ?? 0) > 0;
+  // 自分のハート1つだけのときは数字を出さない。コメントのハートがあれば累計を出す。
+  const showCount = hearts > 1 || (data.frameHearts ?? 0) > 0;
   const pulsing = Boolean(code && pulses.includes(code));
 
   const openLabel = () => {
@@ -124,55 +122,24 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
       <Handle type="target" position={Position.Top} className="!opacity-0 !h-1 !w-1 !border-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-1 !w-1 !border-0" />
 
-      {frameHearts.length > 0 ? (
-        <div className="topic-frame-hearts" aria-label={`コメントのハート ${frameHeartTotal}`}>
-          {frameHearts.map((heart) => (
-            <span
-              key={heart.id}
-              className="topic-frame-heart"
-              style={{
-                ["--hx" as string]: `${heart.dx}px`,
-                ["--hy" as string]: `${heart.dy}px`,
-                ["--hs" as string]: String(heart.scale),
-              }}
-            >
-              ❤
-            </span>
-          ))}
-          {frameHeartTotal > 1 ? <span className="topic-frame-heart-count">{frameHeartTotal}</span> : null}
-        </div>
-      ) : null}
-
-      {festiveHearts.length > 0 ? (
-        <div className="topic-festive" aria-hidden>
-          {festiveHearts.map((heart) => (
-            <span
-              key={heart.id}
-              className="topic-festive-heart"
-              style={{
-                ["--hx" as string]: `${heart.dx}px`,
-                ["--hy" as string]: `${heart.dy}px`,
-                ["--hs" as string]: String(heart.scale),
-              }}
-            >
-              ❤
-            </span>
-          ))}
-        </div>
-      ) : null}
-
       {data.placeholder ? null : overlay ? (
         hearts > 0 ? (
-          <span className="topic-heart topic-heart-on" aria-label={`お気に入り ${hearts}`}>
+          <span className="topic-heart topic-heart-on" aria-label={`ハート ${hearts}`}>
             <span aria-hidden>❤</span>
-            {hearts > 1 ? <span className="topic-heart-count">{hearts}</span> : null}
+            {showCount ? <span className="topic-heart-count">{formatHeartCount(hearts)}</span> : null}
+            {heartBurst ? (
+              <span key={heartBurst.key} className="topic-heart-plus" aria-hidden>
+                +{heartBurst.count}
+              </span>
+            ) : null}
           </span>
         ) : null
       ) : (
         <button
           type="button"
-          className={cn("topic-heart", hearts > 0 && "topic-heart-on")}
-          aria-label={hearts > 0 ? `お気に入り ${hearts}` : "お気に入り"}
+          className={cn("topic-heart", hearts > 0 && "topic-heart-on", liked && "topic-heart-mine")}
+          aria-label={hearts > 0 ? `ハート ${hearts}（押すと自分のハートを切り替え）` : "ハートを付ける"}
+          aria-pressed={liked}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
@@ -180,7 +147,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           }}
         >
           <span aria-hidden>{hearts > 0 ? "❤" : "♡"}</span>
-          {hearts > 1 ? <span className="topic-heart-count">{hearts}</span> : null}
+          {showCount ? <span className="topic-heart-count">{formatHeartCount(hearts)}</span> : null}
+          {heartBurst ? (
+            <span key={heartBurst.key} className="topic-heart-plus" aria-hidden>
+              +{heartBurst.count}
+            </span>
+          ) : null}
         </button>
       )}
 

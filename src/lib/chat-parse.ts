@@ -8,18 +8,24 @@ export type ChatParse = {
   hasHeart: boolean;
 };
 
+/** 全角英数（１Ｅ・１ｅ）や全角スペースを半角にそろえる。 */
+export function toHalfWidth(text: string): string {
+  return text.normalize("NFKC");
+}
+
 export function normalizeCellCode(raw: string): string {
-  const match = raw.trim().match(/^(\d+)([A-Ia-i])$/);
+  const match = toHalfWidth(raw).trim().match(/^(\d+)([A-Ia-i])$/);
   if (!match) return "";
   return `${match[1]}${match[2]!.toUpperCase()}`;
 }
 
 export function parseChatComment(text: string, fallbackCode = ""): ChatParse {
-  const codes = [...text.matchAll(ID_PATTERN)]
+  const normalized = toHalfWidth(text);
+  const codes = [...normalized.matchAll(ID_PATTERN)]
     .map((match) => normalizeCellCode(match[1] ?? ""))
     .filter(Boolean);
   const unique = [...new Set(codes)];
-  const hasHeart = HEART_PATTERN.test(text);
+  const hasHeart = HEART_PATTERN.test(text) || HEART_PATTERN.test(normalized);
   const heartCodes = hasHeart ? (unique.length > 0 ? unique : fallbackCode ? [fallbackCode] : []) : [];
   return {
     codes: unique,
@@ -27,6 +33,11 @@ export function parseChatComment(text: string, fallbackCode = ""): ChatParse {
     heartCodes,
     hasHeart,
   };
+}
+
+/** コメント1件で +1 するカード。IDがあればそのID、無ければ ❤ だけのときピン留め中のカード。 */
+export function commentHeartCodes(parsed: ChatParse): string[] {
+  return parsed.codes.length > 0 ? parsed.codes : parsed.heartCodes;
 }
 
 export function findNodeByCode<T extends { data: { groupId?: number; cellIndex?: number } }>(

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { findNodeByCode, parseChatComment } from "@/lib/chat-parse";
+import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
@@ -22,7 +22,6 @@ export function LiveChatDock({
   pinnedCode,
   showComments,
   onHeart,
-  onFrameHeart,
   onStreamUrlChange,
   onShowCommentsChange,
   children,
@@ -32,8 +31,8 @@ export function LiveChatDock({
   youtubeApiKey?: string;
   pinnedCode?: string;
   showComments: boolean;
+  /** コメントで届いたハートをカードに +1 する。 */
   onHeart: (nodeId: string) => void;
-  onFrameHeart: (nodeId: string) => void;
   onStreamUrlChange: (url: string) => void;
   onShowCommentsChange: (show: boolean) => void;
   children: ReactNode;
@@ -48,27 +47,27 @@ export function LiveChatDock({
   const nextLine = useRef(1);
   const status = streamRef ? liveStatus : "";
 
-  const applyText = useCallback(
-    (text: string) => {
-      if (!board) return;
-      const parsed = parseChatComment(text, pinnedCode ?? "");
-      if (parsed.highlightCodes.length > 0) {
-        emitPulse(parsed.highlightCodes);
-        emitChatHearts(parsed.highlightCodes, 3);
-        for (const code of parsed.highlightCodes) {
-          const node = findNodeByCode(board.nodes, code);
-          if (node) onFrameHeart(node.id);
-        }
-      }
-      if (parsed.heartCodes.length > 0) emitChatHearts(parsed.heartCodes, 4);
-      for (const code of parsed.heartCodes) {
-        const node = findNodeByCode(board.nodes, code);
-        if (node) onHeart(node.id);
-      }
-      setLog((current) => [...current, { id: nextLine.current++, text }].slice(-80));
-    },
-    [board, onFrameHeart, onHeart, pinnedCode],
-  );
+  // 接続（WebSocket / ポーリング）はハートで board が変わるたびに張り直さない。最新値は ref で読む。
+  const latest = useRef({ board, pinnedCode, onHeart });
+  useEffect(() => {
+    latest.current = { board, pinnedCode, onHeart };
+  });
+
+  const applyText = useCallback((text: string) => {
+    const { board: current, pinnedCode: pinned, onHeart: heart } = latest.current;
+    if (!current) return;
+    const parsed = parseChatComment(text, pinned ?? "");
+    if (parsed.highlightCodes.length > 0) emitPulse(parsed.highlightCodes);
+    const hit: string[] = [];
+    for (const code of commentHeartCodes(parsed)) {
+      const node = findNodeByCode(current.nodes, code);
+      if (!node) continue;
+      heart(node.id);
+      hit.push(code);
+    }
+    emitChatHearts(hit, 1);
+    setLog((lines) => [...lines, { id: nextLine.current++, text }].slice(-80));
+  }, []);
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ block: "end" });

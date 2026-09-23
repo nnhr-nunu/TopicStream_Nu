@@ -21,12 +21,14 @@ import { cn } from "@/lib/utils";
 
 const nodeTypes = { topic: TopicNode };
 
-function canvasFitPadding(overlay: boolean) {
+function canvasFitPadding(overlay: boolean, pinned = false) {
   if (overlay) return 0.16;
   const narrow = typeof window !== "undefined" && window.innerWidth < 720;
   const px = (value: number): `${number}px` => `${value}px`;
+  // ピン留めの帯（ヘッダーの下）がある間は、その分だけ上を空ける
+  const banner = pinned ? (narrow ? 64 : 76) : 0;
   return {
-    top: px(narrow ? 108 : 88),
+    top: px((narrow ? 108 : 88) + banner),
     bottom: px(narrow ? 96 : 86),
     left: px(narrow ? 12 : 28),
     right: px(narrow ? 12 : 28),
@@ -83,7 +85,11 @@ function CanvasInner({
   const { fitView, zoomIn, zoomOut } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
-    .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.heartCount ?? 0}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
+    .map((node) => {
+      const d = node.data;
+      // カードの見た目に効く値はすべて入れる（入れ忘れると再読み込みまで画面に出ない）。
+      return `${node.id}:${d.label}:${d.memo}:${d.heartCount ?? 0}:${d.frameHearts ?? 0}:${d.expanding ? 1 : 0}:${d.expanded ? 1 : 0}:${d.placeholder ? 1 : 0}:${d.role ?? ""}:${d.groupId ?? ""}:${d.cellIndex ?? ""}:${d.familyIndex ?? ""}:${node.position.x}:${node.position.y}`;
+    })
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
   const [seenSignature, setSeenSignature] = useState(signature);
@@ -92,6 +98,7 @@ function CanvasInner({
   const clusterRef = useRef<string[]>([]);
   const clusterUntil = useRef(0);
   const edges = useMemo(() => toFlowEdges(board, layout), [board, layout]);
+  const pinned = Boolean(board.pinnedNodeId);
   if (signature !== seenSignature) {
     setSeenSignature(signature);
     setNodes(toFlowNodes(board, overlay));
@@ -104,15 +111,15 @@ function CanvasInner({
       const zoom = canvasFitZoom(overlay);
       void fitView({
         nodes: present.map((id) => ({ id })),
-        padding: canvasFitPadding(overlay),
+        padding: canvasFitPadding(overlay, pinned),
         duration: 280,
         ...zoom,
       }).then((ok) => {
         if (ok) return;
-        void fitView({ padding: canvasFitPadding(overlay), duration: 260, ...zoom });
+        void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 260, ...zoom });
       });
     },
-    [fitView, overlay],
+    [fitView, overlay, pinned],
   );
 
   const idsKey = board.nodes.map((node) => node.id).join(",");
@@ -154,7 +161,7 @@ function CanvasInner({
           fitCluster(clusterRef.current, graph);
           return;
         }
-        void fitView({ padding: canvasFitPadding(overlay), duration: 240, ...canvasFitZoom(overlay) });
+        void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 240, ...canvasFitZoom(overlay) });
       });
     }
 
@@ -173,7 +180,7 @@ function CanvasInner({
 
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- idsKey is the node-identity key; listing board.nodes spreads and changes dep count
-  }, [board.id, fitCluster, fitView, idsKey, overlay]);
+  }, [board.id, fitCluster, fitView, idsKey, overlay, pinned]);
 
   useEffect(() => {
     if (overlay) return;

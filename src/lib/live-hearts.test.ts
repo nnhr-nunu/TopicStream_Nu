@@ -1,21 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { frameHeartOrbit, heartOrbit } from "@/lib/live-hearts";
+import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 
-describe("カード周りのハート", () => {
-  it("同じ位置に重ならず、ラベル中心から離れる", () => {
-    const first = heartOrbit(1);
-    const second = heartOrbit(2);
-    expect(Math.hypot(first.dx, first.dy)).toBeGreaterThan(30);
-    expect(Math.hypot(first.dx - second.dx, first.dy - second.dy)).toBeGreaterThan(10);
+describe("カードのハート数", () => {
+  it("クリックのハートとコメントのハートを合算する", () => {
+    expect(totalHearts({})).toBe(0);
+    expect(totalHearts({ heartCount: 1 })).toBe(1);
+    expect(totalHearts({ heartCount: 1, frameHearts: 11 })).toBe(12);
   });
 
-  it("枠ハートはラベル中心を覆わず、枠の外に並ぶ", () => {
-    const slots = [0, 1, 2, 3, 4, 5, 6, 7].map((slot) => frameHeartOrbit(slot));
-    for (const orbit of slots) {
-      expect(Math.abs(orbit.dx) > 28 || Math.abs(orbit.dy) > 28).toBe(true);
-      expect(Math.abs(orbit.dx) < 22 && Math.abs(orbit.dy) < 22).toBe(false);
-    }
-    expect(Math.abs(frameHeartOrbit(1).dy)).toBeGreaterThan(40);
+  it("大きい数は短く表す", () => {
+    expect(formatHeartCount(7)).toBe("7");
+    expect(formatHeartCount(999)).toBe("999");
+    expect(formatHeartCount(1234)).toBe("1.2k");
+    expect(formatHeartCount(9999)).toBe("9.9k");
   });
 });

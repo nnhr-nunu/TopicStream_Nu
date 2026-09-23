@@ -251,18 +251,39 @@ function beginNewMandala(
 ): { board: Board; childIds: string[]; edgeIds: string[] } {
   const groupId = nextGroupId(board.nodes);
   const familyIndex = familyIndexForGroup(groupId);
+  // 開いたマスは元の3×3に残し、新しい3×3の中央には同じ文の写しを置く（元のマスが欠けないように）。
+  const center: TNode = {
+    id: createId("n"),
+    position: { ...parent.position },
+    data: {
+      label: parent.data.label,
+      memo: "",
+      parentId: parent.id,
+      expanded: true,
+      expanding: false,
+      depth: parent.data.depth + 1,
+      appearIndex: 0,
+      sproutX: 0,
+      sproutY: 0,
+      groupId,
+      cellIndex: CENTER_CELL_INDEX,
+      familyIndex,
+      role: "source",
+      copiedFromId: parent.id,
+    },
+  };
   const keywords: TNode[] = KEYWORD_CELL_INDICES.map((cellIndex, index) => ({
     id: createId("n"),
     position: { ...parent.position },
     data: {
       label: "…",
       memo: "",
-      parentId: parent.id,
+      parentId: center.id,
       expanded: false,
       expanding: false,
       placeholder: true,
-      depth: parent.data.depth + 1,
-      appearIndex: index,
+      depth: parent.data.depth + 2,
+      appearIndex: index + 1,
       sproutX: 0,
       sproutY: 0,
       groupId,
@@ -271,41 +292,22 @@ function beginNewMandala(
       role: "keyword",
     },
   }));
-  const parentCenterId = parent.data.parentId;
-  const edgeIds: string[] = [];
-  const edges = [...board.edges];
-  if (parentCenterId && !edges.some((edge) => edge.source === parentCenterId && edge.target === parent.id)) {
-    const edge: TEdge = { id: createId("e"), source: parentCenterId, target: parent.id };
-    edges.push(edge);
-    edgeIds.push(edge.id);
-  }
-  const childIds = keywords.map((node) => node.id);
+  const edge: TEdge = { id: createId("e"), source: parent.id, target: center.id };
+  const childIds = [center.id, ...keywords.map((node) => node.id)];
   const next = applyLayout(
     touch(board, {
       nodes: board.nodes
         .map((node) =>
-          node.id === parent.id
-            ? {
-                ...node,
-                data: {
-                  ...node.data,
-                  expanding: true,
-                  expanded: true,
-                  role: "source" as const,
-                  familyIndex,
-                  hostsGroupId: groupId,
-                },
-              }
-            : node,
+          node.id === parent.id ? { ...node, data: { ...node.data, expanding: true, expanded: true } } : node,
         )
-        .concat(keywords),
-      edges,
-      focusedNodeId: parent.id,
+        .concat(center, keywords),
+      edges: [...board.edges, edge],
+      focusedNodeId: center.id,
     }),
     densityOrPrefs,
     overlay,
   );
-  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds };
+  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds: [edge.id] };
 }
 
 function isIncompleteMandalaCenter(board: Board, parent: TNode): boolean {
