@@ -37,12 +37,19 @@ export function SettingsSheet({
 }) {
   const [showKey, setShowKey] = useState(false);
   const [hostConfigured, setHostConfigured] = useState(false);
+  const [hostHint, setHostHint] = useState("");
 
   useEffect(() => {
     void fetch("/api/gemini")
       .then((response) => response.json())
-      .then((json: { configured?: boolean }) => setHostConfigured(Boolean(json.configured)))
-      .catch(() => setHostConfigured(false));
+      .then((json: { configured?: boolean; hint?: string }) => {
+        setHostConfigured(Boolean(json.configured));
+        setHostHint(typeof json.hint === "string" ? json.hint : "");
+      })
+      .catch(() => {
+        setHostConfigured(false);
+        setHostHint("");
+      });
   }, []);
 
   return (
@@ -85,7 +92,7 @@ export function SettingsSheet({
           <section className="space-y-2">
             <p className="text-sm font-medium">つかいかた</p>
             <p className="text-xs leading-6 text-muted-foreground">
-              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は付箋。♡はお気に入り。ピンは NOW。コメントのマスID（最初の中央は 1E）でカードが光ります。ロゴでホームへ。
+              キーワードを押すと 3×3 が広がります。中央は同じ ID のまま色が変わります。メニューはカードの上に横並び。カードをクリックで広げる。再生成はそのマスの文だけ。📝は粘箋。♡はお気に入り。ピンは NOW。コメントのマスID（最初の中央は 1E）でカードが光ります。ロゴでホームへ。Vercel の長い *-projects.vercel.app は Preview です。GEMINI_API_KEY は Production だけでなく Preview にも入れ、変えたら再デプロイしてください。
             </p>
           </section>
 
@@ -153,12 +160,13 @@ export function SettingsSheet({
             <p className="text-xs leading-5 text-muted-foreground">
               {hostConfigured
                 ? "ホストに GEMINI_API_KEY があります。空欄のままでも AI が使えます。"
-                : "空欄・失敗時はオフライン生成です。公開の GitHub Pages ではサーバーキーは使えません。"}
+                : hostHint ||
+                  "空欄・失敗時はオフライン生成です。Vercel なら Preview と Production の両方にキーを入れて再デプロイしてください。GitHub Pages ではサーバーキーは使えません。"}
               発行は{" "}
               <a className="underline" href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
                 Google AI Studio
               </a>
-              。
+              。oshilog など別アプリのキーを使い回してよいです。実キーはリポジトリに置かないでください。
             </p>
           </section>
 
