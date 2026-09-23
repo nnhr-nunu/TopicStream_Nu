@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, Expand, Pencil, Pin, RefreshCw } from "lucide-react";
+import { Check, Copy, Pencil, Pin, RefreshCw } from "lucide-react";
 
-import { StickyNoteIcon } from "@/components/sticky-note-icon";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { LABEL_EDIT_MAX, MEMO_MAX } from "@/lib/constants";
@@ -15,9 +14,7 @@ export function TopicActionsMenu({
   open,
   onOpenChange,
   isPinned,
-  canExpand,
   copied,
-  onExpand,
   onPin,
   onRegenerate,
   onCopy,
@@ -29,9 +26,7 @@ export function TopicActionsMenu({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isPinned: boolean;
-  canExpand: boolean;
   copied: boolean;
-  onExpand: () => void;
   onPin: () => void;
   onRegenerate: () => void;
   onCopy: () => void;
@@ -46,20 +41,19 @@ export function TopicActionsMenu({
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
     >
-      <ActionBtn label="広げる" onClick={onExpand} disabled={!canExpand}>
-        <Expand />
-      </ActionBtn>
       <ActionBtn label={isPinned ? "ピンを外す" : "いま話している"} onClick={onPin}>
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
-      <ActionBtn label="再生成" onClick={onRegenerate}>
+      <ActionBtn label="このマスの文だけ作り直す" onClick={onRegenerate}>
         <RefreshCw />
       </ActionBtn>
       <ActionBtn label="文を直す" onClick={onEditLabel}>
         <Pencil />
       </ActionBtn>
       <ActionBtn label="付箋を書く" onClick={onEditMemo}>
-        <StickyNoteIcon className="size-4" />
+        <span className="text-base leading-none" aria-hidden>
+          📝
+        </span>
       </ActionBtn>
       <ActionBtn label="ラベルをコピー" onClick={onCopy}>
         {copied ? <Check /> : <Copy />}
@@ -166,7 +160,7 @@ export function NodeDraftEditor({
 
   return (
     <div
-      className="topic-editor nodrag nowheel nopan nopan"
+      className="topic-editor nodrag nowheel nopan"
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -188,11 +182,6 @@ export function NodeDraftEditor({
             event.preventDefault();
             finish();
           }
-        }}
-        onBlur={(event) => {
-          const next = event.relatedTarget;
-          if (next instanceof Node && event.currentTarget.parentElement?.contains(next)) return;
-          finish();
         }}
       />
       <div className="mt-2 flex items-center justify-between gap-2">

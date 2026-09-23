@@ -1,11 +1,13 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 import { useBoardActions } from "@/components/board-actions";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
-import { LABEL_EDIT_MAX, MEMO_MAX } from "@/lib/constants";
+import { StickyNotePanel } from "@/components/sticky-note-panel";
+import { usePulseCodes } from "@/hooks/use-pulse-codes";
+import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { fitLabelFontSize } from "@/lib/fit-label";
 import { cellCode } from "@/lib/mandala-ids";
 import { MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
@@ -34,15 +36,20 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     setMemo,
     setLabel,
     copyLabel,
+    toggleHeart,
     overlay,
     pinnedNodeId,
     focusedNodeId,
     generationLayout,
   } = useBoardActions();
   const [copied, setCopied] = useState(false);
-  const [editor, setEditor] = useState<"label" | "memo" | null>(null);
+  const [editor, setEditor] = useState<"label" | null>(null);
+  const [memoOpen, setMemoOpen] = useState(false);
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
+  const pulses = usePulseCodes();
+  const suppressClick = useRef(false);
+  const holdTimer = useRef<number | null>(null);
   const isPinned = pinnedNodeId === id;
   const isFocused = focusedNodeId === id || selected;
   const isRoot = data.parentId === null;
@@ -55,23 +62,32 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   const canExpand = !data.expanded && !data.expanding && !data.placeholder;
   const fontSize = isMandala
-    ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 28, MANDALA_CHIP_H - 28, isRoot ? 16 : 15, 9)
+    ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 36, MANDALA_CHIP_H - 28, isRoot ? 16 : 15, 9)
     : fitLabelFontSize(data.label, 16 * 16 - 36, 72, isRoot ? 17 : 15, 10);
+  const hearts = data.heartCount ?? 0;
+  const pulsing = Boolean(code && pulses.includes(code));
 
-  const openEditor = (next: "label" | "memo") => {
+  const openLabel = () => {
     menu.setLocked(true);
     menu.show();
-    setEditor(next);
+    setEditor("label");
   };
 
-  const closeEditor = () => {
+  const closeLabel = () => {
     setEditor(null);
     menu.setLocked(false);
   };
 
+  const clearHold = () => {
+    if (holdTimer.current) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  };
+
   return (
     <div
-      className={cn("topic-node relative", overlay && "topic-node-overlay")}
+      className={cn("topic-node relative", overlay && "topic-node-overlay", menu.open && "topic-node-menu")}
       data-family={family}
       data-role={role}
       data-cell={data.cellIndex}
@@ -81,6 +97,16 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
       onPointerLeave={() => {
         if (!overlay) menu.hideSoon();
       }}
+      onPointerDown={(event) => {
+        if (overlay || !coarse || event.pointerType !== "touch") return;
+        clearHold();
+        holdTimer.current = window.setTimeout(() => {
+          suppressClick.current = true;
+          menu.show();
+        }, 480);
+      }}
+      onPointerUp={clearHold}
+      onPointerCancel={clearHold}
       style={{
         animationDelay: `${data.appearIndex * 58}ms`,
         ["--sprout-x" as string]: `${Math.max(-72, Math.min(72, (data.sproutX ?? 0) * 0.28))}px`,
@@ -90,10 +116,42 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
       <Handle type="target" position={Position.Top} className="!opacity-0 !h-1 !w-1 !border-0" />
       <Handle type="source" position={Position.Bottom} className="!opacity-0 !h-1 !w-1 !border-0" />
 
-      {data.memo ? (
-        <aside className="sticky-note" aria-label="付箋">
-          {data.memo}
-        </aside>
+      {data.placeholder ? null : overlay ? (
+        hearts > 0 ? (
+          <span className="topic-heart topic-heart-on" aria-label={`お気に入り ${hearts}`}>
+            <span aria-hidden>❤</span>
+            {hearts > 1 ? <span className="topic-heart-count">{hearts}</span> : null}
+          </span>
+        ) : null
+      ) : (
+        <button
+          type="button"
+          className={cn("topic-heart", hearts > 0 && "topic-heart-on")}
+          aria-label={hearts > 0 ? `お気に入り ${hearts}` : "お気に入り"}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleHeart?.(id);
+          }}
+        >
+          <span aria-hidden>{hearts > 0 ? "❤" : "♡"}</span>
+          {hearts > 1 ? <span className="topic-heart-count">{hearts}</span> : null}
+        </button>
+      )}
+
+      {data.memo && !data.placeholder ? (
+        <button
+          type="button"
+          className="topic-memo-badge"
+          aria-label="付箋を開く"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            setMemoOpen(true);
+          }}
+        >
+          📝
+        </button>
       ) : null}
 
       <button
@@ -107,19 +165,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           data.placeholder && "topic-chip-skeleton",
           role === "source" && "topic-chip-source",
           role === "keyword" && "topic-chip-keyword",
+          pulsing && "topic-chip-pulse",
         )}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
           if (data.placeholder || data.expanding) return;
-          if (overlay) {
-            if (canExpand) expandNode(id);
-            return;
-          }
-          const pointerType = "pointerType" in event.nativeEvent ? event.nativeEvent.pointerType : "";
-          if (pointerType === "touch" || coarse) {
-            if (menu.open) menu.hideNow();
-            else menu.show();
+          if (suppressClick.current) {
+            suppressClick.current = false;
             return;
           }
           if (canExpand) expandNode(id);
@@ -148,34 +201,27 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           placeholder="話したいことを書く"
           onCommit={(next) => {
             setLabel?.(id, next);
-            closeEditor();
+            closeLabel();
           }}
-          onCancel={closeEditor}
+          onCancel={closeLabel}
         />
       )}
 
-      {overlay || editor !== "memo" ? null : (
-        <NodeDraftEditor
-          title="付箋（マスの大きさは変わりません）"
-          value={data.memo}
-          maxLength={MEMO_MAX}
-          placeholder="エピソード、オチ、リスナーの反応…"
-          onCommit={(next) => {
-            setMemo(id, next);
-            closeEditor();
-          }}
-          onCancel={closeEditor}
-        />
-      )}
+      <StickyNotePanel
+        open={memoOpen}
+        title={data.label}
+        value={data.memo}
+        readOnly={overlay}
+        onOpenChange={setMemoOpen}
+        onCommit={(next) => setMemo(id, next)}
+      />
 
       {overlay ? null : (
         <TopicActionsMenu
-          open={menu.open || Boolean(editor)}
+          open={menu.open || editor === "label"}
           onOpenChange={menu.setOpen}
           isPinned={isPinned}
-          canExpand={!data.expanding && !data.placeholder}
           copied={copied}
-          onExpand={() => expandNode(id)}
           onPin={() => pinNode(id)}
           onRegenerate={() => regenerateNode?.(id)}
           onCopy={async () => {
@@ -183,8 +229,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
             setCopied(true);
             window.setTimeout(() => setCopied(false), 1200);
           }}
-          onEditLabel={() => openEditor("label")}
-          onEditMemo={() => openEditor("memo")}
+          onEditLabel={openLabel}
+          onEditMemo={() => setMemoOpen(true)}
           onPointerEnter={menu.show}
           onPointerLeave={menu.hideSoon}
         />
