@@ -4,9 +4,8 @@
 
 ## 公開URL
 
-https://nnhr-nunu.github.io/
-
-GitHub Pages の無料枠です。キーなしでもオフライン生成とテストコメントで触れます。本番で Gemini や YouTube チャットを使うには、このリポジトリを [Vercel](https://vercel.com/) に繋いで環境変数を足してください。実キーはリポジトリに置かないでください。
+- GitHub Pages（キーなしデモ）: https://nnhr-nunu.github.io/
+- Vercel で Gemini を使うときは、下の「短いURL」を共有してください。`…-projects.vercel.app` のような長いアドレスは **Preview のデプロイURL** で、配信用の共有先ではありません。
 
 ## 動かし方
 
@@ -24,7 +23,7 @@ http://127.0.0.1:43173 を開きます。テストは `npm test`。
 
 1. ホームでキーワードを入れて「始める」。ランダムは欄にネタを入れるだけで、まだマップは開きません
 2. 話題をクリックすると新しい 3×3。中央は同じ ID のまま色が変わる。周囲が新しい ID。線は中心同士だけ
-3. カードの上にメニュー（横並び）。♡ でお気に入り、📝 で付箋。ピンした話題は NOW
+3. カードの上にメニュー（横並び）。♡ でお気に入り、📝 で粘箋。ピンした話題は NOW
 4. コメントの `1Eが聞きたい` や `1E❤` でそのマスが光り、ハートが増える（最初の中央は 1E。広げると 2E、3E）。キーなしならマップ右下のテストコメント
 5. ホームの「このサービスを利用している配信」に、いま TopicStream を使っている枠が並ぶ。タイトルから本編へ。設定に配信URLを貼ると、その枠も同じ一覧の一行になる
 
@@ -32,11 +31,20 @@ http://127.0.0.1:43173 を開きます。テストは `npm test`。
 
 OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 
+## Vercel と Gemini
+
+実キーはリポジトリに置かないでください。oshilog など別アプリの [Google AI Studio](https://aistudio.google.com/apikey) キーを使い回してよいです。
+
+1. Vercel の Project → Settings → Environment Variables に `GEMINI_API_KEY` を入れる。値の前後に `"` や `'` を付けない
+2. **Production と Preview の両方** にチェックする。長い `*-projects.vercel.app` は Preview なので、Production だけだとそこではオフライン生成になります
+3. 変えたあとは Redeploy（再デプロイ）する。環境変数は次のビルドから効きます
+4. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
+
 ## キー（任意・コミットしない）
 
 | 名前 | 用途 |
 | --- | --- |
-| `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成 |
+| `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成。サーバーの `/api/gemini` だけが読む |
 | `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
 

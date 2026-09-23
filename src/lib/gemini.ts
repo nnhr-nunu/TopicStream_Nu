@@ -1,4 +1,5 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
+import { sanitizeSecret } from "@/lib/env-secret";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult } from "@/lib/types";
 
@@ -12,7 +13,7 @@ export async function generateRelatedTopics(options: {
 }): Promise<GenerateResult> {
   const count = options.count ?? CHILD_COUNT;
   const mock = mockRelatedTopics(options.seed, options.existing, count, options.preferred ?? []);
-  const override = options.apiKey?.trim();
+  const override = sanitizeSecret(options.apiKey);
 
   try {
     const response = await fetch("/api/gemini", {
