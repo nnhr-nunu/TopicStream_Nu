@@ -379,40 +379,80 @@ html.overlay-mode .topic-chip {
 }
 
 .sticky-note {
+  display: none;
+}
+
+.topic-memo-badge {
   position: absolute;
-  left: calc(100% + 8px);
-  top: 0;
-  z-index: 2;
-  width: max(9.5rem, calc(8.4rem * var(--ts-scale)));
-  border-radius: 4px 8px 8px 8px;
-  background: var(--sticky);
-  color: var(--sticky-foreground);
-  box-shadow: 2px 3px 0 color-mix(in oklab, black 12%, transparent);
-  padding: 0.45rem 0.55rem;
-  font-size: calc(12px * var(--ts-scale));
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
+  left: 0.2rem;
+  bottom: 0.15rem;
+  z-index: 4;
+  display: flex;
+  width: 1.45rem;
+  height: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.topic-heart {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.15rem;
+  z-index: 5;
+  display: flex;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--background) 82%, white);
+  box-shadow: 0 1px 4px color-mix(in oklab, black 12%, transparent);
+  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0 0.28rem;
+  cursor: pointer;
+}
+
+.topic-heart-on {
+  color: oklch(0.58 0.19 25);
+  background: color-mix(in oklab, white 70%, oklch(0.86 0.08 25));
+}
+
+.topic-heart-count {
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .topic-actions {
   position: absolute;
   left: 50%;
-  top: calc(100% - 4px);
-  z-index: 6;
+  bottom: calc(100% + 8px);
+  top: auto;
+  z-index: 8;
   display: flex;
   translate: -50% 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 2px;
-  max-width: min(22rem, 92vw);
-  border-radius: 18px;
+  width: max-content;
+  max-width: none;
+  border-radius: 999px;
   border: 1px solid var(--border);
   background: color-mix(in oklab, var(--popover) 94%, transparent);
-  padding: 14px 6px 6px;
+  padding: 4px 6px;
   opacity: 0;
   pointer-events: none;
   transition: opacity 160ms ease;
+  box-shadow: 0 10px 24px color-mix(in oklab, black 14%, transparent);
 }
 
 .topic-actions-open,
@@ -431,8 +471,9 @@ html.overlay-mode .topic-chip {
 .topic-editor {
   position: absolute;
   left: 50%;
-  top: calc(100% + 8px);
-  z-index: 8;
+  bottom: calc(100% + 8px);
+  top: auto;
+  z-index: 9;
   width: min(18rem, 78vw);
   translate: -50% 0;
   border-radius: 12px;
@@ -440,6 +481,56 @@ html.overlay-mode .topic-chip {
   background: var(--popover);
   padding: 0.7rem;
   box-shadow: 0 12px 32px color-mix(in oklab, black 16%, transparent);
+}
+
+.topic-chip-pulse {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--family-line, var(--primary)) 70%, white);
+  animation: topic-id-pulse 0.9s ease-out 2;
+}
+
+@keyframes topic-id-pulse {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.react-flow__node:hover,
+.react-flow__node:has(.topic-actions-open),
+.react-flow__node:has(.topic-editor),
+.react-flow__node.selected {
+  z-index: 12 !important;
+}
+
+.react-flow__node {
+  overflow: visible !important;
+}
+
+.live-chat-dock {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 5.6rem;
+  z-index: 21;
+  width: min(22rem, calc(100vw - 1.5rem));
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 88%, white);
+  padding: 0.55rem 0.65rem 0.6rem;
+  box-shadow: 0 10px 28px color-mix(in oklab, black 12%, transparent);
+}
+
+@media (max-width: 640px) {
+  .live-chat-dock {
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+    bottom: 6.8rem;
+  }
 }
 
 .pin-banner {
@@ -553,14 +644,7 @@ html[data-theme="stream"] [data-layout="mandala"] .topic-chip-keyword,
 }
 
 [data-layout="mandala"] .sticky-note {
-  left: auto;
-  right: -0.35rem;
-  top: -0.55rem;
-  z-index: 5;
-  width: 7.2rem;
-  max-width: 7.2rem;
-  transform: rotate(2deg);
-  box-shadow: 2px 3px 0 color-mix(in oklab, black 14%, transparent);
+  display: none;
 }
 
 .topic-node[data-family="0"] {
