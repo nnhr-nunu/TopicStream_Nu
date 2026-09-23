@@ -1,8 +1,15 @@
-import { CHILD_COUNT, MEMO_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
+import { CHILD_COUNT, LABEL_EDIT_MAX, MEMO_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 import { createId } from "@/lib/ids";
 import { bboxCenter, layoutBoard, radiusFor } from "@/lib/layout";
+import {
+  CENTER_CELL_INDEX,
+  familyIndexForGroup,
+  KEYWORD_CELL_INDICES,
+  nextGroupId,
+  usedCellIndices,
+} from "@/lib/mandala-ids";
 import { normalizePrefs } from "@/lib/node-box";
-import type { Board, Density, HistoryEntry, LayoutPrefs, TEdge, TNode } from "@/lib/types";
+import type { Board, Density, HistoryEntry, LayoutPrefs, TEdge, TNode, TopicNodeData } from "@/lib/types";
 
 function touch(board: Board, patch: Partial<Board>): Board {
   return { ...board, ...patch, updatedAt: Date.now() };
@@ -24,6 +31,44 @@ function applyLayout(board: Board, densityOrPrefs?: Density | LayoutPrefs, overl
   return layoutBoard(board, densityOrPrefs, overlay);
 }
 
+function skipLayout(densityOrPrefs?: Density | LayoutPrefs, overlay = false): boolean {
+  return normalizePrefs(densityOrPrefs, overlay).generationLayout === "mandala";
+}
+
+function maybeLayout(board: Board, densityOrPrefs?: Density | LayoutPrefs, overlay = false): Board {
+  if (skipLayout(densityOrPrefs, overlay)) return board;
+  return applyLayout(board, densityOrPrefs, overlay);
+}
+
+function rootMeta(nodes: TNode[]): Pick<TopicNodeData, "groupId" | "cellIndex" | "familyIndex" | "role"> {
+  const groupId = nextGroupId(nodes);
+  return {
+    groupId,
+    cellIndex: CENTER_CELL_INDEX,
+    familyIndex: familyIndexForGroup(groupId),
+    role: "source",
+  };
+}
+
+function withSprout(board: Board, parentId: string, childIds: string[]): Board {
+  const parentPos = board.nodes.find((node) => node.id === parentId)?.position;
+  if (!parentPos) return board;
+  return {
+    ...board,
+    nodes: board.nodes.map((node) => {
+      if (!childIds.includes(node.id)) return node;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          sproutX: parentPos.x - node.position.x,
+          sproutY: parentPos.y - node.position.y,
+        },
+      };
+    }),
+  };
+}
+
 export function createRootBoard(
   board: Board,
   label: string,
@@ -31,6 +76,7 @@ export function createRootBoard(
   overlay = false,
 ): Board {
   const trimmed = label.trim().slice(0, ROOT_LABEL_MAX);
+  const meta = rootMeta([]);
   const node: TNode = {
     id: createId("n"),
     position: { x: 0, y: 0 },
@@ -42,6 +88,7 @@ export function createRootBoard(
       expanding: false,
       depth: 0,
       appearIndex: 0,
+      ...meta,
     },
   };
   return applyLayout(
@@ -65,6 +112,7 @@ export function addRootNode(
   const prefs = normalizePrefs(densityOrPrefs, overlay);
   const existing = board.nodes.map((node) => node.position);
   const center = bboxCenter(existing);
+  const meta = rootMeta(board.nodes);
   const node: TNode = {
     id: createId("n"),
     position: existing.length === 0 ? { x: 0, y: 0 } : { x: center.x + radiusFor(prefs.density, prefs.overlay) * 2.05, y: center.y },
@@ -76,6 +124,7 @@ export function addRootNode(
       expanding: false,
       depth: 0,
       appearIndex: 0,
+      ...meta,
     },
   };
   return applyLayout(
@@ -88,25 +137,21 @@ export function addRootNode(
   );
 }
 
-export function beginExpand(
+function beginRadialExpand(
   board: Board,
-  parentId: string,
-  count = CHILD_COUNT,
-  densityOrPrefs: Density | LayoutPrefs = "comfortable",
-  overlay = false,
-): { board: Board; childIds: string[]; edgeIds: string[] } | null {
-  const parent = board.nodes.find((node) => node.id === parentId);
-  if (!parent || parent.data.expanding) return null;
-
-  const existingChildren = board.nodes.filter((node) => node.data.parentId === parentId).length;
-
+  parent: TNode,
+  count: number,
+  densityOrPrefs: Density | LayoutPrefs,
+  overlay: boolean,
+): { board: Board; childIds: string[]; edgeIds: string[] } {
+  const existingChildren = board.nodes.filter((node) => node.data.parentId === parent.id).length;
   const children: TNode[] = Array.from({ length: count }, (_, index) => ({
     id: createId("n"),
     position: { ...parent.position },
     data: {
       label: "…",
       memo: "",
-      parentId,
+      parentId: parent.id,
       expanded: false,
       expanding: false,
       placeholder: true,
@@ -118,47 +163,183 @@ export function beginExpand(
   }));
   const edges: TEdge[] = children.map((child) => ({
     id: createId("e"),
-    source: parentId,
+    source: parent.id,
     target: child.id,
   }));
   const childIds = children.map((child) => child.id);
   const edgeIds = edges.map((edge) => edge.id);
-
   const next = applyLayout(
     touch(board, {
       nodes: board.nodes
         .map((node) =>
-          node.id === parentId
-            ? { ...node, data: { ...node.data, expanding: true, expanded: true } }
-            : node,
+          node.id === parent.id ? { ...node, data: { ...node.data, expanding: true, expanded: true } } : node,
         )
         .concat(children),
       edges: [...board.edges, ...edges],
-      focusedNodeId: parentId,
+      focusedNodeId: parent.id,
     }),
     densityOrPrefs,
     overlay,
   );
+  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds };
+}
 
-  const parentPos = next.nodes.find((node) => node.id === parentId)?.position ?? parent.position;
-  return {
-    board: {
-      ...next,
-      nodes: next.nodes.map((node) => {
-        if (!childIds.includes(node.id)) return node;
-        return {
-          ...node,
-          data: {
-            ...node.data,
-            sproutX: parentPos.x - node.position.x,
-            sproutY: parentPos.y - node.position.y,
-          },
-        };
-      }),
+function beginFillGroup(
+  board: Board,
+  parent: TNode,
+  densityOrPrefs: Density | LayoutPrefs,
+  overlay: boolean,
+): { board: Board; childIds: string[]; edgeIds: string[] } {
+  const groupId = parent.data.groupId ?? nextGroupId(board.nodes);
+  const familyIndex = parent.data.familyIndex ?? familyIndexForGroup(groupId);
+  const used = usedCellIndices(board.nodes, groupId);
+  const missing = KEYWORD_CELL_INDICES.filter((index) => !used.has(index));
+  const children: TNode[] = missing.map((cellIndex, index) => ({
+    id: createId("n"),
+    position: { ...parent.position },
+    data: {
+      label: "…",
+      memo: "",
+      parentId: parent.id,
+      expanded: false,
+      expanding: false,
+      placeholder: true,
+      depth: parent.data.depth + 1,
+      appearIndex: index,
+      sproutX: 0,
+      sproutY: 0,
+      groupId,
+      cellIndex,
+      familyIndex,
+      role: "keyword",
     },
-    childIds,
-    edgeIds,
+  }));
+  const childIds = children.map((child) => child.id);
+  const next = applyLayout(
+    touch(board, {
+      nodes: board.nodes
+        .map((node) =>
+          node.id === parent.id
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  expanding: true,
+                  expanded: true,
+                  groupId,
+                  cellIndex: parent.data.cellIndex ?? CENTER_CELL_INDEX,
+                  familyIndex,
+                  role: "source" as const,
+                },
+              }
+            : node,
+        )
+        .concat(children),
+      focusedNodeId: parent.id,
+    }),
+    densityOrPrefs,
+    overlay,
+  );
+  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds: [] };
+}
+
+function beginNewMandala(
+  board: Board,
+  parent: TNode,
+  densityOrPrefs: Density | LayoutPrefs,
+  overlay: boolean,
+): { board: Board; childIds: string[]; edgeIds: string[] } {
+  const groupId = nextGroupId(board.nodes);
+  const familyIndex = familyIndexForGroup(groupId);
+  const centerId = createId("n");
+  const center: TNode = {
+    id: centerId,
+    position: { ...parent.position },
+    data: {
+      label: parent.data.label,
+      memo: "",
+      parentId: parent.id,
+      expanded: true,
+      expanding: false,
+      placeholder: false,
+      depth: parent.data.depth + 1,
+      appearIndex: 0,
+      sproutX: 0,
+      sproutY: 0,
+      groupId,
+      cellIndex: CENTER_CELL_INDEX,
+      familyIndex,
+      role: "source",
+      copiedFromId: parent.id,
+    },
   };
+  const keywords: TNode[] = KEYWORD_CELL_INDICES.map((cellIndex, index) => ({
+    id: createId("n"),
+    position: { ...parent.position },
+    data: {
+      label: "…",
+      memo: "",
+      parentId: centerId,
+      expanded: false,
+      expanding: false,
+      placeholder: true,
+      depth: parent.data.depth + 2,
+      appearIndex: index + 1,
+      sproutX: 0,
+      sproutY: 0,
+      groupId,
+      cellIndex,
+      familyIndex,
+      role: "keyword",
+    },
+  }));
+  const edge: TEdge = { id: createId("e"), source: parent.id, target: centerId };
+  const childIds = [centerId, ...keywords.map((node) => node.id)];
+  const next = applyLayout(
+    touch(board, {
+      nodes: board.nodes
+        .map((node) =>
+          node.id === parent.id ? { ...node, data: { ...node.data, expanding: true, expanded: true } } : node,
+        )
+        .concat(center, keywords),
+      edges: [...board.edges, edge],
+      focusedNodeId: parent.id,
+    }),
+    densityOrPrefs,
+    overlay,
+  );
+  return { board: withSprout(next, parent.id, childIds), childIds, edgeIds: [edge.id] };
+}
+
+function isIncompleteMandalaCenter(board: Board, parent: TNode): boolean {
+  const groupId = parent.data.groupId;
+  const isCenter =
+    parent.data.cellIndex === CENTER_CELL_INDEX ||
+    parent.data.role === "source" ||
+    parent.data.parentId === null;
+  if (!isCenter) return false;
+  if (typeof groupId !== "number") return true;
+  const members = board.nodes.filter((node) => node.data.groupId === groupId);
+  return members.length < 9;
+}
+
+export function beginExpand(
+  board: Board,
+  parentId: string,
+  count = CHILD_COUNT,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): { board: Board; childIds: string[]; edgeIds: string[] } | null {
+  const parent = board.nodes.find((node) => node.id === parentId);
+  if (!parent || parent.data.expanding) return null;
+  const prefs = normalizePrefs(densityOrPrefs, overlay);
+  if (prefs.generationLayout === "mandala") {
+    if (isIncompleteMandalaCenter(board, parent)) {
+      return beginFillGroup(board, parent, densityOrPrefs, overlay);
+    }
+    return beginNewMandala(board, parent, densityOrPrefs, overlay);
+  }
+  return beginRadialExpand(board, parent, count, densityOrPrefs, overlay);
 }
 
 export function fillExpand(
@@ -177,15 +358,17 @@ export function fillExpand(
       ),
     });
   }
+  let labelIndex = 0;
   return applyLayout(
     touch(board, {
       nodes: board.nodes.map((node) => {
         if (node.id === parentId) {
           return { ...node, data: { ...node.data, expanding: false, expanded: true, placeholder: false } };
         }
-        const index = childIds.indexOf(node.id);
-        if (index === -1) return node;
-        const label = labels[index] ?? `話題 ${index + 1}`;
+        if (!childIds.includes(node.id)) return node;
+        if (!node.data.placeholder) return node;
+        const label = labels[labelIndex] ?? `話題 ${labelIndex + 1}`;
+        labelIndex += 1;
         return {
           ...node,
           data: {
@@ -312,10 +495,30 @@ export function setMemo(
   densityOrPrefs: Density | LayoutPrefs = "comfortable",
   overlay = false,
 ): Board {
-  return applyLayout(
+  return maybeLayout(
     touch(board, {
       nodes: board.nodes.map((node) =>
         node.id === nodeId ? { ...node, data: { ...node.data, memo: memo.slice(0, MEMO_MAX) } } : node,
+      ),
+    }),
+    densityOrPrefs,
+    overlay,
+  );
+}
+
+export function setLabel(
+  board: Board,
+  nodeId: string,
+  label: string,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): Board {
+  const trimmed = label.trim().slice(0, LABEL_EDIT_MAX);
+  if (!trimmed) return board;
+  return maybeLayout(
+    touch(board, {
+      nodes: board.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: { ...node.data, label: trimmed } } : node,
       ),
     }),
     densityOrPrefs,
@@ -331,7 +534,7 @@ export function pinNode(
 ): Board {
   const nextId = nodeId && board.pinnedNodeId === nodeId ? null : nodeId;
   const prefs = normalizePrefs(densityOrPrefs, overlay);
-  return applyLayout(
+  return maybeLayout(
     touch(board, {
       pinnedNodeId: nextId,
     }),
