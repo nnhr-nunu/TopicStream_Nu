@@ -15,6 +15,7 @@ import { generateRelatedTopics } from "@/lib/gemini";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
+import { nextBoardName } from "@/lib/ids";
 import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
 import type { AppSnapshot, Board, HistoryEntry, Settings } from "@/lib/types";
@@ -218,10 +219,28 @@ export function useBoardController() {
 
   const regenerateNode = useCallback(
     async (nodeId: string) => {
-      toast.message("キーワードを作り直します");
-      await expandNode(nodeId, true);
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      const node = board?.nodes.find((item) => item.id === nodeId);
+      if (!board || !node) return;
+      toast.message("このマスの文だけ作り直します");
+      const parent = board.nodes.find((item) => item.id === node.data.parentId);
+      const result = await generateRelatedTopics({
+        seed: parent?.data.label || node.data.label,
+        existing: board.nodes.map((item) => item.data.label),
+        apiKey: current.settings.geminiApiKey,
+        model: current.settings.geminiModel,
+        count: 1,
+        preferred: preferredForSeed(parent?.data.label || node.data.label),
+      });
+      const nextLabel = result.topics[0];
+      if (!nextLabel) return;
+      updateBoard((item) =>
+        ops.setLabel(item, nodeId, nextLabel, prefsFromSettings(currentSnapshot().settings, false, item.pinnedNodeId)),
+      );
+      if (result.warning) toast.message(result.warning);
     },
-    [expandNode],
+    [updateBoard],
   );
 
   const setMemo = useCallback(
@@ -262,10 +281,19 @@ export function useBoardController() {
     [updateBoard],
   );
 
+  const toggleHeart = useCallback(
+    (nodeId: string) => updateBoard((board) => ops.toggleHeart(board, nodeId)),
+    [updateBoard],
+  );
+  const bumpHeart = useCallback(
+    (nodeId: string, delta = 1) => updateBoard((board) => ops.bumpHeart(board, nodeId, delta)),
+    [updateBoard],
+  );
+
   const createBoard = useCallback(
     (name?: string) => {
       const current = currentSnapshot();
-      const board = emptyBoard(name);
+      const board = emptyBoard(name ?? nextBoardName(current.boards.map((item) => item.name)));
       persist({
         ...current,
         boards: [...current.boards, board],
@@ -273,10 +301,25 @@ export function useBoardController() {
       });
       setUndoStack([]);
       setRedoStack([]);
-      toast.success(`ボード「${board.name}」を作りました`);
+      toast.success(`「${board.name}」を始めます`);
     },
     [persist],
   );
+
+  const duplicateActive = useCallback(() => {
+    const current = currentSnapshot();
+    const board = current.boards.find((item) => item.id === current.activeBoardId);
+    if (!board) return;
+    const copy = ops.duplicateBoard(board);
+    persist({
+      ...current,
+      boards: [...current.boards, copy],
+      activeBoardId: copy.id,
+    });
+    setUndoStack([]);
+    setRedoStack([]);
+    toast.success(`「${copy.name}」を複製しました`);
+  }, [persist]);
 
   const switchBoard = useCallback(
     (boardId: string) => {
@@ -473,6 +516,7 @@ export function useBoardController() {
     focusNode,
     syncPositions,
     createBoard,
+    duplicateActive,
     switchBoard,
     renameActive,
     deleteActive,
@@ -483,6 +527,8 @@ export function useBoardController() {
     importJson,
     copyLabel,
     publishWatchLink,
+    toggleHeart,
+    bumpHeart,
   };
 }
 
