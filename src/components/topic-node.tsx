@@ -168,7 +168,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         <button
           type="button"
           className="topic-memo-badge"
-          aria-label="粘箋を開く"
+          aria-label="付箋を開く"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
