@@ -6,6 +6,7 @@ export const CHILD_COUNT = 8;
 export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
 export const ROOT_LABEL_MAX = 48;
+export const LABEL_EDIT_MAX = 80;
 export const DEFAULT_MODEL = "gemini-2.0-flash";
 
 export const GEMINI_MODELS = [
@@ -23,7 +24,7 @@ export const DEFAULT_SETTINGS = {
   overlayTransparent: true,
   nickname: "",
   colorTheme: "fresh" as const,
-  generationLayout: "radial" as const,
+  generationLayout: "mandala" as const,
 };
 
 export const RADIUS = {
