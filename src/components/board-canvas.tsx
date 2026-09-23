@@ -21,6 +21,26 @@ import { cn } from "@/lib/utils";
 
 const nodeTypes = { topic: TopicNode };
 
+function canvasFitPadding(overlay: boolean) {
+  if (overlay) return 0.16;
+  const narrow = typeof window !== "undefined" && window.innerWidth < 720;
+  const px = (value: number): `${number}px` => `${value}px`;
+  return {
+    top: px(narrow ? 108 : 88),
+    bottom: px(narrow ? 88 : 72),
+    left: px(narrow ? 12 : 28),
+    right: px(narrow ? 12 : 28),
+  };
+}
+
+function canvasFitZoom(overlay: boolean) {
+  const narrow = !overlay && typeof window !== "undefined" && window.innerWidth < 720;
+  return {
+    maxZoom: overlay ? 1.05 : narrow ? 0.95 : 1.18,
+    minZoom: 0.2,
+  };
+}
+
 function toFlowNodes(board: Board, overlay: boolean): TopicFlowNode[] {
   return board.nodes.map((node) => ({
     id: node.id,
@@ -60,7 +80,7 @@ function CanvasInner({
   onFocus: (id: string | null) => void;
   onPositions: (positions: Record<string, { x: number; y: number }>) => void;
 }) {
-  const { fitView, zoomIn, zoomOut, setCenter, getZoom } = useReactFlow();
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.memo}:${node.data.expanding ? 1 : 0}:${node.data.placeholder ? 1 : 0}:${node.position.x}:${node.position.y}`)
@@ -81,26 +101,18 @@ function CanvasInner({
     (ids: string[], graph: Board["nodes"]) => {
       const present = ids.filter((id) => graph.some((node) => node.id === id));
       if (present.length === 0) return;
-      const cluster = graph.filter((node) => present.includes(node.id));
-      const minX = Math.min(...cluster.map((node) => node.position.x));
-      const maxX = Math.max(...cluster.map((node) => node.position.x));
-      const minY = Math.min(...cluster.map((node) => node.position.y));
-      const maxY = Math.max(...cluster.map((node) => node.position.y));
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
+      const zoom = canvasFitZoom(overlay);
       void fitView({
         nodes: present.map((id) => ({ id })),
-        padding: overlay ? 0.22 : 0.34,
+        padding: canvasFitPadding(overlay),
         duration: 280,
-        maxZoom: overlay ? 1.05 : 1.22,
-        minZoom: 0.55,
+        ...zoom,
       }).then((ok) => {
         if (ok) return;
-        const zoom = Math.min(getZoom(), overlay ? 1.05 : 1.18);
-        void setCenter(cx, cy, { zoom, duration: 260 });
+        void fitView({ padding: canvasFitPadding(overlay), duration: 260, ...zoom });
       });
     },
-    [fitView, getZoom, overlay, setCenter],
+    [fitView, overlay],
   );
 
   const idsKey = board.nodes.map((node) => node.id).join(",");
@@ -118,8 +130,17 @@ function CanvasInner({
     }
 
     const added = prev ? [...ids].filter((id) => !prev.has(id)) : [];
+    const fitSoon = (fn: () => void) => {
+      const first = window.setTimeout(fn, 360);
+      const second = window.setTimeout(fn, 920);
+      return () => {
+        window.clearTimeout(first);
+        window.clearTimeout(second);
+      };
+    };
+
     if (boardChanged || prev === null) {
-      const timer = window.setTimeout(() => {
+      return fitSoon(() => {
         if (added.length > 0) {
           const parents = [
             ...new Set(
@@ -133,9 +154,8 @@ function CanvasInner({
           fitCluster(clusterRef.current, graph);
           return;
         }
-        void fitView({ padding: overlay ? 0.16 : 0.2, duration: 240, maxZoom: overlay ? 1.05 : 1.12 });
-      }, 40);
-      return () => window.clearTimeout(timer);
+        void fitView({ padding: canvasFitPadding(overlay), duration: 240, ...canvasFitZoom(overlay) });
+      });
     }
 
     if (added.length > 0) {
@@ -148,8 +168,7 @@ function CanvasInner({
       ];
       clusterRef.current = [...parents, ...added];
       clusterUntil.current = Date.now() + 1400;
-      const timer = window.setTimeout(() => fitCluster(clusterRef.current, graph), 70);
-      return () => window.clearTimeout(timer);
+      return fitSoon(() => fitCluster(clusterRef.current, graph));
     }
 
     return undefined;
