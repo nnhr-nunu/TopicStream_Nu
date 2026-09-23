@@ -1,5 +1,6 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
-import { requestGemini } from "@/lib/gemini-core";
+import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
+import { geminiFailureWarning, requestGemini } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult } from "@/lib/types";
 
@@ -11,8 +12,15 @@ function mockResult(seed: string, existing: string[], count: number, preferred: 
   };
 }
 
+const MISSING_KEY_HINT =
+  "Vercel の GEMINI_API_KEY が空です。いまの長い *-projects.vercel.app は Preview 用なので、環境変数は Production だけでなく Preview にも入れてください。変えたあとは再デプロイが必要です。";
+
 export async function GET() {
-  return Response.json({ configured: Boolean(process.env.GEMINI_API_KEY?.trim()) });
+  const configured = Boolean(readGeminiApiKey());
+  return Response.json({
+    configured,
+    hint: configured ? undefined : `${MISSING_KEY_HINT} GitHub Pages ではサーバーキーは使えません。`,
+  });
 }
 
 export async function POST(request: Request) {
@@ -38,12 +46,12 @@ export async function POST(request: Request) {
     : [];
   const count = typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT;
   const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
-  const override = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
-  const apiKey = override || process.env.GEMINI_API_KEY?.trim() || "";
+  const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const apiKey = override || readGeminiApiKey();
 
   if (!apiKey) {
     return Response.json(
-      mockResult(seed, existing, count, preferred, "ホストに GEMINI_API_KEY がないので、オフライン生成を使いました"),
+      mockResult(seed, existing, count, preferred, `${MISSING_KEY_HINT} オフライン生成を使いました。`),
     );
   }
 
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
       warning: remote.length > 0 ? undefined : "AIの返答が空だったので、オフライン生成に切り替えました",
     };
     return Response.json(result);
-  } catch {
-    return Response.json(mockResult(seed, existing, count, preferred, "Geminiに届かなかったので、オフライン生成を使いました"));
+  } catch (error) {
+    return Response.json(mockResult(seed, existing, count, preferred, geminiFailureWarning(error)));
   }
 }

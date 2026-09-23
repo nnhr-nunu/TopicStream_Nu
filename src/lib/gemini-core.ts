@@ -17,7 +17,7 @@ JSON配列だけを返すこと。例: ["キーワード1","キーワード2"]`;
 }
 
 function clip(label: string): string {
-  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-・]\s*/, "").trim();
+  const trimmed = label.replace(/^[0-9]+[\.\):]\s*/, "").replace(/^[-\u30fb]\s*/, "").trim();
   if (trimmed.length <= LABEL_MAX) return trimmed;
   return `${trimmed.slice(0, LABEL_MAX - 1)}…`;
 }
@@ -53,6 +53,32 @@ export function parseTopics(raw: string, seed: string, existing: string[]): stri
 
 export const GEMINI_TIMEOUT_MS = 2800;
 
+export class GeminiRequestError extends Error {
+  constructor(
+    readonly kind: "http" | "timeout" | "network",
+    readonly status?: number,
+  ) {
+    super("gemini");
+    this.name = "GeminiRequestError";
+  }
+}
+
+/** 失敗理由の日本語。キーやURLは含めない。 */
+export function geminiFailureWarning(error: unknown): string {
+  if (error instanceof GeminiRequestError) {
+    if (error.kind === "http" && error.status && [400, 401, 403].includes(error.status)) {
+      return "Gemini がキーを受け付けませんでした。前後の引用符や空白を外し、Vercel の Preview と Production の両方に GEMINI_API_KEY があるか確認してください。オフライン生成を使いました。";
+    }
+    if (error.kind === "http" && error.status === 429) {
+      return "Gemini が混み合っているので、オフライン生成を使いました。";
+    }
+    if (error.kind === "timeout") {
+      return "Gemini の応答が遅かったので、オフライン生成を使いました。";
+    }
+  }
+  return "Gemini に届かなかったので、オフライン生成を使いました。";
+}
+
 export async function requestGemini(options: {
   seed: string;
   existing: string[];
@@ -77,13 +103,19 @@ export async function requestGemini(options: {
       }),
     });
     if (!response.ok) {
-      throw new Error(`Gemini HTTP ${response.status}`);
+      throw new GeminiRequestError("http", response.status);
     }
     const json = (await response.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
     };
     const text = json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n") ?? "";
     return parseTopics(text, options.seed, options.existing);
+  } catch (error) {
+    if (error instanceof GeminiRequestError) throw error;
+    if (typeof error === "object" && error && (error as { name?: string }).name === "AbortError") {
+      throw new GeminiRequestError("timeout");
+    }
+    throw new GeminiRequestError("network");
   } finally {
     clearTimeout(timer);
   }
