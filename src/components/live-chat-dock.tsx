@@ -84,7 +84,7 @@ export function LiveChatDock({
         });
         if (cancelled) return;
         if (!response.ok) {
-          setStatus("PagesではYouTubeキーなし。テストコメントで 3E を試せます");
+          setStatus("PagesではYouTubeキーなし。テストコメントで 1E を試せます");
           return;
         }
         const json = (await response.json()) as {
@@ -130,7 +130,7 @@ export function LiveChatDock({
         <Input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="テストコメント（例: 3Eが聞きたい）"
+          placeholder="テストコメント（例: 1Eが聞きたい）"
           aria-label="テストコメント"
           className="h-9 bg-background/90 text-xs"
         />
