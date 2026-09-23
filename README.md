@@ -23,7 +23,7 @@ http://127.0.0.1:43173 を開きます。テストは `npm test`。
 
 1. ホームでキーワードを入れて「始める」。ランダムは欄にネタを入れるだけで、まだマップは開きません
 2. 話題をクリックすると新しい 3×3。中央は同じ ID のまま色が変わる。周囲が新しい ID。線は中心同士だけ
-3. カードの上にメニュー（横並び）。♡ でお気に入り、📝 で付箋。ピンした話題は NOW
+3. カードの上にメニュー（横並び）。♡ でお気に入り、📝 で粘箋。ピンした話題は NOW
 4. コメントの `1Eが聞きたい` や `1E❤` でそのマスが光り、ハートが増える（最初の中央は 1E。広げると 2E、3E）。キーなしならマップ右下のテストコメント
 5. ホームの「このサービスを利用している配信」に、いま TopicStream を使っている枠が並ぶ。タイトルから本編へ。設定に配信URLを貼ると、その枠も同じ一覧の一行になる
 
@@ -37,8 +37,9 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 
 1. Vercel の Project → Settings → Environment Variables に `GEMINI_API_KEY` を入れる。値の前後に `"` や `'` を付けない
 2. **Production と Preview の両方** にチェックする。長い `*-projects.vercel.app` は Preview なので、Production だけだとそこではオフライン生成になります
-3. 変えたあとは Redeploy（再デプロイ）する。環境変数は次のビルドから効きます
-4. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
+3. 変えたあとは **Production** を Redeploy する。`topic-stream-amber.vercel.app` は Production ドメインなので、Preview だけ直してもここには乗らない
+4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。Google が通ったかは POST の `source` と `debug` を見る
+5. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
 
 ## キー（任意・コミットしない）
 

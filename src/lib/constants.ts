@@ -8,6 +8,8 @@ export const LABEL_MAX = 16;
 export const ROOT_LABEL_MAX = 48;
 export const LABEL_EDIT_MAX = 80;
 export const DEFAULT_MODEL = "gemini-2.0-flash";
+export const GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-flash-latest"] as const;
+export const GEMINI_HOST = "generativelanguage.googleapis.com";
 
 export const GEMINI_MODELS = [
   { value: "gemini-2.0-flash", label: "gemini-2.0-flash（推奨・速い）" },
