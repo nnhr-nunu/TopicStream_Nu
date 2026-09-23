@@ -235,6 +235,27 @@ export function geminiFailureWarning(error: unknown): string {
   return `Gemini に届きませんでした（${reason}・${GEMINI_HOST}・${model}）。${tail}`;
 }
 
+export type GeminiNoticeKind = "quota" | "busy" | "slow" | "unavailable";
+
+/**
+ * 利用者に見せる短いお知らせ。モデル名や試した順番などの技術的な中身は出さない
+ * （それは debug とサーバーログに残す）。
+ */
+export function geminiUserNotice(error: unknown): { kind: GeminiNoticeKind; message: string } {
+  const debug = error instanceof GeminiRequestError ? error.debug : undefined;
+  const reason = debug?.reason ?? "network";
+  if (isQuotaError(debug)) {
+    return { kind: "quota", message: "AI の今日の利用上限に達しました。しばらくはオフラインの候補で広げます。" };
+  }
+  if (reason === "http-429" || reason === "http-503" || debug?.googleStatus === "UNAVAILABLE" || debug?.googleStatus === "RESOURCE_EXHAUSTED") {
+    return { kind: "busy", message: "AI が混み合っているので、今回はオフラインの候補で広げました。" };
+  }
+  if (reason === "timeout" || reason === "deadline") {
+    return { kind: "slow", message: "AI の応答が遅いので、今回はオフラインの候補で広げました。" };
+  }
+  return { kind: "unavailable", message: "AI を使えなかったので、今回はオフラインの候補で広げました。" };
+}
+
 /** テストで待ちを潰す。本番は短いバックオフと、全部混んでいたときの最後の 1.5 秒待ち。 */
 export const geminiRetry = {
   sameModelMs: 800,

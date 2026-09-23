@@ -15,6 +15,7 @@ import {
   requestGemini,
   shouldTryNextModel,
   thinkingConfigFor,
+  geminiUserNotice,
 } from "@/lib/gemini-core";
 
 describe("Gemini の返答パース", () => {
@@ -350,5 +351,24 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.topics).toHaveLength(8);
     expect(result.topics).toContain("部活の話");
     expect(pulledAfterEnough).toBeLessThanOrEqual(1);
+  });
+
+});
+
+describe("利用者へのお知らせ", () => {
+  it("上限・混雑・遅延を分け、モデル名や技術的な中身は出さない", () => {
+    const quota = geminiUserNotice(
+      new GeminiRequestError(
+        "http",
+        geminiDebug({ reason: "http-429", httpStatus: 429, googleMessage: "Quota exceeded. limit: 0", model: "gemini-3.5-flash", attempts: ["a", "b"] }),
+      ),
+    );
+    expect(quota.kind).toBe("quota");
+    expect(quota.message).toContain("上限");
+    expect(quota.message).not.toContain("gemini");
+    expect(quota.message).not.toContain("試したモデル");
+    expect(geminiUserNotice(new GeminiRequestError("http", geminiDebug({ reason: "http-503", httpStatus: 503, model: "x" }))).kind).toBe("busy");
+    expect(geminiUserNotice(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "x" }))).kind).toBe("slow");
+    expect(geminiUserNotice(new Error("x")).kind).toBe("unavailable");
   });
 });
