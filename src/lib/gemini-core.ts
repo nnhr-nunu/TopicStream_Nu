@@ -1,4 +1,4 @@
-import { GEMINI_FALLBACK_MODELS, GEMINI_HOST, LABEL_MAX } from "@/lib/constants";
+import { DEFAULT_MODEL, GEMINI_FALLBACK_MODELS, GEMINI_HOST, LABEL_MAX, resolveGeminiModel } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
 import type { GeminiDebug } from "@/lib/types";
 
@@ -97,8 +97,22 @@ export function parseGoogleError(body: unknown): { googleStatus?: string; google
   };
 }
 
-export function geminiDebug(partial: Omit<GeminiDebug, "host"> & { host?: string }): GeminiDebug {
-  return { host: GEMINI_HOST, ...partial };
+function kindFromReason(reason: string): string {
+  if (reason.startsWith("http-")) return "http";
+  if (reason === "timeout") return "timeout";
+  if (reason === "missing-key") return "missing-key";
+  if (reason === "empty") return "empty";
+  if (reason === "proxy") return "network";
+  return "network";
+}
+
+export function geminiDebug(partial: Omit<GeminiDebug, "host" | "kind"> & { host?: string; kind?: string }): GeminiDebug {
+  const { kind: explicitKind, ...rest } = partial;
+  return {
+    host: GEMINI_HOST,
+    ...rest,
+    kind: explicitKind ?? kindFromReason(partial.reason),
+  };
 }
 
 export function geminiFailureWarning(error: unknown): string {
@@ -109,8 +123,8 @@ export function geminiFailureWarning(error: unknown): string {
   if (reason.startsWith("http-") && ["http-400", "http-401", "http-403"].includes(reason)) {
     return `Gemini がキーを受け付けませんでした（${reason}${google}・${model}）。オフライン生成を使いました。`;
   }
-  if (reason === "http-429") {
-    return `Gemini が混み合っています（${reason}・${model}）。オフライン生成を使いました。`;
+  if (reason === "http-429" || reason === "http-503" || debug?.googleStatus === "UNAVAILABLE" || debug?.googleStatus === "RESOURCE_EXHAUSTED") {
+    return `Gemini が混み合っています（${reason}${google}・${model}）。オフライン生成を使いました。`;
   }
   if (reason === "http-404") {
     return `Gemini のモデルが見つかりません（${reason}・${model}）。オフライン生成を使いました。`;
@@ -127,12 +141,16 @@ export function geminiFailureWarning(error: unknown): string {
   return `Gemini に届きませんでした（${reason}・${GEMINI_HOST}・${model}）。オフライン生成を使いました。`;
 }
 
-function fallbackModels(requested: string): string[] {
-  return [requested, ...GEMINI_FALLBACK_MODELS.filter((model) => model !== requested)];
+export function fallbackModels(requested: string): string[] {
+  const start = resolveGeminiModel(requested);
+  const extras = [DEFAULT_MODEL, ...GEMINI_FALLBACK_MODELS];
+  return [start, ...extras.filter((model) => model !== start)];
 }
 
-function shouldTryNextModel(error: GeminiRequestError): boolean {
-  return error.debug.httpStatus === 404 || error.debug.googleStatus === "NOT_FOUND";
+export function shouldTryNextModel(error: GeminiRequestError): boolean {
+  const status = error.debug.httpStatus;
+  const google = error.debug.googleStatus;
+  return status === 404 || google === "NOT_FOUND" || status === 503 || google === "UNAVAILABLE";
 }
 
 function networkError(model: string, error: unknown): GeminiRequestError {
@@ -144,6 +162,7 @@ function networkError(model: string, error: unknown): GeminiRequestError {
     "network",
     geminiDebug({
       reason: "network",
+      kind: "network",
       model,
       googleMessage: clipGoogleText(name),
     }),
@@ -159,10 +178,11 @@ export async function requestGemini(options: {
 }): Promise<{ topics: string[]; model: string; tried: string[] }> {
   const tried: string[] = [];
   let lastError: GeminiRequestError | undefined;
+  const deadline = Date.now() + GEMINI_TIMEOUT_MS;
   for (const model of fallbackModels(options.model)) {
     tried.push(model);
     try {
-      const topics = await requestGeminiOnce({ ...options, model });
+      const topics = await requestGeminiOnce({ ...options, model, deadline });
       return { topics, model, tried };
     } catch (error) {
       lastError = error instanceof GeminiRequestError ? error : networkError(model, error);
@@ -180,9 +200,14 @@ async function requestGeminiOnce(options: {
   apiKey: string;
   model: string;
   count: number;
+  deadline: number;
 }): Promise<string[]> {
+  const remaining = options.deadline - Date.now();
+  if (remaining < 400) {
+    throw new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", kind: "timeout", model: options.model }));
+  }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), remaining);
   const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:generateContent`;
   try {
     const response = await fetch(endpoint, {
