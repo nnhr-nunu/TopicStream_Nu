@@ -109,14 +109,14 @@ describe("マンダラート", () => {
     );
   });
 
-  it("マスを開くと中央は同じIDのまま色だけ変わり、線は中心同士", () => {
+  it("マスを開いても元の3×3は欠けず、新しい3×3の中央に同じ文が入る", () => {
     const { board, childIds, prefs } = expandTree("mandala");
     const east = board.nodes.find((node) => node.id === childIds.find((id) => {
       const node = board.nodes.find((item) => item.id === id);
       return node?.data.cellIndex === 5;
     }))!;
     const seed = east.data.label;
-    const homeCode = cellCode(east.data.groupId!, east.data.cellIndex!);
+    const before = board.nodes.find((node) => node.id === east.id)!.position;
     const nested = ops.beginExpand(board, east.id, 8, prefs)!;
     const next = ops.fillExpand(
       nested.board,
@@ -125,30 +125,47 @@ describe("マンダラート", () => {
       nested.childIds.map((_, index) => `次のマス${index + 1}`),
       prefs,
     );
-    expect(nested.edgeIds).toHaveLength(1);
-    expect(next.edges).toHaveLength(1);
-    expect(next.edges[0]!.target).toBe(east.id);
-    const center = next.nodes.find((node) => node.id === east.id)!;
+    const home = next.nodes.filter((node) => node.data.groupId === 1);
+    expect(home).toHaveLength(9);
+    const kept = next.nodes.find((node) => node.id === east.id)!;
+    expect(cellCode(kept.data.groupId!, kept.data.cellIndex!)).toBe("1F");
+    expect(kept.data.role).toBe("keyword");
+    expect(kept.data.expanded).toBe(true);
+    expect(kept.data.expanding).toBe(false);
+    expect(kept.position).toEqual(before);
+
+    const center = next.nodes.find((node) => node.data.groupId === 2 && node.data.cellIndex === CENTER_CELL_INDEX)!;
+    expect(center.id).not.toBe(east.id);
     expect(center.data.label).toBe(seed);
     expect(center.data.role).toBe("source");
-    expect(center.data.hostsGroupId).toBe(2);
-    expect(cellCode(center.data.groupId!, center.data.cellIndex!)).toBe(homeCode);
-    expect(homeCode).toBe("1F");
+    expect(center.data.copiedFromId).toBe(east.id);
+    expect(center.position.x).toBeGreaterThan(kept.position.x);
+    expect(nested.edgeIds).toHaveLength(1);
+    expect(next.edges).toHaveLength(1);
+    expect(next.edges[0]!.source).toBe(east.id);
+    expect(next.edges[0]!.target).toBe(center.id);
     const keywords = next.nodes.filter((node) => node.data.groupId === 2 && node.data.role === "keyword");
     expect(keywords).toHaveLength(8);
+    expect(keywords.map((node) => node.data.label)).not.toContain(seed);
     expect(new Set(keywords.map((node) => node.data.familyIndex)).size).toBe(1);
     expect(keywords[0]!.data.familyIndex).toBe(center.data.familyIndex);
     expect(center.data.familyIndex).not.toBe(familyIndexForGroup(1));
     const keywordCodes = keywords.map((node) => cellCode(node.data.groupId!, node.data.cellIndex!)).sort();
     expect(keywordCodes).toEqual(["2A", "2B", "2C", "2D", "2F", "2G", "2H", "2I"]);
+    const { pitchX, pitchY } = inferPitch(next);
     for (const node of next.nodes) {
-      const { pitchX, pitchY } = inferPitch(next);
       expect(Math.abs(node.position.x / pitchX - Math.round(node.position.x / pitchX))).toBeLessThan(0.001);
       expect(Math.abs(node.position.y / pitchY - Math.round(node.position.y / pitchY))).toBeLessThan(0.001);
     }
     const used = new Set(next.nodes.map((node) => `${node.position.x},${node.position.y}`));
     expect(used.size).toBe(next.nodes.length);
     expect(hasGlyphOverlap(next.nodes, positionsOf(next), prefs, GLYPH_PAD - 1)).toBe(false);
+
+    const history = ops.historyFromChildren(next, east.id, nested.childIds, nested.edgeIds);
+    const undone = ops.undoExpand(next, history);
+    expect(undone.nodes).toHaveLength(9);
+    expect(undone.edges).toHaveLength(0);
+    expect(undone.nodes.find((node) => node.id === east.id)!.data.expanded).toBe(false);
   });
 
   it("クリックしたマスの向きに新しい3×3が付く（反対側へ飛ばない）", () => {

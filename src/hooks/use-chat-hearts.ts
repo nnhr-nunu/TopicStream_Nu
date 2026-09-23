@@ -2,46 +2,38 @@
 
 import { useEffect, useState } from "react";
 
-import { heartOrbit, subscribeChatHearts } from "@/lib/live-hearts";
+import { subscribeChatHearts } from "@/lib/live-hearts";
 
-const HOLD_MS = 4200;
-const MAX_HEARTS = 16;
+const HOLD_MS = 1600;
 
-export type FestiveHeart = {
-  id: number;
-  dx: number;
-  dy: number;
-  scale: number;
+/** 直近に届いたハートの「+N」。続けて届いたら数を足して出し直す。 */
+export type HeartBurst = {
+  key: number;
+  count: number;
 };
 
-let nextId = 0;
+let nextKey = 0;
 
-export function useChatHearts(code: string) {
-  const [hearts, setHearts] = useState<FestiveHeart[]>([]);
+export function useChatHearts(code: string): HeartBurst | null {
+  const [burst, setBurst] = useState<HeartBurst | null>(null);
 
   useEffect(() => {
     if (!code) return;
-    const timers: number[] = [];
+    let timer: number | null = null;
     const stop = subscribeChatHearts((spark) => {
       if (!spark.codes.includes(code)) return;
-      const n = Math.max(1, Math.min(6, spark.count));
-      const added: FestiveHeart[] = Array.from({ length: n }, () => {
-        nextId += 1;
-        const orbit = heartOrbit(nextId);
-        return { id: nextId, ...orbit };
-      });
-      setHearts((current) => [...current, ...added].slice(-MAX_HEARTS));
-      const timer = window.setTimeout(() => {
-        const ids = new Set(added.map((heart) => heart.id));
-        setHearts((current) => current.filter((heart) => !ids.has(heart.id)));
-      }, HOLD_MS);
-      timers.push(timer);
+      const n = Math.max(1, spark.count);
+      nextKey += 1;
+      const key = nextKey;
+      setBurst((current) => ({ key, count: (current?.count ?? 0) + n }));
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setBurst(null), HOLD_MS);
     });
     return () => {
       stop();
-      for (const timer of timers) window.clearTimeout(timer);
+      if (timer) window.clearTimeout(timer);
     };
   }, [code]);
 
-  return hearts;
+  return burst;
 }
