@@ -88,8 +88,19 @@ export type UndoAction = HistoryEntry;
 
 export type GenerateSource = "gemini" | "mock";
 
+export type GeminiDebug = {
+  reason: string;
+  googleStatus?: string;
+  googleMessage?: string;
+  httpStatus?: number;
+  host: string;
+  model: string;
+  tried?: string[];
+};
+
 export type GenerateResult = {
   topics: string[];
   source: GenerateSource;
   warning?: string;
+  debug?: GeminiDebug;
 };

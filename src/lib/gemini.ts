@@ -1,4 +1,5 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
+import { sanitizeSecret } from "@/lib/env-secret";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult } from "@/lib/types";
 
@@ -12,7 +13,7 @@ export async function generateRelatedTopics(options: {
 }): Promise<GenerateResult> {
   const count = options.count ?? CHILD_COUNT;
   const mock = mockRelatedTopics(options.seed, options.existing, count, options.preferred ?? []);
-  const override = options.apiKey?.trim();
+  const override = sanitizeSecret(options.apiKey);
 
   try {
     const response = await fetch("/api/gemini", {
@@ -36,18 +37,21 @@ export async function generateRelatedTopics(options: {
         topics: mock,
         source: "mock",
         warning: json.warning ?? "AIの返答が空だったので、オフライン生成に切り替えました",
+        debug: json.debug,
       };
     }
     return {
       topics: json.topics.slice(0, count),
       source: json.source === "gemini" ? "gemini" : "mock",
       warning: json.warning,
+      debug: json.debug,
     };
   } catch {
     return {
       topics: mock,
       source: "mock",
       warning: "Geminiに届かなかったので、オフライン生成を使いました",
+      debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
     };
   }
 }

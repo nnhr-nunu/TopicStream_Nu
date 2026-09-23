@@ -1,18 +1,41 @@
-import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
-import { requestGemini } from "@/lib/gemini-core";
+import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST } from "@/lib/constants";
+import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
+import { geminiDebug, geminiFailureWarning, GeminiRequestError, requestGemini } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
-import type { GenerateResult } from "@/lib/types";
+import type { GenerateResult, GeminiDebug } from "@/lib/types";
 
-function mockResult(seed: string, existing: string[], count: number, preferred: string[], warning?: string): GenerateResult {
+export const maxDuration = 15;
+
+function mockResult(
+  seed: string,
+  existing: string[],
+  count: number,
+  preferred: string[],
+  warning: string,
+  debug: GeminiDebug,
+): GenerateResult {
   return {
     topics: mockRelatedTopics(seed, existing, count, preferred),
     source: "mock",
     warning,
+    debug,
   };
 }
 
+const MISSING_KEY_HINT =
+  "Vercel の GEMINI_API_KEY が空です。いまの長い *-projects.vercel.app は Preview 用なので、環境変数は Production だけでなく Preview にも入れてください。変えたあとは再デプロイが必要です。";
+
+function logDebug(debug: GeminiDebug) {
+  console.info("[gemini]", JSON.stringify(debug));
+}
+
 export async function GET() {
-  return Response.json({ configured: Boolean(process.env.GEMINI_API_KEY?.trim()) });
+  const configured = Boolean(readGeminiApiKey());
+  return Response.json({
+    configured,
+    note: "configured は環境変数があることだけです。Google がキーを受け付けたかは POST で確認します。",
+    hint: configured ? undefined : `${MISSING_KEY_HINT} GitHub Pages ではサーバーキーは使えません。`,
+  });
 }
 
 export async function POST(request: Request) {
@@ -38,30 +61,43 @@ export async function POST(request: Request) {
     : [];
   const count = typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT;
   const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
-  const override = typeof body?.apiKey === "string" ? body.apiKey.trim() : "";
-  const apiKey = override || process.env.GEMINI_API_KEY?.trim() || "";
+  const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const apiKey = override || readGeminiApiKey();
 
   if (!apiKey) {
-    return Response.json(
-      mockResult(seed, existing, count, preferred, "ホストに GEMINI_API_KEY がないので、オフライン生成を使いました"),
-    );
+    const debug = geminiDebug({ reason: "missing-key", model });
+    logDebug(debug);
+    return Response.json(mockResult(seed, existing, count, preferred, `${MISSING_KEY_HINT} オフライン生成を使いました。`, debug));
   }
 
   try {
     const remote = await requestGemini({ seed, existing, apiKey, model, count });
     const mock = mockRelatedTopics(seed, existing, count, preferred);
-    const merged = [...remote];
+    const merged = [...remote.topics];
     for (const extra of mock) {
       if (merged.length >= count) break;
       if (!merged.includes(extra) && extra !== seed) merged.push(extra);
     }
-    const result: GenerateResult = {
+    if (remote.topics.length === 0) {
+      const debug = geminiDebug({ reason: "empty", model: remote.model, tried: remote.tried });
+      logDebug(debug);
+      return Response.json({
+        topics: merged.slice(0, count),
+        source: "mock" as const,
+        warning: `AIの返答が空だったので、オフライン生成に切り替えました（empty・${remote.model}）。`,
+        debug,
+      });
+    }
+    return Response.json({
       topics: merged.slice(0, count),
-      source: remote.length > 0 ? "gemini" : "mock",
-      warning: remote.length > 0 ? undefined : "AIの返答が空だったので、オフライン生成に切り替えました",
-    };
-    return Response.json(result);
-  } catch {
-    return Response.json(mockResult(seed, existing, count, preferred, "Geminiに届かなかったので、オフライン生成を使いました"));
+      source: "gemini" as const,
+    });
+  } catch (error) {
+    const debug =
+      error instanceof GeminiRequestError
+        ? error.debug
+        : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
+    logDebug(debug);
+    return Response.json(mockResult(seed, existing, count, preferred, geminiFailureWarning(error), debug));
   }
 }

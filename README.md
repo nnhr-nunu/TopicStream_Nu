@@ -4,9 +4,8 @@
 
 ## 公開URL
 
-https://nnhr-nunu.github.io/
-
-GitHub Pages の無料枠です。キーなしでもオフライン生成とテストコメントで触れます。本番で Gemini や YouTube チャットを使うには、このリポジトリを [Vercel](https://vercel.com/) に繋いで環境変数を足してください。実キーはリポジトリに置かないでください。
+- GitHub Pages（キーなしデモ）: https://nnhr-nunu.github.io/
+- Vercel で Gemini を使うときは、下の「短いURL」を共有してください。`…-projects.vercel.app` のような長いアドレスは **Preview のデプロイURL** で、配信用の共有先ではありません。
 
 ## 動かし方
 
@@ -32,11 +31,21 @@ http://127.0.0.1:43173 を開きます。テストは `npm test`。
 
 OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 
+## Vercel と Gemini
+
+実キーはリポジトリに置かないでください。oshilog など別アプリの [Google AI Studio](https://aistudio.google.com/apikey) キーを使い回してよいです。
+
+1. Vercel の Project → Settings → Environment Variables に `GEMINI_API_KEY` を入れる。値の前後に `"` や `'` を付けない
+2. **Production と Preview の両方** にチェックする。長い `*-projects.vercel.app` は Preview なので、Production だけだとそこではオフライン生成になります
+3. 変えたあとは **Production** を Redeploy する。`topic-stream-amber.vercel.app` は Production ドメインなので、Preview だけ直してもここには乗らない
+4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。Google が通ったかは POST の `source` と `debug` を見る
+5. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
+
 ## キー（任意・コミットしない）
 
 | 名前 | 用途 |
 | --- | --- |
-| `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成 |
+| `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成。サーバーの `/api/gemini` だけが読む |
 | `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
 

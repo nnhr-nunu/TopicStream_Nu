@@ -1,4 +1,8 @@
-import { LABEL_MAX } from "@/lib/constants";
+import { GEMINI_FALLBACK_MODELS, GEMINI_HOST, LABEL_MAX } from "@/lib/constants";
+import { redactSecret } from "@/lib/env-secret";
+import type { GeminiDebug } from "@/lib/types";
+
+export type { GeminiDebug };
 
 export function buildPrompt(seed: string, existing: string[], count: number): string {
   const banned = existing.slice(0, 24).join(" / ") || "なし";
@@ -51,9 +55,126 @@ export function parseTopics(raw: string, seed: string, existing: string[]): stri
   return topics;
 }
 
-export const GEMINI_TIMEOUT_MS = 2800;
+export const GEMINI_TIMEOUT_MS = 12_000;
+
+export class GeminiRequestError extends Error {
+  constructor(
+    readonly kind: "http" | "timeout" | "network",
+    readonly debug: GeminiDebug,
+  ) {
+    super("gemini");
+    this.name = "GeminiRequestError";
+  }
+
+  get status(): number | undefined {
+    return this.debug.httpStatus;
+  }
+}
+
+function isAbortError(error: unknown, aborted: boolean): boolean {
+  if (aborted) return true;
+  let current: unknown = error;
+  for (let i = 0; i < 5 && current && typeof current === "object"; i += 1) {
+    const name = (current as { name?: string }).name;
+    if (name === "AbortError" || name === "TimeoutError") return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+function clipGoogleText(raw: string): string {
+  return redactSecret(raw).replace(/\s+/g, " ").trim().slice(0, 160);
+}
+
+export function parseGoogleError(body: unknown): { googleStatus?: string; googleMessage?: string } {
+  if (!body || typeof body !== "object") return {};
+  const error = (body as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return {};
+  const record = error as { status?: unknown; message?: unknown };
+  return {
+    googleStatus: typeof record.status === "string" ? record.status : undefined,
+    googleMessage: typeof record.message === "string" ? clipGoogleText(record.message) : undefined,
+  };
+}
+
+export function geminiDebug(partial: Omit<GeminiDebug, "host"> & { host?: string }): GeminiDebug {
+  return { host: GEMINI_HOST, ...partial };
+}
+
+export function geminiFailureWarning(error: unknown): string {
+  const debug = error instanceof GeminiRequestError ? error.debug : undefined;
+  const reason = debug?.reason ?? "network";
+  const model = debug?.model ?? "";
+  const google = debug?.googleStatus ? ` ${debug.googleStatus}` : "";
+  if (reason.startsWith("http-") && ["http-400", "http-401", "http-403"].includes(reason)) {
+    return `Gemini がキーを受け付けませんでした（${reason}${google}・${model}）。オフライン生成を使いました。`;
+  }
+  if (reason === "http-429") {
+    return `Gemini が混み合っています（${reason}・${model}）。オフライン生成を使いました。`;
+  }
+  if (reason === "http-404") {
+    return `Gemini のモデルが見つかりません（${reason}・${model}）。オフライン生成を使いました。`;
+  }
+  if (reason.startsWith("http-")) {
+    return `Gemini がエラーを返しました（${reason}${google}・${model}）。オフライン生成を使いました。`;
+  }
+  if (reason === "timeout") {
+    return `Gemini が時間切れです（timeout・12秒・${model}）。オフライン生成を使いました。`;
+  }
+  if (reason === "missing-key") {
+    return "Vercel の GEMINI_API_KEY が空です。Preview にも入れて再デプロイしてください。オフライン生成を使いました。";
+  }
+  return `Gemini に届きませんでした（${reason}・${GEMINI_HOST}・${model}）。オフライン生成を使いました。`;
+}
+
+function fallbackModels(requested: string): string[] {
+  return [requested, ...GEMINI_FALLBACK_MODELS.filter((model) => model !== requested)];
+}
+
+function shouldTryNextModel(error: GeminiRequestError): boolean {
+  return error.debug.httpStatus === 404 || error.debug.googleStatus === "NOT_FOUND";
+}
+
+function networkError(model: string, error: unknown): GeminiRequestError {
+  const name =
+    error && typeof error === "object" && typeof (error as { name?: unknown }).name === "string"
+      ? (error as { name: string }).name
+      : "Error";
+  return new GeminiRequestError(
+    "network",
+    geminiDebug({
+      reason: "network",
+      model,
+      googleMessage: clipGoogleText(name),
+    }),
+  );
+}
 
 export async function requestGemini(options: {
+  seed: string;
+  existing: string[];
+  apiKey: string;
+  model: string;
+  count: number;
+}): Promise<{ topics: string[]; model: string; tried: string[] }> {
+  const tried: string[] = [];
+  let lastError: GeminiRequestError | undefined;
+  for (const model of fallbackModels(options.model)) {
+    tried.push(model);
+    try {
+      const topics = await requestGeminiOnce({ ...options, model });
+      return { topics, model, tried };
+    } catch (error) {
+      lastError = error instanceof GeminiRequestError ? error : networkError(model, error);
+      lastError.debug.tried = [...tried];
+      if (shouldTryNextModel(lastError)) continue;
+      throw lastError;
+    }
+  }
+  throw lastError ?? networkError(options.model, undefined);
+}
+
+async function requestGeminiOnce(options: {
   seed: string;
   existing: string[];
   apiKey: string;
@@ -62,12 +183,15 @@ export async function requestGemini(options: {
 }): Promise<string[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+  const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:generateContent`;
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent?key=${encodeURIComponent(options.apiKey)}`;
     const response = await fetch(endpoint, {
       method: "POST",
       signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": options.apiKey,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count) }] }],
         generationConfig: {
@@ -77,13 +201,41 @@ export async function requestGemini(options: {
       }),
     });
     if (!response.ok) {
-      throw new Error(`Gemini HTTP ${response.status}`);
+      const google = parseGoogleError(await response.json().catch(() => null));
+      throw new GeminiRequestError(
+        "http",
+        geminiDebug({
+          reason: `http-${response.status}`,
+          httpStatus: response.status,
+          model: options.model,
+          ...google,
+        }),
+      );
     }
     const json = (await response.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      error?: unknown;
     };
+    if (json.error) {
+      const google = parseGoogleError(json);
+      throw new GeminiRequestError(
+        "http",
+        geminiDebug({
+          reason: "http-200-error",
+          httpStatus: 200,
+          model: options.model,
+          ...google,
+        }),
+      );
+    }
     const text = json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("\n") ?? "";
     return parseTopics(text, options.seed, options.existing);
+  } catch (error) {
+    if (error instanceof GeminiRequestError) throw error;
+    if (isAbortError(error, controller.signal.aborted)) {
+      throw new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: options.model }));
+    }
+    throw networkError(options.model, error);
   } finally {
     clearTimeout(timer);
   }
