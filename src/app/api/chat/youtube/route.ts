@@ -31,7 +31,7 @@ async function googleReason(response: Response): Promise<{ reason: string; messa
 
 function classify(reason: string): { kind: YoutubeChatProblem; warning: string; retryMs: number } {
   if (/quota|rateLimit/i.test(reason)) {
-    return { kind: "quota", warning: "YouTube API の今日の利用枠を使い切りました（日本時間の17時ごろに戻ります）。", retryMs: 5 * 60_000 };
+    return { kind: "quota", warning: "YouTube API の今日の利用枠を使い切りました（日本時間の16〜17時ごろに戻ります）。", retryMs: 5 * 60_000 };
   }
   if (/liveChatEnded|liveChatDisabled/i.test(reason)) {
     return { kind: "ended", warning: "この配信のチャットは終了しているか、オフになっています。", retryMs: 60_000 };
