@@ -29,6 +29,10 @@ export async function generateRelatedTopics(options: {
         apiKey: override || undefined,
       }),
     });
+    if (response.status === 404) {
+      // GitHub Pages（サーバーの無い公開版）はオフライン生成が普通の動きなので、何も知らせない
+      return { topics: mock, source: "mock" };
+    }
     if (!response.ok) {
       throw new Error(`gemini proxy ${response.status}`);
     }

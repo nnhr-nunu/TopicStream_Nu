@@ -523,3 +523,39 @@
     animation: none;
   }
 }
+
+/* 配信連携の状態: 読めている＝緑、配信待ち・接続中＝黄、読めていない＝赤 */
+.map-link-pill-on.map-link-connecting .map-link-dot,
+.map-link-pill-on.map-link-waiting .map-link-dot {
+  background: oklch(0.78 0.14 80);
+  box-shadow: 0 0 0 3px color-mix(in oklab, oklch(0.78 0.14 80) 30%, transparent);
+  animation: map-link-blink 1.2s ease-in-out infinite;
+}
+
+.map-link-pill-on.map-link-error {
+  border-color: color-mix(in oklab, var(--destructive) 50%, var(--border));
+  background: color-mix(in oklab, var(--destructive) 10%, var(--card));
+}
+
+.map-link-pill-on.map-link-error .map-link-dot {
+  background: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 25%, transparent);
+}
+
+@keyframes map-link-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.map-comment-unread {
+  min-width: 1.2rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.2rem;
+  text-align: center;
+  padding: 0 0.3rem;
+}

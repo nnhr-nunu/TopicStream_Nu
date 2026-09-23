@@ -15,6 +15,12 @@ import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+type LiveState = {
+  /** connecting: 接続中 / live: 読めている / waiting: 配信前 / error: 読めていない */
+  phase: "connecting" | "live" | "waiting" | "error";
+  message: string;
+};
+
 type ChatLine = {
   id: number;
   text: string;
@@ -23,7 +29,6 @@ type ChatLine = {
 export function LiveChatDock({
   board,
   streamUrl,
-  youtubeApiKey,
   pinnedCode,
   showComments,
   commentScale = 1,
@@ -35,7 +40,6 @@ export function LiveChatDock({
 }: {
   board: Board | null;
   streamUrl: string;
-  youtubeApiKey?: string;
   pinnedCode?: string;
   showComments: boolean;
   commentScale?: number;
@@ -50,16 +54,17 @@ export function LiveChatDock({
   const linked = Boolean(streamRef);
   const [draft, setDraft] = useState("");
   const [log, setLog] = useState<ChatLine[]>([]);
-  const [liveStatus, setLiveStatus] = useState("");
+  const [live, setLive] = useState<LiveState>({ phase: "connecting", message: "" });
+  const [unread, setUnread] = useState(0);
   const seen = useRef(new Set<string>());
   const logEnd = useRef<HTMLDivElement | null>(null);
   const nextLine = useRef(1);
-  const status = streamRef ? liveStatus : "";
+  const status = streamRef ? live.message : "";
 
   // 接続（WebSocket / ポーリング）はハートで board が変わるたびに張り直さない。最新値は ref で読む。
-  const latest = useRef({ board, pinnedCode, onHeart });
+  const latest = useRef({ board, pinnedCode, onHeart, showComments });
   useEffect(() => {
-    latest.current = { board, pinnedCode, onHeart };
+    latest.current = { board, pinnedCode, onHeart, showComments };
   });
 
   const applyText = useCallback((text: string) => {
@@ -76,6 +81,7 @@ export function LiveChatDock({
     }
     emitChatHearts(hit, 1);
     setLog((lines) => [...lines, { id: nextLine.current++, text }].slice(-80));
+    if (!latest.current.showComments) setUnread((count) => count + 1);
   }, []);
 
   useEffect(() => {
@@ -85,68 +91,113 @@ export function LiveChatDock({
   useEffect(() => {
     const ref = parseStreamUrl(streamUrl);
     if (!ref) return;
+    let cancelled = false;
+    let timer: number | undefined;
+    const later = (fn: () => void, ms: number) => {
+      if (!cancelled) timer = window.setTimeout(fn, ms);
+    };
+    // 前の配信の状態を残さない
+    queueMicrotask(() => {
+      if (!cancelled) setLive({ phase: "connecting", message: `${streamLabel(ref)} に接続しています…` });
+    });
+
     if (ref.kind === "twitch") {
-      const ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
-      const nick = `justinfan${Math.floor(10000 + Math.random() * 80000)}`;
-      ws.onopen = () => {
-        ws.send("PASS SCHMOOPIIESS");
-        ws.send(`NICK ${nick}`);
-        ws.send(`JOIN #${ref.channel.toLowerCase()}`);
-        setLiveStatus("Twitch のチャットを読んでいます");
+      let ws: WebSocket | null = null;
+      const connect = () => {
+        ws = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+        const nick = `justinfan${Math.floor(10000 + Math.random() * 80000)}`;
+        ws.onopen = () => {
+          ws?.send("PASS SCHMOOPIIESS");
+          ws?.send(`NICK ${nick}`);
+          ws?.send(`JOIN #${ref.channel.toLowerCase()}`);
+        };
+        ws.onmessage = (event) => {
+          const raw = String(event.data);
+          if (raw.startsWith("PING")) {
+            ws?.send("PONG :tmi.twitch.tv");
+            return;
+          }
+          if (/ JOIN #/.test(raw) || / 366 /.test(raw)) {
+            setLive({ phase: "live", message: `Twitch #${ref.channel} のチャットを読んでいます。` });
+          }
+          const match = raw.match(/PRIVMSG #[^ ]+ :(.+)/);
+          if (match?.[1]) applyText(match[1].trim());
+        };
+        ws.onclose = () => {
+          if (cancelled) return;
+          setLive({ phase: "error", message: "Twitch との接続が切れました。自動でつなぎ直します…" });
+          later(connect, 5_000);
+        };
       };
-      ws.onmessage = (event) => {
-        const raw = String(event.data);
-        if (raw.startsWith("PING")) {
-          ws.send("PONG :tmi.twitch.tv");
-          return;
-        }
-        const match = raw.match(/PRIVMSG #[^ ]+ :(.+)/);
-        if (match?.[1]) applyText(match[1].trim());
+      connect();
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+        ws?.close();
       };
-      ws.onerror = () => setLiveStatus("Twitchに繋がらなかったので、テストコメントを使ってください");
-      return () => ws.close();
     }
 
-    let cancelled = false;
     let token = "";
+    let liveChatId = "";
     const poll = async () => {
       try {
         const response = await fetch("/api/chat/youtube", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: streamUrl, apiKey: youtubeApiKey, pageToken: token || undefined }),
+          body: JSON.stringify({ url: streamUrl, pageToken: token || undefined, liveChatId: liveChatId || undefined }),
         });
         if (cancelled) return;
         if (!response.ok) {
-          setLiveStatus("PagesではYouTubeキーなし。テストコメントで 1E を試せます");
+          // GitHub Pages（静的な公開版）にはサーバーが無い
+          setLive({ phase: "error", message: "この公開版では YouTube のチャットを読めません。テストコメントで試せます。" });
           return;
         }
         const json = (await response.json()) as {
           messages?: { id: string; text: string }[];
           nextPageToken?: string;
+          liveChatId?: string;
           pollingMs?: number;
+          problem?: string;
           warning?: string;
+          retryMs?: number;
         };
-        if (json.warning) setLiveStatus(json.warning);
-        else setLiveStatus("YouTubeのコメントをマップに載せています");
+        liveChatId = json.liveChatId ?? "";
+        if (json.problem) {
+          token = "";
+          setLive({ phase: json.problem === "not-live" ? "waiting" : "error", message: json.warning ?? "" });
+          later(() => void poll(), json.retryMs ?? 20_000);
+          return;
+        }
+        setLive({ phase: "live", message: "YouTube のチャットを読んでいます。" });
         token = json.nextPageToken ?? token;
         for (const message of json.messages ?? []) {
           if (!message.id || seen.current.has(message.id)) continue;
           seen.current.add(message.id);
           applyText(message.text);
         }
-        if (!cancelled) window.setTimeout(() => void poll(), json.pollingMs ?? 6000);
+        later(() => void poll(), json.pollingMs ?? 8_000);
       } catch {
-        if (!cancelled) setLiveStatus("YouTubeに届きません。テストコメントが使えます");
+        if (cancelled) return;
+        setLive({ phase: "error", message: "YouTube に届きません。少しして読み直します。" });
+        later(() => void poll(), 20_000);
       }
     };
     void poll();
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [applyText, streamUrl, youtubeApiKey]);
+  }, [applyText, streamUrl]);
 
-  const linkedLabel = streamRef ? `${streamLabel(streamRef)} 連携中` : "配信と連携";
+  const linkedLabel = !streamRef
+    ? "配信と連携"
+    : live.phase === "live"
+      ? `${streamLabel(streamRef)} 読み込み中`
+      : live.phase === "waiting"
+        ? `${streamLabel(streamRef)} 配信待ち`
+        : live.phase === "error"
+          ? `${streamLabel(streamRef)} 読めていません`
+          : `${streamLabel(streamRef)} 接続中…`;
 
   return (
     <div className="map-live-shell">
@@ -186,7 +237,9 @@ export function LiveChatDock({
             </div>
             <div className="comment-overlay-log">
               {log.length === 0 ? (
-                <p className="comment-overlay-empty">まだありません。配信と連携するか、下のテストコメントで試せます。</p>
+                <p className="comment-overlay-empty">
+                  {status || "まだありません。配信と連携するか、下のテストコメントで試せます。"}
+                </p>
               ) : (
                 <ul>
                   {log.map((line) => (
@@ -207,7 +260,8 @@ export function LiveChatDock({
             render={
               <button
                 type="button"
-                className={cn("map-link-pill", linked && "map-link-pill-on")}
+                className={cn("map-link-pill", linked && `map-link-pill-on map-link-${live.phase}`)}
+                title={status || undefined}
                 aria-label={`配信との連携: ${linkedLabel}（URLを設定）`}
               />
             }
@@ -225,7 +279,11 @@ export function LiveChatDock({
               id="map-stream-url"
               value={streamUrl}
               placeholder="YouTube の watch / Studio / チャット、または Twitch"
-              onChange={(event) => onStreamUrlChange(event.target.value)}
+              onChange={(event) => {
+                const next = event.target.value;
+                if (!linked && parseStreamUrl(next) && !showComments) onShowCommentsChange(true);
+                onStreamUrlChange(next);
+              }}
               aria-label="配信URLまたはチャットURL"
               autoFocus
             />
@@ -245,10 +303,14 @@ export function LiveChatDock({
           type="button"
           className={cn("map-comment-toggle", showComments && "map-comment-toggle-on")}
           aria-pressed={showComments}
-          onClick={() => onShowCommentsChange(!showComments)}
+          onClick={() => {
+            if (!showComments) setUnread(0);
+            onShowCommentsChange(!showComments);
+          }}
         >
           <MessageSquareText className="size-3.5" aria-hidden />
           コメント欄
+          {!showComments && unread > 0 ? <span className="map-comment-unread">{unread > 99 ? "99+" : unread}</span> : null}
         </button>
 
         <form

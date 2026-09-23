@@ -211,11 +211,14 @@ function CanvasInner({
   const initialFitBoard = useRef<string | null>(null);
   useEffect(() => {
     if (!nodesInitialized || board.nodes.length === 0) return;
-    if (initialFitBoard.current === board.id) return;
-    initialFitBoard.current = board.id;
-    void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 0, ...canvasFitZoom(overlay) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ボードごとに最初の1回だけ
-  }, [nodesInitialized, board.id]);
+    // ボードや広げかた（マンダラート / 放射）が変わったら合わせ直す
+    const key = `${board.id}:${layout}`;
+    if (initialFitBoard.current === key) return;
+    const first = initialFitBoard.current === null;
+    initialFitBoard.current = key;
+    void fitView({ padding: canvasFitPadding(overlay, pinned), duration: first ? 0 : 260, ...canvasFitZoom(overlay) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ボード・広げかたごとに1回だけ
+  }, [nodesInitialized, board.id, layout]);
 
   useEffect(() => {
     if (overlay) return;

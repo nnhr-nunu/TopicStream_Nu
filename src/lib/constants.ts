@@ -33,12 +33,6 @@ export const RETIRED_GEMINI_MODELS = [
 ] as const;
 export const GEMINI_HOST = "generativelanguage.googleapis.com";
 
-export const GEMINI_MODELS = [
-  { value: "gemini-3.5-flash-lite", label: "3.5 Flash-Lite（推奨・速い）" },
-  { value: "gemini-3.5-flash", label: "3.5 Flash" },
-  { value: "gemini-3.6-flash", label: "3.6 Flash" },
-  { value: "gemini-3.8-flash", label: "3.8 Flash（高性能・少し遅い）" },
-] as const;
 
 export const DEFAULT_SETTINGS = {
   geminiApiKey: "",

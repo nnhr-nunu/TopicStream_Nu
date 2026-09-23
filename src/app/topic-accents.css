@@ -252,3 +252,9 @@
   fill: none;
   stroke-linecap: round;
 }
+
+/* 放射（マインドマップ）: カードが丸い帯なので、❤ は右上の角の外側に出して文字に重ねない */
+[data-layout="radial"] .topic-heart {
+  top: -1rem;
+  right: -0.55rem;
+}
