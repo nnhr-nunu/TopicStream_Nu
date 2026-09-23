@@ -110,9 +110,24 @@ type KeyCheck = {
   googleStatus?: string;
   googleMessage?: string;
   models: string[];
+  generation?: {
+    model: string;
+    ok: boolean;
+    reason?: string;
+    googleStatus?: string;
+    googleMessage?: string;
+    topics?: string[];
+    firstChunkMs?: number;
+    totalMs?: number;
+    thoughtsTokens?: number;
+  };
 };
 
-function describeKeyCheck(result: KeyCheck, model: string): { tone: "ok" | "warn" | "error"; text: string } {
+function seconds(ms?: number): string {
+  return typeof ms === "number" ? `${(ms / 1000).toFixed(1)}秒` : "—";
+}
+
+function describeKeyCheck(result: KeyCheck): { tone: "ok" | "warn" | "error"; text: string } {
   const where = result.source === "browser" ? "この画面のキー" : "サーバーのキー";
   if (result.source === "none") {
     return { tone: "error", text: "キーがありません。上に入れるか、サーバーの GEMINI_API_KEY を設定してください。" };
@@ -122,18 +137,33 @@ function describeKeyCheck(result: KeyCheck, model: string): { tone: "ok" | "warn
     const message = result.googleMessage ? `「${result.googleMessage}」` : "";
     return { tone: "error", text: `${where}が使えません（${code || "通信エラー"}）${message}` };
   }
-  if (!result.models.includes(model)) {
+  const gen = result.generation;
+  if (!gen) return { tone: "ok", text: `${where}は有効です。` };
+  const timing = `最初の応答 ${seconds(gen.firstChunkMs)}・合計 ${seconds(gen.totalMs)}`;
+  if (gen.ok) {
+    const slow = (gen.totalMs ?? 0) > 6_000;
     return {
-      tone: "warn",
-      text: `${where}は有効ですが、${model} は使えません。使える例: ${result.models.slice(0, 4).join(", ") || "なし"}`,
+      tone: slow ? "warn" : "ok",
+      text: `${where}で ${gen.model} が生成できました（${timing}）。例: ${gen.topics?.join("、") ?? ""}${slow ? "。応答が遅めです。" : ""}`,
     };
   }
-  return { tone: "ok", text: `${where}は有効です。${model} を使えます。` };
+  const google = [gen.reason, gen.googleStatus].filter(Boolean).join(" ");
+  const message = gen.googleMessage ? `「${gen.googleMessage}」` : "";
+  const hint =
+    gen.reason === "timeout"
+      ? "Google 側の応答が遅れています。別のモデルを選ぶか、時間をおいて試してください。"
+      : gen.googleStatus === "RESOURCE_EXHAUSTED"
+        ? "このキーの利用枠を使い切っているか、枠がありません。AI Studio の使用量と上限を確認してください。"
+        : "";
+  return {
+    tone: "error",
+    text: `キーは有効ですが、${gen.model} で生成できませんでした（${google}・${seconds(gen.totalMs)}）${message}。${hint}`,
+  };
 }
 
 function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
   const [state, setState] = useState<"idle" | "busy" | KeyCheck>("idle");
-  const result = typeof state === "object" ? describeKeyCheck(state, model) : null;
+  const result = typeof state === "object" ? describeKeyCheck(state) : null;
   return (
     <div className="space-y-1.5">
       <Button
@@ -148,7 +178,7 @@ function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
             const response = await fetch("/api/gemini/check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ apiKey: apiKey || undefined }),
+              body: JSON.stringify({ apiKey: apiKey || undefined, model }),
             });
             if (!response.ok) throw new Error(String(response.status));
             setState((await response.json()) as KeyCheck);
@@ -158,7 +188,7 @@ function GeminiKeyCheck({ apiKey, model }: { apiKey: string; model: string }) {
         }}
       >
         <PlugZap />
-        {state === "busy" ? "確認中…" : "接続テスト"}
+        {state === "busy" ? "生成して確認中…" : "接続テスト（実際に生成して確認）"}
       </Button>
       {result ? (
         <p

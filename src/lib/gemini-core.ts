@@ -136,8 +136,8 @@ export function padTopics(parsed: string[], fallback: string[], count: number, s
   return out.slice(0, count);
 }
 
-/** 1回の呼び出しの上限。思考を最小にしていれば数秒で返る。 */
-export const GEMINI_TIMEOUT_MS = 10_000;
+/** 1回の呼び出しの上限。ストリーミングなので、時間切れでも届いた分は使う。 */
+export const GEMINI_TIMEOUT_MS = 12_000;
 /** モデルを替えて試す全体の上限。API route の maxDuration（30秒）より短くする。 */
 export const GEMINI_DEADLINE_MS = 24_000;
 
@@ -397,23 +397,83 @@ export async function requestGemini(
   throw lastError ?? new GeminiRequestError("timeout", geminiDebug({ reason: "deadline", model: options.model, tried, attempts }));
 }
 
-function generationConfig(model: string, count: number): Record<string, unknown> {
-  const base: Record<string, unknown> = { temperature: 0.95, maxOutputTokens: 1024 };
+function generationConfig(model: string): Record<string, unknown> {
+  // Gemini 3 系は temperature を 1.0 未満にするとループや劣化が起きると公式に書かれているので、既定のまま送らない。
+  const base: Record<string, unknown> = { maxOutputTokens: 1024 };
   if (plainModels.has(model)) return base;
   const thinking = thinkingConfigFor(model);
   return {
     ...base,
     responseMimeType: "application/json",
-    responseSchema: { type: "ARRAY", items: { type: "STRING" }, minItems: count, maxItems: count },
+    responseSchema: { type: "ARRAY", items: { type: "STRING" } },
     ...(thinking ? { thinkingConfig: thinking } : {}),
   };
 }
 
-async function generateGeminiText(options: GeminiOptions, remaining: Remaining): Promise<string> {
+type StreamChunk = {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
+  usageMetadata?: { thoughtsTokenCount?: number; candidatesTokenCount?: number };
+  error?: unknown;
+};
+
+/** 1回の生成の結果。partial は時間切れ・十分な数で打ち切ったときに true。 */
+export type GeminiText = {
+  text: string;
+  partial: boolean;
+  firstChunkMs?: number;
+  totalMs: number;
+  finishReason?: string;
+  thoughtsTokens?: number;
+  outputTokens?: number;
+};
+
+function chunkText(chunk: StreamChunk): string {
+  return (
+    chunk.candidates?.[0]?.content?.parts
+      ?.filter((part) => !part.thought)
+      .map((part) => part.text ?? "")
+      .join("") ?? ""
+  );
+}
+
+/**
+ * ストリーミングで生成する。必要な数のキーワードがそろった時点で打ち切り、
+ * 時間切れでも途中まで届いた分は返す（遅い日やループしたときでも空で終わらないように）。
+ */
+async function generateGeminiText(
+  options: GeminiOptions,
+  remaining: Remaining,
+  enough?: (text: string) => boolean,
+): Promise<GeminiText> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), Math.max(1_000, Math.min(GEMINI_TIMEOUT_MS, remaining())));
-  const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:generateContent`;
+  const started = geminiRetry.now();
+  let timedOut = false;
+  let satisfied = false;
+  const timer = setTimeout(
+    () => {
+      timedOut = true;
+      controller.abort();
+    },
+    Math.max(1_000, Math.min(GEMINI_TIMEOUT_MS, remaining())),
+  );
+  const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse`;
+  const result: GeminiText = { text: "", partial: false, totalMs: 0 };
   let retryPlain = false;
+
+  const absorb = (chunk: StreamChunk) => {
+    if (chunk.error) {
+      throw new GeminiRequestError(
+        "http",
+        geminiDebug({ reason: "http-200-error", httpStatus: 200, model: options.model, ...parseGoogleError(chunk) }),
+      );
+    }
+    result.firstChunkMs ??= geminiRetry.now() - started;
+    result.text += chunkText(chunk);
+    result.finishReason = chunk.candidates?.[0]?.finishReason ?? result.finishReason;
+    result.thoughtsTokens = chunk.usageMetadata?.thoughtsTokenCount ?? result.thoughtsTokens;
+    result.outputTokens = chunk.usageMetadata?.candidatesTokenCount ?? result.outputTokens;
+  };
+
   try {
     const response = await fetch(endpoint, {
       method: "POST",
@@ -424,7 +484,7 @@ async function generateGeminiText(options: GeminiOptions, remaining: Remaining):
       },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count) }] }],
-        generationConfig: generationConfig(options.model, options.count),
+        generationConfig: generationConfig(options.model),
       }),
     });
     if (!response.ok) {
@@ -436,43 +496,53 @@ async function generateGeminiText(options: GeminiOptions, remaining: Remaining):
       } else {
         throw new GeminiRequestError(
           "http",
-          geminiDebug({
-            reason: `http-${response.status}`,
-            httpStatus: response.status,
-            model: options.model,
-            ...google,
-          }),
+          geminiDebug({ reason: `http-${response.status}`, httpStatus: response.status, model: options.model, ...google }),
         );
       }
-    }
-    if (!retryPlain) {
-      const json = (await response.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }>;
-        error?: unknown;
-      };
-      if (json.error) {
-        throw new GeminiRequestError(
-          "http",
-          geminiDebug({ reason: "http-200-error", httpStatus: 200, model: options.model, ...parseGoogleError(json) }),
-        );
+    } else if (response.body && typeof response.body.getReader === "function") {
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split(/\r?\n\r?\n/);
+        buffer = events.pop() ?? "";
+        for (const event of events) {
+          const data = event
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trim())
+            .join("");
+          if (data) absorb(JSON.parse(data) as StreamChunk);
+        }
+        if (enough?.(result.text)) {
+          satisfied = true;
+          controller.abort();
+          break;
+        }
       }
-      return (
-        json.candidates?.[0]?.content?.parts
-          ?.filter((part) => !part.thought)
-          .map((part) => part.text ?? "")
-          .join("\n") ?? ""
-      );
+    } else {
+      // ストリームを返さない環境（テストのモックなど）は通常の JSON として読む
+      const json = (await response.json()) as StreamChunk | StreamChunk[];
+      for (const chunk of Array.isArray(json) ? json : [json]) absorb(chunk);
     }
   } catch (error) {
     if (error instanceof GeminiRequestError) throw error;
-    if (isAbortError(error, controller.signal.aborted)) {
-      throw new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: options.model }));
+    if (!(satisfied || (timedOut && result.text.trim()))) {
+      if (isAbortError(error, controller.signal.aborted)) {
+        throw new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: options.model }));
+      }
+      throw networkError(options.model, error);
     }
-    throw networkError(options.model, error);
   } finally {
     clearTimeout(timer);
   }
-  return generateGeminiText(options, remaining);
+  if (retryPlain) return generateGeminiText(options, remaining, enough);
+  result.partial = satisfied || timedOut;
+  result.totalMs = geminiRetry.now() - started;
+  return result;
 }
 
 function mergeParsedTopics(base: string[], extra: string[], count: number): string[] {
@@ -485,29 +555,50 @@ function mergeParsedTopics(base: string[], extra: string[], count: number): stri
 }
 
 async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
-  const first = parseTopics(await generateGeminiText(options, remaining), options.seed, options.existing);
+  const enough = (existing: string[]) => (text: string) =>
+    parseTopics(text, options.seed, existing).length >= options.count;
+  const first = parseTopics(
+    (await generateGeminiText(options, remaining, enough(options.existing))).text,
+    options.seed,
+    options.existing,
+  );
   if (first.length >= options.count || remaining() < 4_000) return first.slice(0, options.count);
+  const seen = [...options.existing, ...first];
   try {
-    const retry = parseTopics(await generateGeminiText(options, remaining), options.seed, [
-      ...options.existing,
-      ...first,
-    ]);
+    const retry = parseTopics((await generateGeminiText(options, remaining, enough(seen))).text, options.seed, seen);
     return mergeParsedTopics(first, retry, options.count);
   } catch {
-    return first;
+    if (first.length > 0) return first;
+    throw new GeminiRequestError("http", geminiDebug({ reason: "empty", model: options.model }));
   }
 }
 
-/** 設定画面の「接続テスト」用。キーで使える Flash 系モデルを Google に問い合わせる。 */
-export async function checkGeminiKey(apiKey: string): Promise<{
+export type GeminiKeyCheck = {
   ok: boolean;
   httpStatus?: number;
   googleStatus?: string;
   googleMessage?: string;
   models: string[];
-}> {
+  /** 実際に短い生成をしてみた結果（キーが有効でも生成だけ失敗することがあるため） */
+  generation?: {
+    model: string;
+    ok: boolean;
+    reason?: string;
+    googleStatus?: string;
+    googleMessage?: string;
+    topics?: string[];
+    firstChunkMs?: number;
+    totalMs?: number;
+    finishReason?: string;
+    thoughtsTokens?: number;
+  };
+};
+
+/** 設定画面の「接続テスト」用。キーで使える Flash 系モデルを調べ、選んだモデルで短く生成してみる。 */
+export async function checkGeminiKey(apiKey: string, model = DEFAULT_MODEL): Promise<GeminiKeyCheck> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8_000);
+  let listed: GeminiKeyCheck;
   try {
     const response = await fetch(`https://${GEMINI_HOST}/v1beta/models?pageSize=200`, {
       signal: controller.signal,
@@ -520,10 +611,10 @@ export async function checkGeminiKey(apiKey: string): Promise<{
       return { ok: false, httpStatus: response.status, ...parseGoogleError(json), models: [] };
     }
     const models = (json?.models ?? [])
-      .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
-      .map((model) => (model.name ?? "").replace(/^models\//, ""))
+      .filter((item) => item.supportedGenerationMethods?.includes("generateContent"))
+      .map((item) => (item.name ?? "").replace(/^models\//, ""))
       .filter((name) => /flash/.test(name) && !/(tts|image|live|audio|transcribe|embedding)/.test(name));
-    return { ok: true, httpStatus: response.status, models };
+    listed = { ok: true, httpStatus: response.status, models };
   } catch (error) {
     return {
       ok: false,
@@ -532,5 +623,43 @@ export async function checkGeminiKey(apiKey: string): Promise<{
     };
   } finally {
     clearTimeout(timer);
+  }
+
+  const target = resolveGeminiModel(model);
+  const started = geminiRetry.now();
+  const remaining: Remaining = () => GEMINI_TIMEOUT_MS - (geminiRetry.now() - started);
+  try {
+    const output = await generateGeminiText(
+      { seed: "雑談", existing: [], apiKey, model: target, count: 3 },
+      remaining,
+      (text) => parseTopics(text, "雑談", []).length >= 3,
+    );
+    const topics = parseTopics(output.text, "雑談", []).slice(0, 3);
+    return {
+      ...listed,
+      generation: {
+        model: target,
+        ok: topics.length > 0,
+        reason: topics.length > 0 ? undefined : "empty",
+        topics,
+        firstChunkMs: output.firstChunkMs,
+        totalMs: output.totalMs,
+        finishReason: output.finishReason,
+        thoughtsTokens: output.thoughtsTokens,
+      },
+    };
+  } catch (error) {
+    const debug = error instanceof GeminiRequestError ? error.debug : undefined;
+    return {
+      ...listed,
+      generation: {
+        model: target,
+        ok: false,
+        reason: debug?.reason ?? "network",
+        googleStatus: debug?.googleStatus,
+        googleMessage: debug?.googleMessage,
+        totalMs: geminiRetry.now() - started,
+      },
+    };
   }
 }
