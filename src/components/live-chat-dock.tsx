@@ -1,40 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
-import { parseStreamUrl } from "@/lib/stream-url";
+import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
+
+type ChatLine = {
+  id: number;
+  text: string;
+};
 
 export function LiveChatDock({
   board,
   streamUrl,
   youtubeApiKey,
   pinnedCode,
+  showComments,
   onHeart,
-  compact = false,
+  onFrameHeart,
+  onStreamUrlChange,
+  onShowCommentsChange,
+  children,
 }: {
   board: Board | null;
   streamUrl: string;
   youtubeApiKey?: string;
   pinnedCode?: string;
+  showComments: boolean;
   onHeart: (nodeId: string) => void;
-  compact?: boolean;
+  onFrameHeart: (nodeId: string) => void;
+  onStreamUrlChange: (url: string) => void;
+  onShowCommentsChange: (show: boolean) => void;
+  children: ReactNode;
 }) {
-  const idleStatus = useMemo(() => {
-    const ref = parseStreamUrl(streamUrl);
-    if (!ref) return "配信URLは設定に貼れます。キーなしなら下のテストコメントで十分です";
-    if (ref.kind === "twitch") return `Twitch #${ref.channel} のチャットを読んでいます`;
-    return "YouTubeチャットを試しています（キーが必要）";
-  }, [streamUrl]);
+  const streamRef = useMemo(() => parseStreamUrl(streamUrl), [streamUrl]);
+  const linked = Boolean(streamRef);
   const [draft, setDraft] = useState("");
-  const [log, setLog] = useState<string[]>([]);
-  const [status, setStatus] = useState(idleStatus);
+  const [log, setLog] = useState<ChatLine[]>([]);
+  const [liveStatus, setLiveStatus] = useState("");
   const seen = useRef(new Set<string>());
+  const logEnd = useRef<HTMLDivElement | null>(null);
+  const nextLine = useRef(1);
+  const status = streamRef ? liveStatus : "";
 
   const applyText = useCallback(
     (text: string) => {
@@ -43,16 +55,24 @@ export function LiveChatDock({
       if (parsed.highlightCodes.length > 0) {
         emitPulse(parsed.highlightCodes);
         emitChatHearts(parsed.highlightCodes, 3);
+        for (const code of parsed.highlightCodes) {
+          const node = findNodeByCode(board.nodes, code);
+          if (node) onFrameHeart(node.id);
+        }
       }
       if (parsed.heartCodes.length > 0) emitChatHearts(parsed.heartCodes, 4);
       for (const code of parsed.heartCodes) {
         const node = findNodeByCode(board.nodes, code);
         if (node) onHeart(node.id);
       }
-      setLog((current) => [text, ...current].slice(0, 4));
+      setLog((current) => [...current, { id: nextLine.current++, text }].slice(-80));
     },
-    [board, onHeart, pinnedCode],
+    [board, onFrameHeart, onHeart, pinnedCode],
   );
+
+  useEffect(() => {
+    logEnd.current?.scrollIntoView({ block: "end" });
+  }, [log, showComments]);
 
   useEffect(() => {
     const ref = parseStreamUrl(streamUrl);
@@ -64,6 +84,7 @@ export function LiveChatDock({
         ws.send("PASS SCHMOOPIIESS");
         ws.send(`NICK ${nick}`);
         ws.send(`JOIN #${ref.channel.toLowerCase()}`);
+        setLiveStatus("Twitch のチャットを読んでいます");
       };
       ws.onmessage = (event) => {
         const raw = String(event.data);
@@ -74,7 +95,7 @@ export function LiveChatDock({
         const match = raw.match(/PRIVMSG #[^ ]+ :(.+)/);
         if (match?.[1]) applyText(match[1].trim());
       };
-      ws.onerror = () => setStatus("Twitchに繋がらなかったので、テストコメントを使ってください");
+      ws.onerror = () => setLiveStatus("Twitchに繋がらなかったので、テストコメントを使ってください");
       return () => ws.close();
     }
 
@@ -89,7 +110,7 @@ export function LiveChatDock({
         });
         if (cancelled) return;
         if (!response.ok) {
-          setStatus("PagesではYouTubeキーなし。テストコメントで 1E を試せます");
+          setLiveStatus("PagesではYouTubeキーなし。テストコメントで 1E を試せます");
           return;
         }
         const json = (await response.json()) as {
@@ -98,8 +119,8 @@ export function LiveChatDock({
           pollingMs?: number;
           warning?: string;
         };
-        if (json.warning) setStatus(json.warning);
-        else setStatus("YouTubeのコメントをマップに載せています");
+        if (json.warning) setLiveStatus(json.warning);
+        else setLiveStatus("YouTubeのコメントをマップに載せています");
         token = json.nextPageToken ?? token;
         for (const message of json.messages ?? []) {
           if (!message.id || seen.current.has(message.id)) continue;
@@ -108,7 +129,7 @@ export function LiveChatDock({
         }
         if (!cancelled) window.setTimeout(() => void poll(), json.pollingMs ?? 6000);
       } catch {
-        if (!cancelled) setStatus("YouTubeに届きません。テストコメントが使えます");
+        if (!cancelled) setLiveStatus("YouTubeに届きません。テストコメントが使えます");
       }
     };
     void poll();
@@ -117,41 +138,80 @@ export function LiveChatDock({
     };
   }, [applyText, streamUrl, youtubeApiKey]);
 
-  if (compact) return null;
+  const linkedLabel = streamRef
+    ? `${streamLabel(streamRef)} 連携中`
+    : "未連携";
 
   return (
-    <div className="live-chat-dock pointer-events-auto">
-      <p className="mb-1 text-[10px] leading-4 text-muted-foreground">{status || idleStatus}</p>
-      <form
-        className="flex gap-1"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const text = draft.trim();
-          if (!text) return;
-          applyText(text);
-          setDraft("");
-        }}
-      >
-        <Input
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="テストコメント（例: 1Eが聞きたい）"
-          aria-label="テストコメント"
-          className="h-9 bg-background/90 text-xs"
-        />
-        <Button type="submit" size="sm" className="h-9 shrink-0">
-          送る
-        </Button>
-      </form>
-      {log.length > 0 ? (
-        <ul className="mt-1 max-h-16 overflow-hidden text-[10px] text-muted-foreground">
-          {log.map((line, index) => (
-            <li key={`${index}-${line}`} className="truncate">
-              {line}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+    <div className="map-live-shell">
+      <div className="map-live-row">
+        {showComments ? (
+          <aside className="comment-overlay" aria-label="コメント">
+            <p className="comment-overlay-title">コメント</p>
+            <div className="comment-overlay-log">
+              {log.length === 0 ? (
+                <p className="comment-overlay-empty">コメントはまだありません。下のテスト欄か配信チャットから届きます。</p>
+              ) : (
+                <ul>
+                  {log.map((line) => (
+                    <li key={line.id}>{line.text}</li>
+                  ))}
+                </ul>
+              )}
+              <div ref={logEnd} />
+            </div>
+          </aside>
+        ) : null}
+        <div className="map-live-canvas">{children}</div>
+      </div>
+
+      <div className="map-bottom-bar">
+        <div className="map-bottom-url">
+          <label className="map-bottom-label" htmlFor="map-stream-url">
+            配信URL
+          </label>
+          <Input
+            id="map-stream-url"
+            value={streamUrl}
+            placeholder="Studio / watch / チャット / Twitch"
+            onChange={(event) => onStreamUrlChange(event.target.value)}
+            aria-label="配信URLまたはチャットURL"
+          />
+          <span className={linked ? "map-link-badge map-link-on" : "map-link-badge"} aria-live="polite">
+            {linkedLabel}
+          </span>
+        </div>
+        <label className="map-comment-toggle">
+          <input
+            type="checkbox"
+            checked={showComments}
+            onChange={(event) => onShowCommentsChange(event.target.checked)}
+          />
+          コメント表示
+        </label>
+        <form
+          className="map-test-comment"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const text = draft.trim();
+            if (!text) return;
+            applyText(text);
+            setDraft("");
+          }}
+        >
+          <Input
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="テストコメント（例: 4F）"
+            aria-label="テストコメント"
+            className="h-9 bg-background/90 text-xs"
+          />
+          <Button type="submit" size="sm" className="h-9 shrink-0">
+            送る
+          </Button>
+        </form>
+        {status ? <p className="map-bottom-status">{status}</p> : null}
+      </div>
     </div>
   );
 }

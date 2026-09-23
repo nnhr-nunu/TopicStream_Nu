@@ -11,7 +11,7 @@ export function ZoomDock() {
   const percent = Math.round(zoom * 100);
 
   return (
-    <div className="pointer-events-none absolute bottom-4 left-3 z-20 sm:left-4 max-sm:bottom-24">
+    <div className="pointer-events-none absolute bottom-4 left-3 z-20 sm:left-4 max-sm:bottom-4">
       <div className="pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-border/70 bg-background/85 p-1 shadow-lg backdrop-blur-md">
         <Button
           type="button"

@@ -593,6 +593,17 @@ export function bumpHeart(board: Board, nodeId: string, delta = 1): Board {
   });
 }
 
+export function bumpFrameHearts(board: Board, nodeId: string, delta = 1): Board {
+  if (delta === 0) return board;
+  return touch(board, {
+    nodes: board.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const next = Math.max(0, Math.min(9999, (node.data.frameHearts ?? 0) + delta));
+      return { ...node, data: { ...node.data, frameHearts: next || undefined } };
+    }),
+  });
+}
+
 export function syncPositions(board: Board, positions: Record<string, { x: number; y: number }>): Board {
   let changed = false;
   const nodes = board.nodes.map((node) => {

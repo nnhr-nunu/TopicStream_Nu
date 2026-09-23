@@ -31,6 +31,7 @@ export type TopicNodeData = {
   copiedFromId?: string;
   hostsGroupId?: number;
   heartCount?: number;
+  frameHearts?: number;
 };
 
 export type TNode = {
@@ -67,6 +68,7 @@ export type Settings = {
   generationLayout: GenerationLayout;
   streamUrl: string;
   youtubeApiKey: string;
+  showComments: boolean;
 };
 
 export type AppSnapshot = {
