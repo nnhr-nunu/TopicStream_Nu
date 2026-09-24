@@ -13,6 +13,7 @@ import {
   padTopics,
   parseTopics,
   requestGemini,
+  GEMINI_HEDGE_MS,
   shouldTryNextModel,
   thinkingConfigFor,
   geminiUserNotice,
@@ -395,5 +396,56 @@ describe("利用者へのお知らせ", () => {
     expect(geminiUserNotice(new GeminiRequestError("http", geminiDebug({ reason: "http-503", httpStatus: 503, model: "x" }))).kind).toBe("busy");
     expect(geminiUserNotice(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "x" }))).kind).toBe("slow");
     expect(geminiUserNotice(new Error("x")).kind).toBe("unavailable");
+  });
+});
+
+describe("混んでいるときは次のモデルを重ねて走らせる", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("最初のモデルが遅いと、次のモデルの返事を先に使う", async () => {
+    vi.useFakeTimers();
+    const good = ["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"];
+    const aborted: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL, init?: { signal?: AbortSignal }) => {
+        const url = String(input);
+        if (url.includes("models/gemini-3.5-flash-lite:")) {
+          // 返事が来ない（混雑）。中断されたら記録する
+          return new Promise((_, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              aborted.push("lite");
+              reject(new DOMException("aborted", "AbortError"));
+            });
+          });
+        }
+        return googleOk(good);
+      }),
+    );
+    const pending = requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 });
+    await vi.advanceTimersByTimeAsync(GEMINI_HEDGE_MS + 50);
+    const result = await pending;
+    expect(result.model).toBe("gemini-3.5-flash");
+    expect(result.topics).toHaveLength(8);
+    expect(result.tried).toEqual(["gemini-3.5-flash-lite", "gemini-3.5-flash"]);
+    expect(aborted).toEqual(["lite"]); // 遅かったほうは打ち切る
+  });
+
+  it("最初のモデルがすぐ返せば、次のモデルは呼ばない", async () => {
+    const good = ["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"];
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        calls.push(String(input));
+        return googleOk(good);
+      }),
+    );
+    const result = await requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 });
+    expect(result.tried).toEqual(["gemini-3.5-flash-lite"]);
+    expect(calls).toHaveLength(1);
   });
 });
