@@ -1,3 +1,5 @@
+import { SiteLinks } from "@/components/site-links";
+
 const LINK = "break-all text-primary underline-offset-2 hover:underline";
 
 const RELATED = [
@@ -8,7 +10,7 @@ const RELATED = [
   },
   {
     label: "Xのエゴサーチ支援Webサービス：エゴサ支援ツール(ぬ)",
-    href: "https://nnhr-nunu.github.io/TwitterEgoSearch_Nu/",
+    href: "https://self-search.oshilog.life/",
   },
   {
     label: "心音配信に合わせて動く心臓ソフトウェア：StreamHeartbeat(ぬ)",
@@ -32,7 +34,7 @@ export function DeveloperFooter() {
       <section className="rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground">
         <h2 className="text-base font-semibold tracking-tight">開発者情報</h2>
         <div className="mt-4 space-y-2">
-          <p className="font-medium">開発者：ぬぬはら（アブノーマル催眠音声制作者）</p>
+          <p className="font-medium">開発者：ぬぬはら（催眠音声制作者）</p>
           <p>
             Twitter：<External href="https://x.com/nnhr_nunu" />
           </p>
@@ -58,7 +60,8 @@ export function DeveloperFooter() {
           </ul>
         </div>
       </section>
-      <p className="mt-4 text-center text-xs text-muted-foreground">TopicStream(ぬ)</p>
+      <SiteLinks className="mt-4" />
+      <p className="mt-2 text-center text-xs text-muted-foreground">TopicStream(ぬ)</p>
     </footer>
   );
 }

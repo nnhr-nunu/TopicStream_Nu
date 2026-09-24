@@ -1,6 +1,8 @@
 "use client";
 
+import { AdSlot } from "@/components/ad-slot";
 import { BrandMark } from "@/components/brand-mark";
+import { SiteLinks } from "@/components/site-links";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { getBoardSnapshot, writeBoardSnapshot } from "@/lib/board-store";
@@ -30,6 +32,10 @@ export function CommunityCatalog({ initialBoards }: { initialBoards: CatalogBoar
         <p className="mt-1 text-sm text-muted-foreground">ホームと同じカタログです。取り込みは自分のボードに追加されます。</p>
       </header>
       <ThemeBoardList initialBoards={initialBoards} onImport={importBoard} />
+      <div className="mt-10">
+        <AdSlot />
+      </div>
+      <SiteLinks className="mt-2" />
     </div>
   );
 }

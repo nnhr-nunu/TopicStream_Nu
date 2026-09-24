@@ -5,6 +5,7 @@
 ## 公開URL
 
 - GitHub Pages（キーなしデモ）: https://nnhr-nunu.github.io/
+- 独自ドメイン: https://topic-stream.oshilog.life/（Vercel の Domains + Cloudflare の CNAME）
 - Vercel で Gemini を使うときは、下の「短いURL」を共有してください。`…-projects.vercel.app` のような長いアドレスは **Preview のデプロイURL** で、配信用の共有先ではありません。
 
 ## 動かし方
@@ -40,6 +41,17 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 3. 変えたあとは **Production** を Redeploy する。`topic-stream-amber.vercel.app` は Production ドメインなので、Preview だけ直してもここには乗らない
 4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。実際に生成できるかは、設定画面の「AI の話題づくりがうまくいかないとき」→「AI を試す」で確かめる
 5. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
+
+## 広告（Google AdSense・任意）
+
+ホーム・`/community/`・`/guide/` の最下部に広告枠を 1 つ出します。オーバーレイと「いっしょに見る」には出しません。Vercel の Environment Variables に次を入れて再デプロイすると有効になります。未設定なら広告関連のタグは一切出ません（GitHub Pages のデモも未設定なので広告なし）。
+
+| 名前 | 内容 |
+| --- | --- |
+| `NEXT_PUBLIC_ADSENSE_CLIENT` | `ca-pub-` で始まるパブリッシャー ID |
+| `NEXT_PUBLIC_ADSENSE_SLOT` | ディスプレイ広告ユニットのスロット ID（数字） |
+
+`NEXT_PUBLIC_*` はビルド時に埋め込まれるので、値を変えたら Redeploy が必要です。
 
 ## キー（任意・コミットしない）
 
