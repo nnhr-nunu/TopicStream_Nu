@@ -369,16 +369,24 @@ function networkError(model: string, error: unknown): GeminiRequestError {
   );
 }
 
-async function requestGeminiWithSameModelRetry(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
+async function requestGeminiWithSameModelRetry(
+  options: GeminiOptions,
+  remaining: Remaining,
+  signal?: AbortSignal,
+): Promise<string[]> {
   try {
-    return await requestGeminiOnce(options, remaining);
+    return await requestGeminiOnce(options, remaining, signal);
   } catch (error) {
     const first = error instanceof GeminiRequestError ? error : networkError(options.model, error);
-    if (!shouldRetrySameModel(first) || remaining() < geminiRetry.sameModelMs + 3_000) throw first;
+    if (signal?.aborted || !shouldRetrySameModel(first) || remaining() < geminiRetry.sameModelMs + 3_000) throw first;
     await geminiRetry.sleep(geminiRetry.sameModelMs);
-    return requestGeminiOnce(options, remaining);
+    if (signal?.aborted) throw first;
+    return requestGeminiOnce(options, remaining, signal);
   }
 }
+
+/** 先頭のモデルがこの時間内に最初の返事をしなければ、次のモデルも同時に走らせる。 */
+export const GEMINI_HEDGE_MS = 3_000;
 
 export async function requestGemini(
   options: GeminiOptions,
@@ -398,18 +406,51 @@ export async function requestGemini(
     return failed;
   };
 
-  for (const model of models) {
-    if (remaining() < 3_000) break;
-    tried.push(model);
-    try {
-      const topics = await requestGeminiWithSameModelRetry({ ...options, model }, remaining);
-      return { topics, model, tried };
-    } catch (error) {
-      lastError = record(error, model);
-      if (shouldTryNextModel(lastError)) continue;
-      throw lastError;
-    }
-  }
+  // 混んでいる日に1つずつ待つと遅いので、返事が遅いモデルがあれば次のモデルを重ねて走らせ、先に返ったほうを使う。
+  const raced = await new Promise<{ topics: string[]; model: string } | GeminiRequestError | null>((resolve) => {
+    const controllers: AbortController[] = [];
+    let nextIndex = 0;
+    let active = 0;
+    let settled = false;
+    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (value: { topics: string[]; model: string } | GeminiRequestError | null) => {
+      if (settled) return;
+      settled = true;
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      for (const controller of controllers) controller.abort();
+      resolve(value);
+    };
+
+    const launch = (): boolean => {
+      if (settled || nextIndex >= models.length || remaining() < 3_000) return false;
+      const model = models[nextIndex]!;
+      nextIndex += 1;
+      tried.push(model);
+      active += 1;
+      const controller = new AbortController();
+      controllers.push(controller);
+      requestGeminiWithSameModelRetry({ ...options, model }, remaining, controller.signal).then(
+        (topics) => finish({ topics, model }),
+        (error: unknown) => {
+          active -= 1;
+          if (settled) return;
+          lastError = record(error, model);
+          if (!shouldTryNextModel(lastError)) return finish(lastError);
+          if (launch()) return;
+          if (active === 0) finish(null);
+        },
+      );
+      if (hedgeTimer) clearTimeout(hedgeTimer);
+      hedgeTimer = setTimeout(() => void launch(), GEMINI_HEDGE_MS);
+      return true;
+    };
+
+    if (!launch()) finish(null);
+  });
+
+  if (raced && !(raced instanceof GeminiRequestError)) return { topics: raced.topics, model: raced.model, tried };
+  if (raced instanceof GeminiRequestError) throw raced;
 
   const lastModel = tried[tried.length - 1];
   if (
@@ -478,8 +519,12 @@ async function generateGeminiText(
   options: GeminiOptions,
   remaining: Remaining,
   enough?: (text: string) => boolean,
+  outer?: AbortSignal,
 ): Promise<GeminiText> {
   const controller = new AbortController();
+  // 他のモデルが先に返ったときなど、呼び出し側から止められる
+  if (outer?.aborted) controller.abort();
+  else outer?.addEventListener("abort", () => controller.abort(), { once: true });
   const started = geminiRetry.now();
   let timedOut = false;
   let satisfied = false;
@@ -573,7 +618,7 @@ async function generateGeminiText(
   } finally {
     clearTimeout(timer);
   }
-  if (retryPlain) return generateGeminiText(options, remaining, enough);
+  if (retryPlain) return generateGeminiText(options, remaining, enough, outer);
   result.partial = satisfied || timedOut;
   result.totalMs = geminiRetry.now() - started;
   return result;
@@ -588,18 +633,22 @@ function mergeParsedTopics(base: string[], extra: string[], count: number): stri
   return topics;
 }
 
-async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
+async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining, signal?: AbortSignal): Promise<string[]> {
   const enough = (existing: string[]) => (text: string) =>
     parseTopics(text, options.seed, existing).length >= options.count;
   const first = parseTopics(
-    (await generateGeminiText(options, remaining, enough(options.existing))).text,
+    (await generateGeminiText(options, remaining, enough(options.existing), signal)).text,
     options.seed,
     options.existing,
   );
   if (first.length >= options.count || remaining() < 4_000) return first.slice(0, options.count);
   const seen = [...options.existing, ...first];
   try {
-    const retry = parseTopics((await generateGeminiText(options, remaining, enough(seen))).text, options.seed, seen);
+    const retry = parseTopics(
+      (await generateGeminiText(options, remaining, enough(seen), signal)).text,
+      options.seed,
+      seen,
+    );
     return mergeParsedTopics(first, retry, options.count);
   } catch {
     if (first.length > 0) return first;
