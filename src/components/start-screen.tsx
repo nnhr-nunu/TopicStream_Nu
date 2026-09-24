@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Dices, History, ShieldAlert, Sparkles } from "lucide-react";
 
+import { AdSlot } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
 import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
@@ -201,6 +202,8 @@ export function StartScreen({
         <h2 className="mb-4 text-center text-lg font-semibold">みんなのトークテーマ</h2>
         <ThemeBoardList onImport={onImport} busy={busy} />
       </div>
+
+      <AdSlot />
 
       <DeveloperFooter />
     </div>

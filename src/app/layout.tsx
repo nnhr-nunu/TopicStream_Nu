@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 
 import { AppProviders } from "@/components/app-providers";
+import { adConfig } from "@/lib/ads";
 import "./globals.css";
 import "./app-chrome.css";
 import "./topic-accents.css";
@@ -20,6 +21,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "TopicStream(ぬ)",
   description: "雑談配信向けの話題マインドマップ。クリックで関連トークが広がります。",
+  // AdSense のサイト所有確認用。ID 未設定なら出さない。
+  ...(adConfig.client ? { other: { "google-adsense-account": adConfig.client } } : {}),
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

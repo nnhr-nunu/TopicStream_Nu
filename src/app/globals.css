@@ -650,3 +650,8 @@ html[data-theme="stream"] [data-layout="mandala"] .topic-chip-keyword,
   --family-soft: oklch(0.96 0.018 250);
   --family-line: oklch(0.5 0.07 250);
 }
+
+/* 広告が配信されなかった枠は、ラベルごと隠して空白を残さない。 */
+.ad-slot:has(ins.adsbygoogle[data-ad-status="unfilled"]) {
+  display: none;
+}
