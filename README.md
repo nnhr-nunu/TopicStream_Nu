@@ -50,3 +50,7 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
 
 キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
+
+## 使用量の監視
+
+YouTube Data API の枠と Gemini の使用量は、推しログ(ぬ) の管理画面「使用量」にまとめて表示され、通知ラインを超えるとメールが届きます（推しログ側の `TOPICSTREAM_GCP_PROJECT_ID` などで有効化。手順は推しログの `docs/operations/PRODUCTION_ENV_SETUP.md` §3.2）。配信中にすぐ知りたい場合は、GCP の Cloud Monitoring アラート（割り当て使用量）も併用してください。
