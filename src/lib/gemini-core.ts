@@ -187,9 +187,18 @@ export function geminiDebug(partial: Omit<GeminiDebug, "host"> & { host?: string
 
 /** 429 のうち「混雑」ではなく、キーのプロジェクトに割り当てが無い（無料枠 0・課金未設定など）もの。 */
 export function isQuotaError(debug: GeminiDebug | undefined): boolean {
-  if (!debug || debug.httpStatus !== 429) return false;
+  if (!debug) return false;
+  if (isBillingError(debug)) return true;
+  if (debug.httpStatus !== 429) return false;
   const message = (debug.googleMessage ?? "").toLowerCase();
   return message.includes("quota") || message.includes("limit: 0") || message.includes("billing");
+}
+
+/** プリペイドのクレジット切れ・請求の未設定（HTTP 402 など）。モデルを替えても直らない。 */
+export function isBillingError(debug: GeminiDebug | undefined): boolean {
+  if (!debug) return false;
+  const message = (debug.googleMessage ?? "").toLowerCase();
+  return debug.httpStatus === 402 || message.includes("prepayment") || message.includes("credits are depleted");
 }
 
 function attemptsNote(debug: GeminiDebug | undefined): string {
@@ -205,6 +214,9 @@ export function geminiFailureWarning(error: unknown): string {
   const tail = `${attemptsNote(debug)}オフライン生成を使いました。`;
   if (["http-400", "http-401", "http-403"].includes(reason)) {
     return `Gemini がキーを受け付けませんでした（${reason}${google}・${model}）。キーの値と、AI Studio でキーのプロジェクトが有効か確認してください。${tail}`;
+  }
+  if (isBillingError(debug)) {
+    return `Gemini のクレジットが尽きているか、請求が未設定です（${reason}${google}）。AI Studio でこのプロジェクトの請求とクレジット残高を確認してください。${tail}`;
   }
   if (isQuotaError(debug)) {
     return `このキーには ${model} の利用枠がありません（${reason}${google}）。AI Studio の使用量と上限、またはプロジェクトの課金設定を確認してください。${tail}`;
@@ -245,7 +257,7 @@ export function geminiUserNotice(error: unknown): { kind: GeminiNoticeKind; mess
   const debug = error instanceof GeminiRequestError ? error.debug : undefined;
   const reason = debug?.reason ?? "network";
   if (isQuotaError(debug)) {
-    return { kind: "quota", message: "AI の今日の利用上限に達しました。しばらくはオフラインの候補で広げます。" };
+    return { kind: "quota", message: "AI の利用上限に達しました。しばらくはオフラインの候補で広げます。" };
   }
   if (reason === "http-429" || reason === "http-503" || debug?.googleStatus === "UNAVAILABLE" || debug?.googleStatus === "RESOURCE_EXHAUSTED") {
     return { kind: "busy", message: "AI が混み合っているので、今回はオフラインの候補で広げました。" };
@@ -302,6 +314,7 @@ export function isGeminiBusyError(error: GeminiRequestError): boolean {
 export function shouldTryNextModel(error: GeminiRequestError): boolean {
   const status = error.debug.httpStatus;
   const google = error.debug.googleStatus;
+  if (isBillingError(error.debug)) return false; // 請求はプロジェクト単位。どのモデルでも同じ
   if (status === 404 || google === "NOT_FOUND") return true;
   if (error.kind === "timeout") return true;
   return isGeminiBusyError(error);

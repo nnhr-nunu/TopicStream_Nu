@@ -144,6 +144,31 @@ describe("Gemini のモデル列とフォールバック", () => {
     expect(thinkingConfigFor("gemini-flash-latest")).toBeUndefined();
   });
 
+  it("クレジット切れ（402）は他のモデルを試さず、上限として伝える", async () => {
+    const billing = new GeminiRequestError(
+      "http",
+      geminiDebug({
+        reason: "http-402",
+        httpStatus: 402,
+        googleStatus: "RESOURCE_EXHAUSTED",
+        googleMessage: "Your prepayment credits are depleted.",
+        model: "gemini-3.5-flash-lite",
+      }),
+    );
+    expect(shouldTryNextModel(billing)).toBe(false);
+    expect(geminiFailureWarning(billing)).toContain("クレジット");
+    expect(geminiUserNotice(billing).kind).toBe("quota");
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls += 1;
+      return googleError(402, "RESOURCE_EXHAUSTED", "Your prepayment credits are depleted.");
+    }));
+    const error = await requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(GeminiRequestError);
+    expect(calls).toBe(1);
+    vi.unstubAllGlobals();
+  });
+
   it("時間切れも次のモデルへ進む", () => {
     expect(shouldTryNextModel(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "x" })))).toBe(true);
   });
