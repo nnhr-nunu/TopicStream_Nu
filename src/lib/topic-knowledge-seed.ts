@@ -1,4 +1,3 @@
-import { SEED_CATALOG } from "@/lib/catalog-data";
 import { THEME_MAP } from "@/lib/mock-topics";
 import { recordTopics, type KnowledgeStore } from "@/lib/topic-knowledge";
 import { SEED_TOPICS } from "@/lib/topic-knowledge-seed-data";
@@ -12,7 +11,6 @@ export function buildSeedKnowledge(): KnowledgeStore {
   const sources: [string, string[]][] = [
     ...Object.entries(THEME_MAP),
     ...Object.entries(SEED_TOPICS),
-    ...SEED_CATALOG.map((board): [string, string[]] => [board.keywords[0] ?? board.name, board.keywords.slice(1)]),
   ];
   for (const [seed, topics] of sources) store = recordTopics(store, seed, topics, 0, 2);
   return store;

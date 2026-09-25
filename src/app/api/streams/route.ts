@@ -1,10 +1,10 @@
-import { mergePublicStreams, SEED_PUBLIC_STREAMS, type PublicStream } from "@/lib/stream-directory";
+import { mergePublicStreams, type PublicStream } from "@/lib/stream-directory";
 import { parseStreamUrl } from "@/lib/stream-url";
 
 const extra: PublicStream[] = [];
 
 export async function GET() {
-  return Response.json({ streams: mergePublicStreams(SEED_PUBLIC_STREAMS, extra) });
+  return Response.json({ streams: mergePublicStreams(extra) });
 }
 
 export async function POST(request: Request) {
@@ -31,5 +31,5 @@ export async function POST(request: Request) {
   };
   extra.unshift(stream);
   extra.splice(40);
-  return Response.json({ stream, streams: mergePublicStreams(SEED_PUBLIC_STREAMS, extra) });
+  return Response.json({ stream, streams: mergePublicStreams(extra) });
 }

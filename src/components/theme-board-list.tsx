@@ -27,6 +27,8 @@ export function ThemeBoardList({
   const [favorites, setFavorites] = useState<string[]>(() => loadFavoriteBoardIds());
   const [searching, setSearching] = useState(false);
   const [loaded, setLoaded] = useState(Boolean(initialBoards));
+  // 検索前の件数。0 件なら検索欄を隠し、「これから増えます」の案内だけ出す
+  const [total, setTotal] = useState(initialBoards?.length ?? 0);
 
   useEffect(() => {
     if (initialBoards) return;
@@ -36,6 +38,7 @@ export function ThemeBoardList({
       .then((json: { boards?: CatalogBoard[] }) => {
         if (cancelled) return;
         setBoards(json.boards ?? []);
+        setTotal(json.boards?.length ?? 0);
         setLoaded(true);
       })
       .catch(() => {
@@ -89,16 +92,18 @@ export function ThemeBoardList({
 
   return (
     <section id="community" className="w-full scroll-mt-24">
-      <label className="relative mb-4 block">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(event) => void runSearch(event.target.value)}
-          placeholder="テーマ・タグ・キーワードで検索"
-          className="h-11 rounded-xl pl-9 bg-card/70"
-          aria-label="テーマを検索"
-        />
-      </label>
+      {loaded && total === 0 ? null : (
+        <label className="relative mb-4 block">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => void runSearch(event.target.value)}
+            placeholder="テーマ・タグ・キーワードで検索"
+            className="h-11 rounded-xl pl-9 bg-card/70"
+            aria-label="テーマを検索"
+          />
+        </label>
+      )}
 
       {searching ? <p className="mb-4 text-sm text-muted-foreground">探しています…</p> : null}
 
@@ -106,6 +111,13 @@ export function ThemeBoardList({
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
           みんなのボードを読み込み中…
         </p>
+      ) : total === 0 ? (
+        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+          <p className="text-sm font-medium">まだテーマボードはありません</p>
+          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            これから増えていきます。まずはお題を入れて、自分の話題マップを作ってみてください。
+          </p>
+        </div>
       ) : shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
           該当するボードがありません。別の言葉で探してみてください。

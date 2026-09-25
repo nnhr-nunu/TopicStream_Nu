@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   mergePublicStreams,
   publicStreamFromLink,
-  SEED_PUBLIC_STREAMS,
   watchMapHref,
   type PublicStream,
 } from "@/lib/stream-directory";
@@ -24,7 +23,7 @@ export function StreamDirectory({
   linkedStreamer?: string;
   linkedWatchId?: string;
 }) {
-  const [remote, setRemote] = useState<PublicStream[]>(SEED_PUBLIC_STREAMS);
+  const [remote, setRemote] = useState<PublicStream[]>([]);
   const linked = useMemo(
     () =>
       publicStreamFromLink({
@@ -65,9 +64,12 @@ export function StreamDirectory({
         </p>
       </div>
       {streams.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-center text-sm text-muted-foreground">
-          いま公開されている枠はありません。
-        </p>
+        <div className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-center">
+          <p className="text-sm font-medium">まだ載っている配信はありません</p>
+          <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            これから増えていきます。配信で使ってみたら、マップ下に配信URLを貼るとここに載ります。
+          </p>
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
           {streams.map((stream) => {
