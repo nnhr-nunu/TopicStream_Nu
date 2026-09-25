@@ -378,7 +378,10 @@ export function useBoardController() {
     (nodeId: string, label: string) =>
       updateBoard((board) => {
         const current = currentSnapshot();
-        return ops.setLabel(board, nodeId, label, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+        const next = ops.setLabel(board, nodeId, label, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+        // 自分で書き直した語は、人が考えた話題として図鑑にも入れる
+        notePick(next, nodeId, "edit");
+        return next;
       }),
     [updateBoard],
   );

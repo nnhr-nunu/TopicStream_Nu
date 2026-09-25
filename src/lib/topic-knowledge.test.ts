@@ -201,9 +201,13 @@ describe("recordPick", () => {
     expect(rankedTopics(liked["朝"]!)).toEqual(["二度寝", "白湯"]);
   });
 
-  it("図鑑に無い語・お題には票を入れない（新しい文言は入れられない）", () => {
-    expect(recordPick(base, "朝", "知らない語", "heart")).toBe(base);
-    expect(recordPick(base, "夜", "白湯", "heart")).toBe(base);
+  it("図鑑に無い語・お題でも、票と一緒に加える", () => {
+    const added = recordPick(base, "朝", "朝焼け", "chat");
+    expect(added["朝"]!.topics["朝焼け"]).toBe(1);
+    expect(added["朝"]!.picks?.["朝焼け"]).toBe(3);
+    const fresh = recordPick(base, "夜更かし", "深夜ラジオ", "edit");
+    expect(fresh[normalizeSeed("夜更かし")]!.topics).toEqual({ 深夜ラジオ: 1 });
+    expect(recordPick(base, "朝", "朝", "heart")).toBe(base);
   });
 
   it("票は重ねても保存し直しても残る", () => {
@@ -235,12 +239,18 @@ describe("pickGrowCandidates", () => {
   });
 });
 
-describe("recordSharedPick（Redis 無し）", () => {
-  it("同梱の語への票は受け付け、知らない語は無視する", async () => {
-    const { recordSharedPick, loadSharedKnowledge } = await import("@/lib/knowledge-server");
-    expect(await recordSharedPick("今週の推し活", "グッズ開封", "heart")).toBe(true);
-    expect(await recordSharedPick("今週の推し活", "図鑑に無い語", "heart")).toBe(false);
-    const entry = (await loadSharedKnowledge())[normalizeSeed("今週の推し活")];
-    expect(entry?.picks?.["グッズ開封"]).toBeGreaterThanOrEqual(3);
+describe("recordSharedPicks（Redis 無し）", () => {
+  it("図鑑に無い語も票と一緒に加え、連絡先らしき語は捨てる", async () => {
+    const { recordSharedPicks, loadSharedKnowledge } = await import("@/lib/knowledge-server");
+    const seed = `テスト用のお題${Math.random().toString(36).slice(2, 7)}`;
+    const recorded = await recordSharedPicks([
+      { seed, topic: "盛り上がった話題", kind: "chat" },
+      { seed, topic: "盛り上がった話題", kind: "heart" },
+      { seed, topic: "https://example.com", kind: "heart" },
+    ]);
+    expect(recorded).toBe(2);
+    const entry = (await loadSharedKnowledge())[normalizeSeed(seed)];
+    expect(entry?.topics["盛り上がった話題"]).toBe(1);
+    expect(entry?.picks?.["盛り上がった話題"]).toBe(6);
   });
 });

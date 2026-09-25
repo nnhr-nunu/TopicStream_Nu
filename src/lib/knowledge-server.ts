@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
+
+/** 票で入る語の長さの上限（自分で書き直した語は少し長いこともある） */
+const PICK_TOPIC_MAX = 40;
 import { sanitizeSecret } from "@/lib/env-secret";
 import { isJunkTopic } from "@/lib/gemini-core";
 import {
@@ -14,11 +17,10 @@ import {
   type KnowledgeStore,
   type PickKind,
 } from "@/lib/topic-knowledge";
-import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
 /**
- * みんなの図鑑（サーバー専用）。新しい文言は AI が作った語だけを記録する。
- * 利用者から届くのは「図鑑にある語が選ばれた」という票だけ（新しい文言は入れられない）。
+ * みんなの図鑑（サーバー専用）。AI が作った語と、利用者が選んだ語（♡・クリック・ピン・書き直しなど）を記録する。
+ * 今はデータ集めを優先して、票の数や回数は絞っていない（URL・連絡先らしき語だけ捨てる）。
  *
  * Upstash Redis（Vercel の Marketplace から入れると KV_REST_API_URL / KV_REST_API_TOKEN が入る）があればそこへ。
  * 無ければインスタンスのメモリと一時ファイルだけ（開発用。Vercel では再起動で消える）。
@@ -53,11 +55,27 @@ async function redisCommand(config: Redis, command: (string | number)[]): Promis
   return json.result;
 }
 
-/** 1回の記録を1コマンドで（無料枠のコマンド数を節約） */
+/** お題が多すぎたら、強さ（tsk:rank）のいちばん弱いものから消す */
+const EVICT = `
+while redis.call('ZCARD', 'tsk:rank') > ${SEED_LIMIT} do
+  local low = redis.call('ZPOPMIN', 'tsk:rank')
+  redis.call('ZREM', 'tsk:uses', low[1])
+  redis.call('DEL', 'tsk:t:' .. low[1])
+  redis.call('DEL', 'tsk:p:' .. low[1])
+  redis.call('HDEL', 'tsk:seed', low[1])
+  redis.call('HDEL', 'tsk:updated', low[1])
+end
+`;
+
+/**
+ * 1回の記録を1コマンドで（無料枠のコマンド数を節約）。
+ * tsk:uses は「何回広げられたか」の表示用、tsk:rank は並び順と追い出しに使う強さ（使われた回数 + 票）。
+ */
 const RECORD_SCRIPT = `
 local key = ARGV[1]
 redis.call('HSETNX', 'tsk:seed', key, ARGV[2])
 redis.call('ZINCRBY', 'tsk:uses', 1, key)
+redis.call('ZINCRBY', 'tsk:rank', 1, key)
 redis.call('HSET', 'tsk:updated', key, ARGV[3])
 local hash = 'tsk:t:' .. key
 for i = 5, #ARGV do
@@ -65,40 +83,43 @@ for i = 5, #ARGV do
     redis.call('HINCRBY', hash, ARGV[i], 1)
   end
 end
-while redis.call('ZCARD', 'tsk:uses') > ${SEED_LIMIT} do
-  local low = redis.call('ZPOPMIN', 'tsk:uses')
-  redis.call('DEL', 'tsk:t:' .. low[1])
-  redis.call('DEL', 'tsk:p:' .. low[1])
-  redis.call('HDEL', 'tsk:seed', low[1])
-  redis.call('HDEL', 'tsk:updated', low[1])
-end
+${EVICT}
 return 1
 `;
 
 /**
- * 図鑑にある語だけに票を入れる。ARGV[4] が '1' のときは同梱の初期データにある語なので、
- * まだ Redis に無ければそのお題ごと入れてから票を入れる。
+ * 選ばれた語の票をまとめて入れる。ARGV[1]=時刻、そのあと (お題のキー, 表示用のお題, 語, 重み) の4つ組が続く。
+ * 図鑑にまだ無いお題・語は、その場で1回出たものとして加える（盛り上がった話題を取りこぼさない）。
  */
 const PICK_SCRIPT = `
-local key = ARGV[1]
-if redis.call('HEXISTS', 'tsk:t:' .. key, ARGV[2]) == 0 then
-  if ARGV[4] ~= '1' then return 0 end
-  redis.call('HSETNX', 'tsk:seed', key, ARGV[5])
+local now = ARGV[1]
+local n = 0
+for i = 2, #ARGV - 3, 4 do
+  local key = ARGV[i]
+  local topic = ARGV[i + 2]
+  local weight = tonumber(ARGV[i + 3])
   redis.call('ZADD', 'tsk:uses', 'NX', 1, key)
-  redis.call('HSET', 'tsk:updated', key, ARGV[6])
-  redis.call('HINCRBY', 'tsk:t:' .. key, ARGV[2], 1)
+  redis.call('HSETNX', 'tsk:seed', key, ARGV[i + 1])
+  redis.call('HSET', 'tsk:updated', key, now)
+  if redis.call('HEXISTS', 'tsk:t:' .. key, topic) == 0 then
+    redis.call('HSET', 'tsk:t:' .. key, topic, 1)
+  end
+  redis.call('HINCRBY', 'tsk:p:' .. key, topic, weight)
+  redis.call('ZINCRBY', 'tsk:rank', weight, key)
+  n = n + 1
 end
-redis.call('HINCRBY', 'tsk:p:' .. key, ARGV[2], tonumber(ARGV[3]))
-return 1
+${EVICT}
+return n
 `;
 
-/** よく使われるお題から順に、中身ごとまとめて読む */
+/** 強い（よく使われ、よく選ばれた）お題から順に、中身ごとまとめて読む */
 const SNAPSHOT_SCRIPT = `
-local keys = redis.call('ZREVRANGE', 'tsk:uses', 0, tonumber(ARGV[1]) - 1, 'WITHSCORES')
+if redis.call('EXISTS', 'tsk:rank') == 0 then redis.call('ZUNIONSTORE', 'tsk:rank', 1, 'tsk:uses') end
+local keys = redis.call('ZREVRANGE', 'tsk:rank', 0, tonumber(ARGV[1]) - 1)
 local out = {}
-for i = 1, #keys, 2 do
+for i = 1, #keys do
   local k = keys[i]
-  table.insert(out, { k, redis.call('HGET', 'tsk:seed', k) or k, keys[i + 1], redis.call('HGET', 'tsk:updated', k) or '0', redis.call('HGETALL', 'tsk:t:' .. k), redis.call('HGETALL', 'tsk:p:' .. k) })
+  table.insert(out, { k, redis.call('HGET', 'tsk:seed', k) or k, redis.call('ZSCORE', 'tsk:uses', k) or '1', redis.call('HGET', 'tsk:updated', k) or '0', redis.call('HGETALL', 'tsk:t:' .. k), redis.call('HGETALL', 'tsk:p:' .. k) })
 end
 return out
 `;
@@ -263,39 +284,37 @@ export async function recordSharedKnowledge(seed: string, topics: string[]): Pro
   }
 }
 
-/** 図鑑にある語が選ばれた（♡・クリック・ピンなど）。図鑑に無い語は無視する */
-export async function recordSharedPick(seed: string, topic: string, kind: PickKind): Promise<boolean> {
-  const key = normalizeSeed(seed);
-  if (!key || !topic.trim()) return false;
-  const bundled = seedKnowledge()[key];
-  const fromBundle = Boolean(bundled && topic in bundled.topics);
-  // 同梱の語は、まだみんなの図鑑に無ければ1回出たものとして入れてから票を入れる
-  const ensure = (store: KnowledgeStore) =>
-    fromBundle && !(store[key] && topic in store[key]!.topics) ? recordTopics(store, bundled!.seed, [topic]) : store;
-  if (snapshot) snapshot.store = recordPick(ensure(snapshot.store), seed, topic, kind);
+export type SharedPick = { seed: string; topic: string; kind: PickKind };
+
+/** 票として受け付ける形にそろえる（長すぎる語・個人につながりそうな語は捨てる） */
+export function cleanPick(pick: SharedPick): SharedPick | null {
+  const seed = pick.seed.trim();
+  const topic = pick.topic.trim();
+  if (!seed || !topic || seed.length > ROOT_LABEL_MAX || topic.length > PICK_TOPIC_MAX) return null;
+  if (isJunkTopic(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
+  if (normalizeSeed(seed) === normalizeSeed(topic)) return null;
+  return { seed, topic, kind: pick.kind };
+}
+
+/** 選ばれた語（♡・クリック・ピン・コピー・書き直し・コメントのハート）をまとめて記録する。記録できた数を返す */
+export async function recordSharedPicks(picks: SharedPick[]): Promise<number> {
+  const cleaned = picks.map(cleanPick).filter((pick): pick is SharedPick => pick !== null);
+  if (cleaned.length === 0) return 0;
+  const now = Date.now();
+  const apply = (store: KnowledgeStore) =>
+    cleaned.reduce((acc, pick) => recordPick(acc, pick.seed, pick.topic, pick.kind, now), store);
+  if (snapshot) snapshot.store = apply(snapshot.store);
   const config = redisConfig();
   if (!config) {
-    const before = loadMemory();
-    memory = recordPick(ensure(before), seed, topic, kind);
-    if (memory === before) return false;
+    memory = apply(loadMemory());
     persistMemory();
-    return true;
+    return cleaned.length;
   }
   try {
-    const result = await redisCommand(config, [
-      "EVAL",
-      PICK_SCRIPT,
-      0,
-      key,
-      topic,
-      PICK_WEIGHTS[kind],
-      fromBundle ? "1" : "0",
-      bundled?.seed ?? seed,
-      Date.now(),
-    ]);
-    return result === 1;
+    const args = cleaned.flatMap((pick) => [normalizeSeed(pick.seed), pick.seed, pick.topic, PICK_WEIGHTS[pick.kind]]);
+    return Number(await redisCommand(config, ["EVAL", PICK_SCRIPT, 0, now, ...args])) || 0;
   } catch (error) {
     console.warn("[knowledge] pick", error instanceof Error ? error.message : error);
-    return false;
+    return 0;
   }
 }
