@@ -9,6 +9,7 @@ import {
   requestGemini,
 } from "@/lib/gemini-core";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
+import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GeminiDebug } from "@/lib/types";
 
@@ -91,6 +92,8 @@ async function generate(input: Input, onTopic: (label: string) => void): Promise
   try {
     const remote = await requestGemini({ seed, existing, apiKey, model, count, onTopic });
     guard.writeCache(cacheKey, remote.topics);
+    // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
+    await recordSharedKnowledge(seed, remote.topics);
     return { topics: padTopics(remote.topics, mock(), count, seed), source: "gemini" };
   } catch (error) {
     const debug =

@@ -2,6 +2,7 @@ export const STORAGE_KEY = "topicstream-nu:v1";
 export const USAGE_KEY = "topicstream-nu:usage";
 export const IDENTITY_KEY = "topicstream-nu:identity";
 export const FAVORITES_KEY = "topicstream-nu:favorites";
+export const KNOWLEDGE_KEY = "topicstream-nu:knowledge";
 export const CHILD_COUNT = 8;
 export const COMMENT_SCALE_MIN = 0.9;
 export const COMMENT_SCALE_MAX = 2.2;

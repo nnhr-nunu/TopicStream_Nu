@@ -70,7 +70,7 @@ export function TopicActionsMenu({
   );
 }
 
-/** 作り直し: 予備があれば即座に。無ければ AI を呼ぶので、使った直後は残り秒数を出して待ってもらう。 */
+/** 作り直し: 予備があれば即座に。無ければトピック図鑑、それも無ければ AI を呼ぶので、使った直後は残り秒数を出して待ってもらう。 */
 function RegenerateButton({
   open,
   spares,
@@ -94,7 +94,7 @@ function RegenerateButton({
     ? `AI の作り直しは、あと ${seconds} 秒で使えます`
     : spares > 0
       ? `このマスの文だけ作り直す（すぐ出せる候補あと ${spares} 件）`
-      : "このマスの文だけ作り直す（AI に頼みます）";
+      : "このマスの文だけ作り直す（トピック図鑑か AI から探します）";
   return (
     <ActionBtn label={label} onClick={onClick} disabled={cooling}>
       {cooling ? <span className="topic-regen-countdown">{seconds}</span> : <RefreshCw />}

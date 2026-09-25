@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       <div className="space-y-6 rounded-xl border border-border bg-card p-4 text-foreground">
         <Section title="ブラウザに保存されるもの">
           <p>
-            作成したボード、お気に入り、付箋、ニックネーム、設定は、お使いのブラウザの localStorage
+            作成したボード、お気に入り、付箋、ニックネーム、設定、自分の話題の記録（トピック図鑑の「自分の記録」）は、お使いのブラウザの localStorage
             に保存されます。ニックネームは任意で、本名を入れる必要はありません。
           </p>
         </Section>
@@ -50,6 +50,13 @@ export default function PrivacyPage() {
               による取り扱いは Google の規約に従います。
             </li>
             <li>人気のトピックの集計：始めたキーワードや展開した話題の文言が、集計のために送られます。</li>
+            <li>
+              トピック図鑑：AI が話題を作ったとき、そのキーワードと出てきた話題が名前なしで記録され、ほかの人の候補や
+              <Link href="/topics/" className="underline underline-offset-2">
+                トピック図鑑
+              </Link>
+              に使われます。図鑑の一覧には、2回以上使われたキーワードだけが載ります。
+            </li>
             <li>
               「いっしょに見る」やテーマの公開：共有したボードとニックネームが保存され、URL を知っている人が見られます。
             </li>

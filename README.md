@@ -42,6 +42,15 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 4. `GET /api/gemini` の `configured: true` は **キーが入っていることだけ**。実際に生成できるかは、設定画面の「AI の話題づくりがうまくいかないとき」→「AI を試す」で確かめる
 5. 短いURL: Project → **Domains** で `好きな名前.vercel.app` か自分のドメインを追加する。これが共有用です
 
+## トピック図鑑（集合知）
+
+AI が出した話題を「お題 → 出てきた語（回数つき）」の形でためて、同じお題・似たお題では AI を呼ばずに候補を出します。`/topics/` で検索・分類別に見られ、そのままボードにできます。
+
+- 保存先は3つ: 同梱の初期データ（キー無しの公開版でも使える）・自分の端末（localStorage）・みんなの図鑑（`/api/gemini` が AI の結果だけを記録。利用者からの書き込み口は無い）
+- 「作り直す」は 予備 → 図鑑 → AI の順。広げるときも、図鑑にそのお題の語が十分あれば 4 回に 3 回は図鑑から出す
+- みんなの図鑑は Redis が無いとサーバーのメモリだけ（Vercel では再起動で消える）。育てたいときは上の `KV_REST_API_*` を入れて再デプロイ
+- 図鑑の一覧には 2 回以上使われたお題だけを出す（1 回だけのお題は個人的な言葉かもしれないため）
+
 ## 広告（Google AdSense・任意）
 
 ホーム・`/community/`・`/guide/` の最下部に広告枠を 1 つ出します。ホームは画面幅が 1360px 以上あると、本文の左右にも縦長（160×600）の枠を出します。オーバーレイと「いっしょに見る」には出しません。Vercel の Environment Variables に次を入れて再デプロイすると有効になります。未設定なら広告関連のタグは一切出ません（GitHub Pages のデモも未設定なので広告なし）。
@@ -61,6 +70,7 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 | `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成。サーバーの `/api/gemini` だけが読む |
 | `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント。1日1万ユニットの枠があるので、8秒より短い間隔では読まない |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | みんなのトピック図鑑の保存先（Upstash Redis）。Vercel の Storage → Marketplace で Upstash Redis をつなぐと自動で入る。`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` でも可 |
 
 キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
 

@@ -191,3 +191,15 @@ export function searchCatalog(boards: CatalogBoard[], query: string): CatalogBoa
     return hay.includes(q);
   });
 }
+
+/** お題とそこから出た語で、AI を呼ばずに1枚のボードを作る（トピック図鑑から始めるとき）。残りの語は中央の予備にする */
+export function boardFromTopics(root: string, topics: string[], childCount = 8): Board {
+  const id = createId("kb");
+  const board = catalogBoardToBoard(pack(id, root.slice(0, 24), "", [], "", 0, root, topics.slice(0, childCount)), root.slice(0, 24));
+  const spares = topics.slice(childCount, childCount + 12);
+  if (spares.length === 0) return board;
+  return {
+    ...board,
+    nodes: board.nodes.map((node) => (node.data.parentId === null ? { ...node, data: { ...node.data, spares } } : node)),
+  };
+}

@@ -92,7 +92,8 @@ export type HistoryEntry = {
 
 export type UndoAction = HistoryEntry;
 
-export type GenerateSource = "gemini" | "mock";
+/** knowledge = トピック図鑑（過去に AI が出した語）から出した */
+export type GenerateSource = "gemini" | "mock" | "knowledge";
 
 export type GeminiDebug = {
   reason: string;

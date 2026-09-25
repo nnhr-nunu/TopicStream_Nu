@@ -13,6 +13,7 @@ import {
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
+import { fetchSharedRelated, recallTopicsNow } from "@/lib/knowledge-client";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
@@ -136,6 +137,8 @@ export function useBoardController() {
         existing: existingLabels,
         count: slots + SPARE_COUNT,
         preferred: preferredForSeed(parent.data.label),
+        // トピック図鑑に十分たまっているお題は AI を呼ばずに出す
+        recall: true,
         onTopic: (label) => {
           if (expandTokens.current.get(nodeId) !== token) return;
           updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
@@ -286,8 +289,18 @@ export function useBoardController() {
       const node = board?.nodes.find((item) => item.id === nodeId);
       if (!board || !node || regeneratingRef.current.has(nodeId)) return;
       const holderId = node.data.parentId;
-      const spare = holderId ? takeSpare(board, holderId) : { board, label: null };
-      // 予備が無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
+      const parent = board.nodes.find((item) => item.id === node.data.parentId);
+      const seed = parent?.data.label || node.data.label;
+      let spare = holderId ? takeSpare(board, holderId) : { board, label: null };
+      let recalled: string[] = [];
+      if (!spare.label) {
+        // 予備が尽きたら、まずトピック図鑑（自分とみんなの過去の結果・似たお題）から探す。AI は呼ばない。
+        // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
+        void fetchSharedRelated(seed);
+        recalled = recallTopicsNow(seed, board.nodes.map((item) => item.data.label), 1 + SPARE_COUNT).topics;
+        if (recalled[0]) spare = { board, label: recalled[0] };
+      }
+      // 予備も図鑑の候補も無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
       if (!spare.label && Date.now() < regenReadyAt) {
         toast.message(`AI の作り直しは、あと ${Math.ceil((regenReadyAt - Date.now()) / 1000)} 秒で使えます`);
         return;
@@ -304,6 +317,16 @@ export function useBoardController() {
         return prefsFromSettings(snap.settings, false, target?.pinnedNodeId ?? null);
       };
       try {
+        if (recalled.length > 0) {
+          // 図鑑から出す。残りは次の作り直し用の予備にする
+          const [label, ...rest] = recalled;
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+          updateBoardById(board.id, (item) => {
+            const relabeled = ops.setLabel(item, nodeId, label!, prefs());
+            return holderId ? addSpares(relabeled, holderId, rest) : relabeled;
+          });
+          return;
+        }
         if (spare.label) {
           // 展開のときにもらっておいた予備を使う（API を呼ばないので速い・枠も減らない）
           const label = spare.label;
@@ -315,8 +338,6 @@ export function useBoardController() {
           return;
         }
         setRegenReadyAt(Date.now() + REGEN_COOLDOWN_MS);
-        const parent = board.nodes.find((item) => item.id === node.data.parentId);
-        const seed = parent?.data.label || node.data.label;
         // 1語だけのために呼ぶのはもったいないので、次の分の予備もまとめてもらう
         const [result] = await Promise.all([
           generateRelatedTopics({

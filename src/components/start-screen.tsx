@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Dices, History, ShieldAlert, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BookOpen, Dices, History, ShieldAlert, Sparkles } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
@@ -192,6 +193,14 @@ export function StartScreen({
                   </li>
                 ))}
               </ul>
+              <Link
+                href="/topics/"
+                className="mt-3 inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              >
+                <BookOpen className="size-3.5" />
+                トピック図鑑で、みんなが広げた話題を探す
+                <ArrowRight className="size-3" />
+              </Link>
             </div>
           </section>
 

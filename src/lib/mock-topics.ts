@@ -1,7 +1,8 @@
 import { CHILD_COUNT, LABEL_MAX } from "@/lib/constants";
 import { STARTER_TOPICS } from "@/lib/starters";
 
-const THEME_MAP: Record<string, string[]> = {
+/** お題ごとの定番の語。オフライン生成と、トピック図鑑の初期データに使う */
+export const THEME_MAP: Record<string, string[]> = {
   最近買ってよかったもの: [
     "失敗した買い物",
     "リピート確定",
