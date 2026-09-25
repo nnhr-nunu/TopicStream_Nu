@@ -511,6 +511,97 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
 }
 
+/* ホーム: 用途の切り替え（雑談・お悩み相談…）。モードごとの色は data-mode で決める */
+[data-mode] {
+  --mode-color: var(--primary);
+}
+[data-mode="advice"] {
+  --mode-color: oklch(0.66 0.14 350);
+}
+[data-mode="idea"] {
+  --mode-color: oklch(0.72 0.14 80);
+}
+[data-mode="goal"] {
+  --mode-color: oklch(0.62 0.15 150);
+}
+[data-mode="review"] {
+  --mode-color: oklch(0.62 0.13 230);
+}
+[data-mode="learn"] {
+  --mode-color: oklch(0.6 0.15 290);
+}
+.mode-picker {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0.1rem;
+}
+.mode-picker::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 639px) {
+  /* 横にスクロールできることが分かるよう、右端を薄くする */
+  .mode-picker {
+    justify-content: flex-start;
+    padding-right: 1.5rem;
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+  }
+}
+.mode-chip {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.mode-chip:not(.mode-chip-active):hover:not(:disabled) {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--mode-color) 8%, transparent);
+}
+.mode-chip:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--mode-color) 60%, transparent);
+  outline-offset: 1px;
+}
+.mode-chip-active {
+  font-weight: 600;
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--mode-color) 45%, var(--border));
+  background: color-mix(in oklab, var(--mode-color) 14%, var(--card));
+}
+.mode-chip-active svg {
+  color: var(--mode-color);
+}
+.home-start[data-mode]:not([data-mode="chat"]) {
+  border-color: color-mix(in oklab, var(--mode-color) 35%, var(--border));
+}
+.home-start[data-mode]:focus-within {
+  border-color: color-mix(in oklab, var(--mode-color) 60%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--mode-color) 18%, transparent);
+}
+.mode-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: color-mix(in oklab, var(--mode-color) 75%, var(--foreground));
+  background: color-mix(in oklab, var(--mode-color) 14%, transparent);
+}
+
 /* ホーム: 使い方の3ステップ */
 .home-steps {
   display: grid;

@@ -1,4 +1,5 @@
 import { KNOWLEDGE_KEY } from "@/lib/constants";
+import { sharesKnowledge } from "@/lib/modes";
 import {
   asKnowledgeEntry,
   entriesToStore,
@@ -160,7 +161,8 @@ let listening = false;
  * お題はそのカードの親の語。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
  */
 export function notePick(board: Board, nodeId: string, kind: PickKind) {
-  if (typeof window === "undefined") return;
+  // 雑談以外のボード（お悩み相談など）の語は、自分の図鑑にもみんなの図鑑にも入れない
+  if (typeof window === "undefined" || !sharesKnowledge(board.mode)) return;
   const node = board.nodes.find((item) => item.id === nodeId);
   const parent = node?.data.parentId ? board.nodes.find((item) => item.id === node.data.parentId) : undefined;
   const topic = node?.data.label.trim();

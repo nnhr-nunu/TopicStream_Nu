@@ -1,4 +1,5 @@
 import { asColorTheme } from "@/lib/color-theme";
+import { DEFAULT_MODE, isBoardMode } from "@/lib/modes";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
@@ -101,6 +102,8 @@ function asBoard(value: unknown): Board | null {
     edges,
     pinnedNodeId: board.pinnedNodeId && nodeIds.has(board.pinnedNodeId) ? board.pinnedNodeId : null,
     focusedNodeId: board.focusedNodeId && nodeIds.has(board.focusedNodeId) ? board.focusedNodeId : null,
+    // 雑談（既定）は書かない。知らない値も雑談に戻す
+    ...(isBoardMode(board.mode) && board.mode !== DEFAULT_MODE ? { mode: board.mode } : {}),
   };
 }
 

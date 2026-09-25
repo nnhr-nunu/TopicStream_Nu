@@ -11,8 +11,9 @@ import {
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
+import { parseMode, sharesKnowledge } from "@/lib/modes";
 import { isArchived } from "@/lib/topic-archive";
-import type { GeminiDebug } from "@/lib/types";
+import type { BoardMode, GeminiDebug } from "@/lib/types";
 
 /** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
 export const maxDuration = 30;
@@ -51,6 +52,7 @@ type Input = {
   preferred: string[];
   /** 広げるカードの祖先（近い順） */
   context: string[];
+  mode: BoardMode;
   count: number;
   model: string;
   apiKey: string;
@@ -59,12 +61,12 @@ type Input = {
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
 async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
-  const { seed, existing, preferred, context, count, model, apiKey } = input;
+  const { seed, existing, preferred, context, mode, count, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
     if (!isArchived(seed, label)) sendTopic(label);
   };
-  const mock = () => mockRelatedTopics(seed, existing, count, preferred, { context });
+  const mock = () => mockRelatedTopics(seed, existing, count, preferred, { context, mode });
 
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });
@@ -73,7 +75,7 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     return { topics: mock(), source: "mock", debug };
   }
 
-  const cacheKey = guard.cacheKey(seed, existing, count);
+  const cacheKey = guard.cacheKey(seed, existing, count, mode);
   const cached = guard.readCache(cacheKey);
   if (cached) {
     const fresh = cached.filter((label) => !isArchived(seed, label));
@@ -98,11 +100,12 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
   }
 
   try {
-    const remote = await requestGemini({ seed, existing, context, apiKey, model, count, onTopic });
+    const remote = await requestGemini({ seed, existing, context, mode, apiKey, model, count, onTopic });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
-    if (!isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics);
+    // 雑談以外（お悩み相談など）は個人的な内容になりやすいので、みんなの図鑑には送らない
+    if (sharesKnowledge(mode) && !isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
     return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
   } catch (error) {
@@ -126,6 +129,7 @@ export async function POST(request: Request) {
     count?: unknown;
     preferred?: unknown;
     context?: unknown;
+    mode?: unknown;
     apiKey?: unknown;
     stream?: unknown;
   } | null;
@@ -151,6 +155,7 @@ export async function POST(request: Request) {
           .filter(Boolean)
           .slice(0, 3)
       : [],
+    mode: parseMode(body?.mode),
     count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
     model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
     apiKey: override || readGeminiApiKey(),
@@ -175,7 +180,7 @@ export async function POST(request: Request) {
         });
         send({ type: "done", ...final });
       } catch {
-        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred, { context: input.context }), source: "mock" });
+        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred, { context: input.context, mode: input.mode }), source: "mock" });
       } finally {
         controller.close();
       }

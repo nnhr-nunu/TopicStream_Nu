@@ -6,11 +6,18 @@ import {
   RETIRED_GEMINI_MODELS,
 } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
-import type { GeminiDebug } from "@/lib/types";
+import { buildModePrompt } from "@/lib/modes";
+import type { BoardMode, GeminiDebug } from "@/lib/types";
 
 export type { GeminiDebug };
 
-export function buildPrompt(seed: string, existing: string[], count: number, context: string[] = []): string {
+export function buildPrompt(
+  seed: string,
+  existing: string[],
+  count: number,
+  context: string[] = [],
+  mode: BoardMode = "chat",
+): string {
   const banned = existing.slice(0, 24).join(" / ") || "なし";
   // 祖先は近い順で届くので、話の流れとして読めるよう遠い方から並べる
   const flow = context.length
@@ -18,28 +25,7 @@ export function buildPrompt(seed: string, existing: string[], count: number, con
 このお題は「${[...context].reverse().join(" → ")} → ${seed}」という話の流れで出てきました。流れから外れない切り口にしてください。
 `
     : "";
-  return `あなたはVTuberの雑談配信の構成作家です。
-お題「${seed}」から、配信者もリスナーも「自分の場合は…」と話を広げられる「話の切り口」をちょうど${count}個出してください。
-${flow}
-よい切り口:
-- 誰でも自分の体験から答えられる（場所・場面・ジャンル・時期・人・お金・失敗・あるある・比較）
-- お題の裏返しや反対側も1〜2個入れる（例: よかった → 後悔した、好き → 苦手）
-- お題が広いうちは、商品名・作品名・人名や「高級トースター」のような特定の品物に絞りすぎない。持っていない・知らない人が話に入れなくなるため
-- お題そのものが具体的な物・作品・人を聞いているとき（「好きな有名人」「買ってよかった家電」など）は、定番の名前や種類を出してよい
-
-例: お題「最近買ってよかったもの」なら
-よい: ["Amazonでの買い物","ドラッグストアの定番","買って後悔したもの","100均の当たり"]
-よくない: ["高級トースター","マッサージガン"]
-
-条件:
-- 日本語のみ
-- 各キーワードは2〜${LABEL_MAX}文字の短い名詞句
-- 番号・箇条書き記号・説明・引用符・Markdown・コードフェンスは付けない
-- お題そのものは繰り返さない
-- 次と重複しない: ${banned}
-
-出力は JSON 配列だけ。要素はちょうど${count}個。前後に文字を付けない。
-例: ["キーワード1","キーワード2","キーワード3","キーワード4","キーワード5","キーワード6","キーワード7","キーワード8"]`;
+  return buildModePrompt(mode, seed, count, flow, banned);
 }
 
 function clip(label: string): string {
@@ -364,6 +350,8 @@ type GeminiOptions = {
   count: number;
   /** 広げるカードの祖先（近い順）。汎用の切り口を広げるときに、何の話なのかを伝える */
   context?: string[];
+  /** ボードの用途（雑談・お悩み相談など）。指示の中身が変わる */
+  mode?: BoardMode;
   /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
   onTopic?: (label: string) => void;
 };
@@ -570,7 +558,7 @@ async function generateGeminiText(
         "x-goog-api-key": options.apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context) }] }],
+        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode) }] }],
         generationConfig: generationConfig(options.model),
       }),
     });

@@ -147,10 +147,10 @@ export function TopicWorkspace() {
               setAtHome(false);
               if (id !== board.id) controller.switchBoard(id);
             }}
-            onStart={(keyword) => {
+            onStart={(keyword, mode) => {
               notifyPrivacy();
               setAtHome(false);
-              void controller.startWithKeyword(keyword);
+              void controller.startWithKeyword(keyword, mode);
             }}
             onImport={(catalog) => {
               setAtHome(false);

@@ -5,6 +5,7 @@ import { ArrowRight, Dices, History, MousePointerClick, Radio, ShieldAlert, Type
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
+import { ModeBadge, ModePicker } from "@/components/mode-picker";
 import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
 import { ThemeBoardList } from "@/components/theme-board-list";
@@ -13,8 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CatalogBoard } from "@/lib/catalog-data";
 import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
+import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
 import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
-import type { Board } from "@/lib/types";
+import type { Board, BoardMode } from "@/lib/types";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
@@ -59,7 +61,7 @@ export function StartScreen({
 }: {
   boards: Board[];
   activeBoardId: string;
-  onStart: (keyword: string) => void;
+  onStart: (keyword: string, mode: BoardMode) => void;
   onOpenBoard: (id: string) => void;
   onImport: (board: CatalogBoard) => void;
   busy?: boolean;
@@ -69,6 +71,9 @@ export function StartScreen({
   linkedWatchId?: string;
 }) {
   const [keyword, setKeyword] = useState("");
+  const [mode, setMode] = useState<BoardMode>(DEFAULT_MODE);
+  const preset = modePreset(mode);
+  const isChat = mode === DEFAULT_MODE;
   const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 12));
   const recent = boards
     .filter((board) => board.nodes.length > 0)
@@ -107,17 +112,21 @@ export function StartScreen({
               雑談配信のための話題マップです。
             </p>
 
+            <div className="mt-7 w-full max-w-2xl">
+              <ModePicker value={mode} onChange={setMode} disabled={busy} />
+            </div>
             <form
-              className="home-start mt-7 w-full max-w-2xl"
+              className="home-start mt-2 w-full max-w-2xl"
+              data-mode={mode}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (keyword.trim()) onStart(keyword.trim());
+                if (keyword.trim()) onStart(keyword.trim(), mode);
               }}
             >
               <Input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="話したいお題を入力、または 🎲 でランダム"
+                placeholder={preset.placeholder}
                 aria-label="開始キーワード"
                 className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
                 autoFocus={recent.length === 0}
@@ -129,7 +138,10 @@ export function StartScreen({
                 className="shrink-0 rounded-xl"
                 aria-label="おまかせでお題を入れる"
                 title="おまかせでお題を入れる"
-                onClick={() => setKeyword(pickWeightedStarter(keyword ? [keyword] : []))}
+                onClick={() => {
+                  const exclude = keyword ? [keyword] : [];
+                  setKeyword(pickModeStarter(mode, exclude) ?? pickWeightedStarter(exclude));
+                }}
                 disabled={busy}
               >
                 <Dices />
@@ -140,28 +152,52 @@ export function StartScreen({
               </Button>
             </form>
 
-            <div className="mt-4 w-full max-w-2xl">
-              <p className="mb-2 text-xs text-muted-foreground">人気のお題から始める</p>
-              <ul className="flex flex-wrap justify-center gap-2">
-                {popular.slice(0, 10).map((topic, index) => (
-                  <li key={topic.label} className={index >= 6 ? "max-sm:hidden" : undefined}>
-                    <button
-                      type="button"
-                      className="rounded-full border border-border/80 bg-card/70 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
-                      onClick={() => onStart(topic.label)}
-                      disabled={busy}
-                    >
-                      {index < 3 ? <span className="mr-1 font-semibold text-primary">{index + 1}</span> : null}
-                      {topic.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {isChat ? null : (
+              <p className="mt-2 w-full max-w-2xl text-xs text-muted-foreground">{preset.description}</p>
+            )}
+            {isChat ? (
+              <div className="mt-4 w-full max-w-2xl">
+                <p className="mb-2 text-xs text-muted-foreground">人気のお題から始める</p>
+                <ul className="flex flex-wrap justify-center gap-2">
+                  {popular.slice(0, 10).map((topic, index) => (
+                    <li key={topic.label} className={index >= 6 ? "max-sm:hidden" : undefined}>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border/80 bg-card/70 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                        onClick={() => onStart(topic.label, DEFAULT_MODE)}
+                        disabled={busy}
+                      >
+                        {index < 3 ? <span className="mr-1 font-semibold text-primary">{index + 1}</span> : null}
+                        {topic.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="mt-4 w-full max-w-2xl">
+                <p className="mb-2 text-xs text-muted-foreground">例から始める</p>
+                <ul className="flex flex-wrap justify-center gap-2">
+                  {preset.starters.map((topic, index) => (
+                    <li key={topic} className={index >= 6 ? "max-sm:hidden" : undefined}>
+                      <button
+                        type="button"
+                        className="rounded-full border border-border/80 bg-card/70 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                        onClick={() => onStart(topic, mode)}
+                        disabled={busy}
+                      >
+                        {topic}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-              {PRIVACY_NOTICE}
+              {isChat ? PRIVACY_NOTICE : "このモードの内容はトピック図鑑に送らず、この端末の中だけに残ります。"}
             </p>
+            {preset.note ? <p className="mt-1.5 max-w-xl text-[11px] text-muted-foreground">{preset.note}</p> : null}
           </header>
 
           {recent.length > 0 ? (
@@ -181,7 +217,10 @@ export function StartScreen({
                       onClick={() => onOpenBoard(board.id)}
                     >
                       <span className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-sm font-semibold">{board.name}</span>
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate text-sm font-semibold">{board.name}</span>
+                          <ModeBadge mode={board.mode} />
+                        </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                           {rootLabel(board) ? `「${rootLabel(board)}」から · ` : ""}カード {board.nodes.length}枚 ·{" "}
                           {formatUpdated(board.updatedAt)}
@@ -215,7 +254,7 @@ export function StartScreen({
             </ol>
           </section>
 
-          <TopicShowcase onStart={onStart} busy={busy} />
+          <TopicShowcase onStart={(label) => onStart(label, DEFAULT_MODE)} busy={busy} />
 
           <section className="mt-14">
             <div className="mb-4 text-center">
