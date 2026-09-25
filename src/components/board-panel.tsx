@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, LayoutGrid, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Copy, Download, LayoutGrid, Pencil, Plus, Share2, Trash2, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ function BoardRow({
   onRename,
   onDuplicate,
   onDelete,
+  onShare,
 }: {
   board: Board;
   active: boolean;
@@ -41,6 +42,7 @@ function BoardRow({
   onRename: (name: string) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onShare: () => void;
 }) {
   const [mode, setMode] = useState<"view" | "rename" | "confirm">("view");
   const [name, setName] = useState(board.name);
@@ -135,6 +137,17 @@ function BoardRow({
           type="button"
           size="icon-sm"
           variant="ghost"
+          aria-label={`「${board.name}」をシェア`}
+          title={cards > 0 ? "シェア（X に投稿・画像で保存）" : "まだ空なのでシェアできません"}
+          disabled={cards === 0}
+          onClick={onShare}
+        >
+          <Share2 />
+        </Button>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
           aria-label={`「${board.name}」の名前を変更`}
           title="名前を変更"
           onClick={() => {
@@ -182,6 +195,7 @@ export function BoardPanel({
   onDelete,
   onExport,
   onImport,
+  onShare,
 }: {
   boards: Board[];
   activeBoard: Board;
@@ -194,6 +208,7 @@ export function BoardPanel({
   onDelete: (id: string) => void;
   onExport: () => void;
   onImport: (text: string) => void;
+  onShare: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -257,6 +272,10 @@ export function BoardPanel({
                 setOpen(false);
               }}
               onDelete={() => onDelete(board.id)}
+              onShare={() => {
+                onShare(board.id);
+                setOpen(false);
+              }}
             />
           ))}
         </ul>

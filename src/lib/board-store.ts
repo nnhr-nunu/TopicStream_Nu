@@ -53,3 +53,19 @@ export function writeBoardSnapshot(next: AppSnapshot) {
   saveSnapshot(next);
   emit();
 }
+
+// 図鑑などの別ページでボードを作ってから "/" へ戻るときだけ、ホームではなくマップを直接開く。
+// 普通にサイトへ来たときはホームから始める。
+let openActiveBoardRequested = false;
+
+export function requestOpenActiveBoard() {
+  openActiveBoardRequested = true;
+}
+
+export function isOpenActiveBoardRequested() {
+  return openActiveBoardRequested;
+}
+
+export function clearOpenActiveBoardRequest() {
+  openActiveBoardRequested = false;
+}

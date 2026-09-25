@@ -5,7 +5,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { SiteLinks } from "@/components/site-links";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
-import { getBoardSnapshot, writeBoardSnapshot } from "@/lib/board-store";
+import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -21,6 +21,7 @@ export function CommunityCatalog() {
       activeBoardId: next.id,
     });
     toast.success(`「${board.name}」を取り込みました`);
+    requestOpenActiveBoard();
     router.push("/");
   }
 

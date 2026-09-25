@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
@@ -14,6 +14,7 @@ import { useBoardController } from "@/hooks/use-board-controller";
 import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { spareCount } from "@/lib/board-spares";
+import { clearOpenActiveBoardRequest, isOpenActiveBoardRequested } from "@/lib/board-store";
 import { cellCode } from "@/lib/mandala-ids";
 
 export function TopicWorkspace() {
@@ -21,11 +22,20 @@ export function TopicWorkspace() {
   const board = controller.activeBoard;
   const settings = controller.settings;
   const focusedId = board?.focusedNodeId ?? board?.pinnedNodeId ?? null;
-  const [atHome, setAtHome] = useState(false);
+  // サイトに来たときはホームから。図鑑などでボードを作って戻ってきたときだけマップを直接開く
+  const [atHome, setAtHome] = useState(() => !isOpenActiveBoardRequested());
+  useEffect(() => clearOpenActiveBoardRequest(), []);
   const [privacyNotice, setPrivacyNotice] = useState(0);
-  // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す
+  // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す。
+  // ボード一覧からは表示中でないボードもシェアできるので、対象のボードを覚えておく
   const [sharePostOpen, setSharePostOpen] = useState(false);
   const [sharePostKey, setSharePostKey] = useState(0);
+  const [sharePostBoardId, setSharePostBoardId] = useState<string | null>(null);
+  const openSharePost = (id: string | null) => {
+    setSharePostBoardId(id);
+    setSharePostKey((key) => key + 1);
+    setSharePostOpen(true);
+  };
   const notifyPrivacy = () => setPrivacyNotice((value) => value + 1);
 
   useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
@@ -124,10 +134,8 @@ export function TopicWorkspace() {
           onUndo={controller.undo}
           onRedo={controller.redo}
           onShare={() => void controller.publishWatchLink()}
-          onPostToX={() => {
-            setSharePostKey((key) => key + 1);
-            setSharePostOpen(true);
-          }}
+          onPostToX={() => openSharePost(null)}
+          onShareBoard={(id) => openSharePost(id)}
           onPatchSettings={controller.patchSettings}
         />
 
@@ -188,7 +196,12 @@ export function TopicWorkspace() {
         )}
       </div>
       <PrivacyNotice trigger={privacyNotice} />
-      <SharePostDialog key={sharePostKey} open={sharePostOpen} onOpenChange={setSharePostOpen} board={board} />
+      <SharePostDialog
+        key={sharePostKey}
+        open={sharePostOpen}
+        onOpenChange={setSharePostOpen}
+        board={controller.snapshot?.boards.find((item) => item.id === sharePostBoardId) ?? board}
+      />
     </BoardActionsProvider>
   );
 }

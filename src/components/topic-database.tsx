@@ -11,7 +11,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { SiteLinks } from "@/components/site-links";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getBoardSnapshot, writeBoardSnapshot } from "@/lib/board-store";
+import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
 import { boardFromTopics } from "@/lib/catalog-data";
 import { combinedKnowledge, fetchSharedSearch, loadLocalKnowledge } from "@/lib/knowledge-client";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
@@ -85,6 +85,7 @@ export function TopicDatabase() {
     const board = layoutBoard(built, prefsFromSettings(snapshot.settings, false, built.pinnedNodeId));
     writeBoardSnapshot({ ...snapshot, boards: [...snapshot.boards, board], activeBoardId: board.id });
     toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "図鑑で人気の話題から並べました" });
+    requestOpenActiveBoard();
     router.push("/");
   }
 
