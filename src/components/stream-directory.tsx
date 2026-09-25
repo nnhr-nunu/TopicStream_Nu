@@ -57,7 +57,7 @@ export function StreamDirectory({
   }, []);
 
   return (
-    <section className="mx-auto mt-12 w-full max-w-2xl">
+    <section className="mt-12 w-full">
       <div className="mb-4 text-center">
         <h2 className="text-lg font-semibold">このサービスを利用している配信</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Dices, History, ShieldAlert, Sparkles } from "lucide-react";
 
-import { AdSlot } from "@/components/ad-slot";
+import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
 import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
@@ -79,133 +79,142 @@ export function StartScreen({
 
   return (
     <div className="home-scroll">
-      <div className="mx-auto w-full max-w-3xl px-4 pb-20 pt-24 sm:pt-28">
-        <header className="flex flex-col items-center text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
-          <img src={`${base}/topicstream-logo.svg`} alt="" width={64} height={64} className="size-16 rounded-2xl" />
-          <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
-            TopicStream<span className="ml-1 text-2xl font-semibold text-muted-foreground sm:text-3xl">(ぬ)</span>
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
-            雑談配信のための話題マップ。キーワードから、話したいことがすぐ広がります。
-          </p>
-        </header>
+      <div className="home-layout">
+        <div className="home-rail">
+          <SideAdRail />
+        </div>
+        {/* 本文はすべて同じ幅の 1 カラムにそろえる（セクションごとに幅を変えない） */}
+        <div className="mx-auto w-full min-w-0 max-w-4xl px-4 pt-24 sm:pt-28">
+          <header className="flex flex-col items-center text-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
+            <img src={`${base}/topicstream-logo.svg`} alt="" width={64} height={64} className="size-16 rounded-2xl" />
+            <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">
+              TopicStream<span className="ml-1 text-2xl font-semibold text-muted-foreground sm:text-3xl">(ぬ)</span>
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground sm:text-base">
+              雑談配信のための話題マップ。キーワードから、話したいことがすぐ広がります。
+            </p>
+          </header>
 
-        {recent.length > 0 ? (
-          <section className="mt-10" aria-labelledby="home-resume">
-            <SectionTitle>
-              <span id="home-resume" className="inline-flex items-center gap-1.5">
-                <History className="size-4 text-primary" />
-                続きから
+          {recent.length > 0 ? (
+            <section className="mt-10" aria-labelledby="home-resume">
+              <SectionTitle>
+                <span id="home-resume" className="inline-flex items-center gap-1.5">
+                  <History className="size-4 text-primary" />
+                  続きから
+                </span>
+              </SectionTitle>
+              <ul className="grid gap-2">
+                {recent.map((board, index) => (
+                  <li key={board.id}>
+                    <button
+                      type="button"
+                      className={index === 0 ? "home-resume home-resume-primary" : "home-resume"}
+                      onClick={() => onOpenBoard(board.id)}
+                    >
+                      <span className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-sm font-semibold">{board.name}</span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {rootLabel(board) ? `「${rootLabel(board)}」から · ` : ""}カード {board.nodes.length}枚 ·{" "}
+                          {formatUpdated(board.updatedAt)}
+                        </span>
+                      </span>
+                      <span className="home-resume-go">
+                        マップを開く
+                        <ArrowRight className="size-4" />
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="mt-10" aria-labelledby="home-new">
+            <SectionTitle hint={recent.length > 0 ? "新しいボードで始めます。今のボードはそのまま残ります。" : undefined}>
+              <span id="home-new" className="inline-flex items-center gap-1.5">
+                <Sparkles className="size-4 text-primary" />
+                新しく始める
               </span>
             </SectionTitle>
-            <ul className="grid gap-2">
-              {recent.map((board, index) => (
-                <li key={board.id}>
-                  <button
-                    type="button"
-                    className={index === 0 ? "home-resume home-resume-primary" : "home-resume"}
-                    onClick={() => onOpenBoard(board.id)}
-                  >
-                    <span className="min-w-0 flex-1 text-left">
-                      <span className="block truncate text-sm font-semibold">{board.name}</span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                        {rootLabel(board) ? `「${rootLabel(board)}」から · ` : ""}カード {board.nodes.length}枚 ·{" "}
-                        {formatUpdated(board.updatedAt)}
-                      </span>
-                    </span>
-                    <span className="home-resume-go">
-                      マップを開く
-                      <ArrowRight className="size-4" />
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section className="mt-10" aria-labelledby="home-new">
-          <SectionTitle hint={recent.length > 0 ? "新しいボードで始めます。今のボードはそのまま残ります。" : undefined}>
-            <span id="home-new" className="inline-flex items-center gap-1.5">
-              <Sparkles className="size-4 text-primary" />
-              新しく始める
-            </span>
-          </SectionTitle>
-          <form
-            className="home-start"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (keyword.trim()) onStart(keyword.trim());
-            }}
-          >
-            <Input
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="今日話したいキーワード（例: 夏休みの思い出）"
-              aria-label="開始キーワード"
-              className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
-              autoFocus={recent.length === 0}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              className="shrink-0 rounded-xl"
-              aria-label="ランダムなキーワードを入れる"
-              title="ランダムなキーワードを入れる"
-              onClick={() => setKeyword(pickWeightedStarter(keyword ? [keyword] : []))}
-              disabled={busy}
+            <form
+              className="home-start"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (keyword.trim()) onStart(keyword.trim());
+              }}
             >
-              <Dices />
-            </Button>
-            <Button type="submit" size="lg" className="h-11 shrink-0 rounded-xl px-5" disabled={busy || !keyword.trim()}>
-              始める
-              <ArrowRight />
-            </Button>
-          </form>
+              <Input
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="今日話したいキーワード（例: 夏休みの思い出）"
+                aria-label="開始キーワード"
+                className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
+                autoFocus={recent.length === 0}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-lg"
+                className="shrink-0 rounded-xl"
+                aria-label="ランダムなキーワードを入れる"
+                title="ランダムなキーワードを入れる"
+                onClick={() => setKeyword(pickWeightedStarter(keyword ? [keyword] : []))}
+                disabled={busy}
+              >
+                <Dices />
+              </Button>
+              <Button type="submit" size="lg" className="h-11 shrink-0 rounded-xl px-5" disabled={busy || !keyword.trim()}>
+                始める
+                <ArrowRight />
+              </Button>
+            </form>
 
-          <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-            {PRIVACY_NOTICE}
-          </p>
+            <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
+              {PRIVACY_NOTICE}
+            </p>
 
-          <div className="mt-4">
-            <p className="mb-2 text-xs text-muted-foreground">よく選ばれているトピックから始める</p>
-            <ul className="flex flex-wrap gap-2">
-              {popular.slice(0, 12).map((topic, index) => (
-                <li key={topic.label}>
-                  <button
-                    type="button"
-                    className="rounded-full border border-border/80 bg-card/70 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
-                    onClick={() => onStart(topic.label)}
-                    disabled={busy}
-                  >
-                    {index < 3 ? <span className="mr-1 font-semibold text-primary">{index + 1}</span> : null}
-                    {topic.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+            <div className="mt-4">
+              <p className="mb-2 text-xs text-muted-foreground">よく選ばれているトピックから始める</p>
+              <ul className="flex flex-wrap gap-2">
+                {popular.slice(0, 12).map((topic, index) => (
+                  <li key={topic.label}>
+                    <button
+                      type="button"
+                      className="rounded-full border border-border/80 bg-card/70 px-3 py-1 text-xs text-muted-foreground transition hover:border-primary/50 hover:text-foreground"
+                      onClick={() => onStart(topic.label)}
+                      disabled={busy}
+                    >
+                      {index < 3 ? <span className="mr-1 font-semibold text-primary">{index + 1}</span> : null}
+                      {topic.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
 
-        <StreamDirectory
-          linkedUrl={linkedUrl}
-          linkedTitle={linkedTitle}
-          linkedStreamer={linkedStreamer}
-          linkedWatchId={linkedWatchId}
-        />
+          <StreamDirectory
+            linkedUrl={linkedUrl}
+            linkedTitle={linkedTitle}
+            linkedStreamer={linkedStreamer}
+            linkedWatchId={linkedWatchId}
+          />
+
+          <section className="mt-12 pb-16">
+            <h2 className="mb-4 text-center text-lg font-semibold">みんなのトークテーマ</h2>
+            <ThemeBoardList onImport={onImport} busy={busy} />
+          </section>
+
+          <AdSlot className="w-full pb-8" />
+
+          <DeveloperFooter />
+        </div>
+        <div className="home-rail">
+          <SideAdRail />
+        </div>
       </div>
-
-      <div className="mx-auto w-full max-w-5xl px-4 pb-20">
-        <h2 className="mb-4 text-center text-lg font-semibold">みんなのトークテーマ</h2>
-        <ThemeBoardList onImport={onImport} busy={busy} />
-      </div>
-
-      <AdSlot />
-
-      <DeveloperFooter />
     </div>
   );
 }
