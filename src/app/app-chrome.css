@@ -236,6 +236,22 @@
   backdrop-filter: blur(12px);
 }
 
+.app-bar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.7rem;
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.6rem;
+  transition: background 140ms ease;
+}
+.app-bar-link:hover {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
 .app-bar-divider {
   width: 1px;
   height: 1.1rem;
@@ -493,6 +509,163 @@
 .home-start:focus-within {
   border-color: color-mix(in oklab, var(--primary) 60%, var(--border));
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+/* ホーム: 使い方の3ステップ */
+.home-steps {
+  display: grid;
+  gap: 0.6rem;
+}
+@media (min-width: 640px) {
+  .home-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.home-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  padding: 0.85rem 0.9rem;
+}
+.home-step-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+/* ホーム: トピック図鑑の見本 */
+.home-showcase {
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 22%, var(--border));
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 60%),
+    color-mix(in oklab, var(--card) 55%, transparent);
+  padding: 1.25rem;
+}
+@media (min-width: 640px) {
+  .home-showcase {
+    padding: 1.75rem;
+  }
+}
+.home-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+}
+.home-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+  padding: 0.3rem 0.6rem;
+}
+.home-stat b {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.home-filter {
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease;
+}
+.home-filter:hover {
+  border-color: color-mix(in oklab, var(--primary) 50%, var(--border));
+  color: var(--foreground);
+}
+.home-filter-active,
+.home-filter-active:hover {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.home-topic-card {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 0.9rem 1rem;
+  transition:
+    border-color 140ms ease,
+    translate 140ms ease,
+    box-shadow 140ms ease;
+}
+.home-topic-card:hover {
+  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
+  box-shadow: 0 8px 24px color-mix(in oklab, black 7%, transparent);
+  translate: 0 -2px;
+}
+.home-topic-chip {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--muted) 80%, transparent);
+  color: var(--foreground);
+  font-size: 0.72rem;
+  padding: 0.2rem 0.6rem;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.home-topic-chip:hover {
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.home-topic-go {
+  margin-top: auto;
+  display: inline-flex;
+  align-self: flex-end;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 0.6rem;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.75rem 0 0;
+}
+.home-topic-go:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-showcase-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--primary) 45%, var(--border));
+  background: var(--card);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 1.2rem;
+  transition: background 140ms ease;
+}
+.home-showcase-more:hover {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
 }
 
 /* 新しいボードを始めたときの注意書き: ふわっと出て、数秒でふわっと消える */

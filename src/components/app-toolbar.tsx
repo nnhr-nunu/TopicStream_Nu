@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronRight, Redo2, Share2, Undo2 } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, ChevronRight, Redo2, Share2, Undo2 } from "lucide-react";
 
 import { BoardPanel } from "@/components/board-panel";
 import { BrandMark } from "@/components/brand-mark";
@@ -99,7 +100,18 @@ export function AppToolbar({
       </nav>
 
       <div className="app-bar pointer-events-auto flex shrink-0 items-center gap-0.5 p-1">
-        {atHome ? null : (
+        {atHome ? (
+          <>
+            <Link href="/topics/" className="app-bar-link">
+              <BookOpen className="size-4" />
+              <span className="max-sm:hidden">トピック</span>図鑑
+            </Link>
+            <Link href="/guide/" className="app-bar-link max-sm:hidden">
+              使い方
+            </Link>
+            <span className="app-bar-divider" aria-hidden />
+          </>
+        ) : (
           <>
             <Tip label="1つ戻る (Z)">
               <Button size="icon-sm" variant="ghost" aria-label="1つ戻る" onClick={onUndo} disabled={!canUndo}>
