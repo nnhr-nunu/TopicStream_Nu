@@ -45,3 +45,11 @@ describe("adScriptSrc", () => {
     );
   });
 });
+
+describe("adConfig", () => {
+  it("uses the shared publisher id by default", async () => {
+    const { adConfig, ADSENSE_PUBLISHER_ID } = await import("./ads");
+    expect(ADSENSE_PUBLISHER_ID).toMatch(/^ca-pub-\d{10,20}$/);
+    if (!process.env.NEXT_PUBLIC_ADSENSE_CLIENT) expect(adConfig.client).toBe(ADSENSE_PUBLISHER_ID);
+  });
+});
