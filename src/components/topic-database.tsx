@@ -38,7 +38,7 @@ function picksOf(entry: KnowledgeEntry): number {
 const CHIP =
   "rounded-full border px-3 py-1 text-xs transition hover:border-primary/50 hover:text-foreground disabled:opacity-50";
 
-/** トピック図鑑: みんなと自分が AI で広げた話題を、お題ごとに探せるページ */
+/** トピック図鑑: みんなと自分が広げた話題を、お題ごとに探せるページ */
 export function TopicDatabase() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -84,7 +84,7 @@ export function TopicDatabase() {
     const built = boardFromTopics(hit.entry.seed, rankedTopics(hit.entry));
     const board = layoutBoard(built, prefsFromSettings(snapshot.settings, false, built.pinnedNodeId));
     writeBoardSnapshot({ ...snapshot, boards: [...snapshot.boards, board], activeBoardId: board.id });
-    toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "AI を使わずに図鑑から並べています" });
+    toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "図鑑で人気の話題から並べました" });
     router.push("/");
   }
 
@@ -92,17 +92,27 @@ export function TopicDatabase() {
     <div className="mx-auto flex min-h-svh w-full max-w-4xl flex-col px-4 py-8">
       <header className="mb-6">
         <BrandMark onHome={() => router.push("/")} />
-        <h1 className="mt-4 flex items-center gap-2 text-2xl font-semibold">
-          <BookOpen className="size-6 text-primary" />
-          トピック図鑑
-        </h1>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          みんなが AI で広げた話題を、お題ごとにまとめています。同じお題や似たお題を広げるときは、AI
-          を呼ばずにここから候補を出します。
+        <div className="mt-6">
+          <p className="home-eyebrow">
+            <BookOpen className="size-3.5" />
+            トピック図鑑
+          </p>
+        </div>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">みんなの配信で、盛り上がった話題</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          TopicStream で広げられた話題を、お題ごとに集めています。♡ を押された話題・深掘りされた話題ほど上に並ぶので、
+          「次なに話そう」のヒントに。気になるお題は、そのまま話題マップにできます。
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          お題 {Object.keys(source).length} 件 · 話題 {topicTotal} 語
-          {shared === "off" ? " · この公開版では、はじめから入っている図鑑と自分の記録だけを表示しています" : null}
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="home-stat">
+            <b>{Object.keys(source).length.toLocaleString()}</b>お題
+          </span>
+          <span className="home-stat">
+            <b>{topicTotal.toLocaleString()}</b>話題
+          </span>
+          {shared === "off" ? (
+            <span className="text-muted-foreground">この公開版では、はじめから入っている図鑑と自分の記録を表示しています</span>
+          ) : null}
         </p>
       </header>
 
@@ -169,7 +179,7 @@ export function TopicDatabase() {
       ) : hits.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
           {scope === "mine" && !query
-            ? "まだ自分の記録はありません。ホームで話題を広げると、AI が出した話題がここにたまります。"
+            ? "まだ自分の記録はありません。ホームで話題を広げると、ここにたまっていきます。"
             : "見つかりませんでした。別の言葉で探すか、ホームでこのお題を広げてみてください。"}
         </p>
       ) : (
@@ -179,7 +189,7 @@ export function TopicDatabase() {
             const q = normalizeSeed(query);
             return (
               <li key={hit.entry.seed}>
-                <article className="flex h-full flex-col rounded-xl border border-border/70 bg-card/80 p-4 shadow-sm">
+                <article className="home-topic-card">
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">{hit.entry.seed}</h2>
                     <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -197,10 +207,8 @@ export function TopicDatabase() {
                           type="button"
                           title={`「${label}」で探す`}
                           className={cn(
-                            "rounded-full border px-2 py-0.5 text-[11px] transition hover:border-primary/50 hover:text-foreground",
-                            q && normalizeSeed(label).includes(q)
-                              ? "border-primary/60 bg-primary/10 text-foreground"
-                              : "border-border text-muted-foreground",
+                            "home-topic-chip",
+                            q && normalizeSeed(label).includes(q) && "ring-1 ring-primary/60",
                           )}
                           onClick={() => setQuery(label)}
                         >
@@ -212,7 +220,7 @@ export function TopicDatabase() {
                   <div className="mt-auto flex justify-end pt-3">
                     <Button size="sm" onClick={() => startBoard(hit)}>
                       <Sparkles />
-                      このお題でボードを作る
+                      このお題で話題マップを作る
                     </Button>
                   </div>
                 </article>
@@ -223,7 +231,7 @@ export function TopicDatabase() {
       )}
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        話題の文言は AI が作ったものを名前なしで集めています。♡・クリック・ピン・コメントのハートで選ばれた話題ほど上に出ます。
+        話題は名前なしで集めています（候補には自動で作ったものも含みます）。♡・深掘り・ピン・コメントのハートで選ばれた話題ほど上に並びます。
         <Link href="/" className="ml-1 inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
           ホームで広げる
           <ArrowRight className="size-3" />
