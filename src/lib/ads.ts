@@ -1,4 +1,4 @@
-/** Google AdSense の設定。ID は公開値なので環境変数（Vercel の Environment Variables）から入れる。 */
+/** Google AdSense の設定。スロット ID は公開値なので環境変数（Vercel の Environment Variables）から入れる。 */
 
 export type AdConfig = {
   /** `ca-pub-` で始まるパブリッシャー ID。空なら広告を一切出さない。 */
@@ -27,9 +27,13 @@ export function readAdConfig(env: {
   return { client, slot, sideSlot: valid(env.sideSlot) || slot };
 }
 
+/** 推しログ(ぬ)と共通の AdSense パブリッシャー ID（公開値）。oshilog.life/ads.txt と一致させる。 */
+export const ADSENSE_PUBLISHER_ID = "ca-pub-6017408302754244";
+
 // NEXT_PUBLIC_* はビルド時に文字列へ置き換わるので、プロパティを直接参照する。
+// パブリッシャー ID は公開値なので既定で入れる（審査のサイト確認用）。スロットは承認後に env で足す。
 export const adConfig = readAdConfig({
-  client: process.env.NEXT_PUBLIC_ADSENSE_CLIENT,
+  client: process.env.NEXT_PUBLIC_ADSENSE_CLIENT || ADSENSE_PUBLISHER_ID,
   slot: process.env.NEXT_PUBLIC_ADSENSE_SLOT,
   sideSlot: process.env.NEXT_PUBLIC_ADSENSE_SIDE_SLOT,
 });
