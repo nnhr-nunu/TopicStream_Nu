@@ -13,7 +13,8 @@ import {
   padTopics,
   parseTopics,
   requestGemini,
-  GEMINI_HEDGE_MS,
+  closedPart,
+  GEMINI_FIRST_CHUNK_MS,
   shouldTryNextModel,
   thinkingConfigFor,
   geminiUserNotice,
@@ -125,7 +126,6 @@ describe("Gemini のモデル列とフォールバック", () => {
     expect(DEFAULT_MODEL).toBe("gemini-3.5-flash-lite");
     expect([...GEMINI_FALLBACK_MODELS]).toEqual([
       "gemini-3.5-flash-lite",
-      "gemini-3.5-flash",
       "gemini-3.6-flash",
       "gemini-3.1-flash-lite",
       "gemini-flash-latest",
@@ -248,8 +248,8 @@ describe("Gemini の混雑リトライ", () => {
         calls.push(url);
         bodies.push(init?.body ?? "");
         if (url.includes("gemini-3.5-flash-lite")) return googleError(404, "NOT_FOUND");
-        if (url.includes("models/gemini-3.5-flash:")) {
-          const hits = calls.filter((item) => item.includes("models/gemini-3.5-flash:")).length;
+        if (url.includes("models/gemini-3.6-flash:")) {
+          const hits = calls.filter((item) => item.includes("models/gemini-3.6-flash:")).length;
           if (hits === 1) return googleError(503, "UNAVAILABLE", "This model is currently experiencing high demand.");
           return googleOk(["温泉", "湯けむり"]);
         }
@@ -265,9 +265,9 @@ describe("Gemini の混雑リトライ", () => {
       count: 8,
     });
 
-    expect(result.model).toBe("gemini-3.5-flash");
+    expect(result.model).toBe("gemini-3.6-flash");
     expect(result.topics).toContain("温泉");
-    expect(result.tried.slice(0, 2)).toEqual(["gemini-3.5-flash-lite", "gemini-3.5-flash"]);
+    expect(result.tried.slice(0, 2)).toEqual(["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.sameModelMs);
     const sent = JSON.parse(bodies[1]!) as { generationConfig: Record<string, unknown> };
     expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
@@ -399,53 +399,75 @@ describe("利用者へのお知らせ", () => {
   });
 });
 
-describe("混んでいるときは次のモデルを重ねて走らせる", () => {
+describe("1つずつ届ける", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it("最初のモデルが遅いと、次のモデルの返事を先に使う", async () => {
+  it("書きかけの語は拾わない", () => {
+    expect(closedPart('["温泉","湯けむ')).toBe('["温泉"');
+    expect(closedPart('["温泉","湯けむり"]')).toBe('["温泉","湯けむり"]');
+    expect(closedPart('["a\\"b","c')).toBe('["a\\"b"');
+  });
+
+  it("ストリームで届いた順に onTopic を呼び、同じ語は2度呼ばない", async () => {
+    const encoder = new TextEncoder();
+    const sse = (text: string) => encoder.encode(`data: ${JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] })}
+
+`);
+    const pieces = [sse('["地元あるある","深夜の'), sse('コンビニ","失敗談",'), sse('"推しの話"]')];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        body: new ReadableStream<Uint8Array>({
+          pull(controller) {
+            const next = pieces.shift();
+            if (next) controller.enqueue(next);
+            else controller.close();
+          },
+        }),
+      })),
+    );
+    const seen: string[] = [];
+    const result = await requestGemini({
+      seed: "お題",
+      existing: [],
+      apiKey: "k",
+      model: DEFAULT_MODEL,
+      count: 4,
+      onTopic: (label) => seen.push(label),
+    });
+    expect(seen).toEqual(["地元あるある", "深夜のコンビニ", "失敗談", "推しの話"]);
+    expect(result.topics).toEqual(seen);
+    expect(seen).not.toContain("深夜の");
+  });
+
+  it("最初の文字が遅いモデルは諦め、同時には投げずに次のモデルへ", async () => {
     vi.useFakeTimers();
-    const good = ["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"];
-    const aborted: string[] = [];
+    const calls: string[] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: string | URL, init?: { signal?: AbortSignal }) => {
         const url = String(input);
-        if (url.includes("models/gemini-3.5-flash-lite:")) {
-          // 返事が来ない（混雑）。中断されたら記録する
+        calls.push(url);
+        if (url.includes("gemini-3.5-flash-lite")) {
           return new Promise((_, reject) => {
-            init?.signal?.addEventListener("abort", () => {
-              aborted.push("lite");
-              reject(new DOMException("aborted", "AbortError"));
-            });
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
           });
         }
-        return googleOk(good);
+        return googleOk(["地元あるある", "深夜のコンビニ", "失敗談", "推しの話"]);
       }),
     );
-    const pending = requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 });
-    await vi.advanceTimersByTimeAsync(GEMINI_HEDGE_MS + 50);
-    const result = await pending;
-    expect(result.model).toBe("gemini-3.5-flash");
-    expect(result.topics).toHaveLength(8);
-    expect(result.tried).toEqual(["gemini-3.5-flash-lite", "gemini-3.5-flash"]);
-    expect(aborted).toEqual(["lite"]); // 遅かったほうは打ち切る
-  });
-
-  it("最初のモデルがすぐ返せば、次のモデルは呼ばない", async () => {
-    const good = ["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"];
-    const calls: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL) => {
-        calls.push(String(input));
-        return googleOk(good);
-      }),
-    );
-    const result = await requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 });
-    expect(result.tried).toEqual(["gemini-3.5-flash-lite"]);
+    const pending = requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 4 });
+    // 先頭モデルの待ち中は、次のモデルをまだ呼ばない
+    await vi.advanceTimersByTimeAsync(GEMINI_FIRST_CHUNK_MS - 100);
     expect(calls).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(200);
+    const result = await pending;
+    expect(result.model).toBe("gemini-3.6-flash");
+    expect(calls).toHaveLength(2);
   });
 });

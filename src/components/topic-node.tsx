@@ -44,6 +44,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     pinnedNodeId,
     focusedNodeId,
     regeneratingIds,
+    regenReadyAt,
+    spareCountFor,
     generationLayout,
   } = useBoardActions();
   const [copied, setCopied] = useState(false);
@@ -230,7 +232,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
                 ) : null}
               </span>
             ) : null}
-            <span className="topic-label" style={{ fontSize: `${fontSize}px` }}>
+            {/* key で語が入れ替わるたびに付け直し、ぽこっと出るアニメーションを毎回かける */}
+            <span key={data.label} className="topic-label topic-label-pop" style={{ fontSize: `${fontSize}px` }}>
               {data.label}
             </span>
             {regenerating ? (
@@ -273,6 +276,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isPinned={isPinned}
           copied={copied}
           onPin={() => pinNode(id)}
+          regenSpares={menu.open ? (spareCountFor?.(id) ?? 0) : 0}
+          regenReadyAt={regenReadyAt ?? 0}
           onRegenerate={() => {
             leaveMenu();
             regenerateNode?.(id);

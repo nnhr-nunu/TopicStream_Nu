@@ -17,6 +17,8 @@ export function TopicActionsMenu({
   copied,
   onPin,
   onRegenerate,
+  regenSpares = 0,
+  regenReadyAt = 0,
   onCopy,
   onEditLabel,
   onEditMemo,
@@ -29,6 +31,10 @@ export function TopicActionsMenu({
   copied: boolean;
   onPin: () => void;
   onRegenerate: () => void;
+  /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
+  regenSpares?: number;
+  /** 予備が無いとき、AI の作り直しが使えるようになる時刻 */
+  regenReadyAt?: number;
   onCopy: () => void;
   onEditLabel: () => void;
   onEditMemo: () => void;
@@ -44,9 +50,7 @@ export function TopicActionsMenu({
       <ActionBtn label={isPinned ? "ピンを外す" : "いま話している"} onClick={onPin}>
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
-      <ActionBtn label="このマスの文だけ作り直す" onClick={onRegenerate}>
-        <RefreshCw />
-      </ActionBtn>
+      <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
       <ActionBtn label="文を直す" onClick={onEditLabel}>
         <Pencil />
       </ActionBtn>
@@ -63,6 +67,39 @@ export function TopicActionsMenu({
         閉じる
       </button>
     </div>
+  );
+}
+
+/** 作り直し: 予備があれば即座に。無ければ AI を呼ぶので、使った直後は残り秒数を出して待ってもらう。 */
+function RegenerateButton({
+  open,
+  spares,
+  readyAt,
+  onClick,
+}: {
+  open: boolean;
+  spares: number;
+  readyAt: number;
+  onClick: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const cooling = spares === 0 && readyAt > now;
+  useEffect(() => {
+    if (!open || spares > 0 || readyAt <= Date.now()) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [open, spares, readyAt]);
+  const seconds = Math.max(1, Math.ceil((readyAt - now) / 1000));
+  const label = cooling
+    ? `AI の作り直しは、あと ${seconds} 秒で使えます`
+    : spares > 0
+      ? `このマスの文だけ作り直す（すぐ出せる候補あと ${spares} 件）`
+      : "このマスの文だけ作り直す（AI に頼みます）";
+  return (
+    <ActionBtn label={label} onClick={onClick} disabled={cooling}>
+      {cooling ? <span className="topic-regen-countdown">{seconds}</span> : <RefreshCw />}
+      {spares > 0 && !cooling ? <span className="topic-regen-spares" aria-hidden>{spares}</span> : null}
+    </ActionBtn>
   );
 }
 

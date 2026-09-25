@@ -15,9 +15,9 @@ export const LABEL_EDIT_MAX = 80;
  */
 export const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 /** 使えない・混んでいるときに順に試す（重複なし）。 */
+/** 2026-09-25 の実測（最初の文字まで）: 3.5-flash-lite 0.7秒で安定 / 3.6-flash 0.9秒だが 503 が多い / 3.1-flash-lite 1.6秒 / 3.5-flash は時間切れ */
 export const GEMINI_FALLBACK_MODELS = [
   "gemini-3.5-flash-lite",
-  "gemini-3.5-flash",
   "gemini-3.6-flash",
   "gemini-3.1-flash-lite",
   "gemini-flash-latest",

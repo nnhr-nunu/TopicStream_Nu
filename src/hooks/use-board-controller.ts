@@ -11,6 +11,7 @@ import {
   writeBoardSnapshot,
 } from "@/lib/board-store";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
+import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
@@ -25,6 +26,9 @@ function currentSnapshot(): AppSnapshot {
 }
 
 const SHARE_KEY = "topicstream-nu:share-id";
+
+/** 予備が尽きて AI に作り直しを頼んだあと、次に頼めるまでの間隔（無料枠を連打で使い切らないため） */
+export const REGEN_COOLDOWN_MS = 15_000;
 
 /** AI のお知らせは同じ種類を連続で出さない（上限は再読み込みまで1回、それ以外は10分に1回） */
 const noticeShownAt = new Map<string, number>();
@@ -53,6 +57,7 @@ export function useBoardController() {
   const expandTokens = useRef(new Map<string, number>());
   const regeneratingRef = useRef(new Set<string>());
   const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
+  const [regenReadyAt, setRegenReadyAt] = useState(0);
 
   const persist = useCallback((next: AppSnapshot) => {
     writeBoardSnapshot(next);
@@ -65,6 +70,16 @@ export function useBoardController() {
         board.id === current.activeBoardId ? mutator(board) : board,
       );
       persist({ ...current, ...extra, boards });
+    },
+    [persist],
+  );
+
+  /** 表示中かどうかに関係なく、指定のボードだけ書き換える（生成中にボードを切り替えても混ざらない） */
+  const updateBoardById = useCallback(
+    (boardId: string, mutator: (board: Board) => Board) => {
+      const current = currentSnapshot();
+      if (!current.boards.some((board) => board.id === boardId)) return;
+      persist({ ...current, boards: current.boards.map((board) => (board.id === boardId ? mutator(board) : board)) });
     },
     [persist],
   );
@@ -108,10 +123,23 @@ export function useBoardController() {
       setBusy(true);
 
       const existingLabels = started.board.nodes.map((node) => node.data.label);
+      const boardId = started.board.id;
+      const slots = started.board.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
+      const fillPrefs = () => {
+        const snap = currentSnapshot();
+        const target = snap.boards.find((item) => item.id === boardId);
+        return prefsFromSettings(snap.settings, overlay, target?.pinnedNodeId ?? null);
+      };
+      // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はすぐカードへ。
       const result = await generateRelatedTopics({
         seed: parent.data.label,
         existing: existingLabels,
+        count: slots + SPARE_COUNT,
         preferred: preferredForSeed(parent.data.label),
+        onTopic: (label) => {
+          if (expandTokens.current.get(nodeId) !== token) return;
+          updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
+        },
       });
 
       if (expandTokens.current.get(nodeId) !== token) {
@@ -120,19 +148,28 @@ export function useBoardController() {
       }
 
       const latest = currentSnapshot();
-      const latestBoard = latest.boards.find((item) => item.id === latest.activeBoardId) ?? started.board;
+      const latestBoard = latest.boards.find((item) => item.id === boardId) ?? started.board;
       const stillPresent = started.childIds.some((id) => latestBoard.nodes.some((node) => node.id === id));
       if (!stillPresent) {
         setBusy(false);
         return;
       }
 
-      const filled = ops.fillExpand(
-        latestBoard,
-        nodeId,
-        started.childIds,
-        result.topics,
-        prefsFromSettings(latest.settings, overlay, latestBoard.pinnedNodeId),
+      // 流れてきた語で埋まっていない分を最終結果で埋め、余りは予備として中央に持たせる
+      const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
+      const unused = result.topics.filter((label) => !onBoard.has(label));
+      const openSlots = latestBoard.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
+      const holder = spareHolderId(latestBoard, started.childIds, nodeId);
+      const filled = addSpares(
+        ops.fillExpand(
+          latestBoard,
+          nodeId,
+          started.childIds,
+          unused.slice(0, openSlots),
+          prefsFromSettings(latest.settings, overlay, latestBoard.pinnedNodeId),
+        ),
+        holder,
+        unused.slice(openSlots),
       );
       persist({
         ...latest,
@@ -157,7 +194,7 @@ export function useBoardController() {
       setBusy(false);
       showGenerateNotice(result);
     },
-    [persist],
+    [persist, updateBoardById],
   );
 
   const startWithKeyword = useCallback(
@@ -248,29 +285,54 @@ export function useBoardController() {
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       const node = board?.nodes.find((item) => item.id === nodeId);
       if (!board || !node || regeneratingRef.current.has(nodeId)) return;
+      const holderId = node.data.parentId;
+      const spare = holderId ? takeSpare(board, holderId) : { board, label: null };
+      // 予備が無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
+      if (!spare.label && Date.now() < regenReadyAt) {
+        toast.message(`AI の作り直しは、あと ${Math.ceil((regenReadyAt - Date.now()) / 1000)} 秒で使えます`);
+        return;
+      }
       // 文が変わるので「いま話している」は外す
       if (board.pinnedNodeId === nodeId) {
         updateBoard((item) => ops.pinNode(item, null, prefsFromSettings(currentSnapshot().settings, false, null)));
       }
       regeneratingRef.current.add(nodeId);
       setRegeneratingIds([...regeneratingRef.current]);
+      const prefs = () => {
+        const snap = currentSnapshot();
+        const target = snap.boards.find((item) => item.id === board.id);
+        return prefsFromSettings(snap.settings, false, target?.pinnedNodeId ?? null);
+      };
       try {
+        if (spare.label) {
+          // 展開のときにもらっておいた予備を使う（API を呼ばないので速い・枠も減らない）
+          const label = spare.label;
+          await new Promise((resolve) => window.setTimeout(resolve, 350));
+          updateBoardById(board.id, (item) => {
+            const taken = holderId ? takeSpare(item, holderId) : { board: item, label };
+            return ops.setLabel(taken.board, nodeId, taken.label ?? label, prefs());
+          });
+          return;
+        }
+        setRegenReadyAt(Date.now() + REGEN_COOLDOWN_MS);
         const parent = board.nodes.find((item) => item.id === node.data.parentId);
-        // オフライン生成は一瞬で終わるので、作り直したと分かるよう最低 0.6 秒は「作り直し中」を見せる
+        const seed = parent?.data.label || node.data.label;
+        // 1語だけのために呼ぶのはもったいないので、次の分の予備もまとめてもらう
         const [result] = await Promise.all([
           generateRelatedTopics({
-            seed: parent?.data.label || node.data.label,
+            seed,
             existing: board.nodes.map((item) => item.data.label),
-            count: 1,
-            preferred: preferredForSeed(parent?.data.label || node.data.label),
+            count: 1 + SPARE_COUNT,
+            preferred: preferredForSeed(seed),
           }),
           new Promise((resolve) => window.setTimeout(resolve, 600)),
         ]);
-        const nextLabel = result.topics[0];
+        const [nextLabel, ...rest] = result.topics;
         if (nextLabel) {
-          updateBoard((item) =>
-            ops.setLabel(item, nodeId, nextLabel, prefsFromSettings(currentSnapshot().settings, false, item.pinnedNodeId)),
-          );
+          updateBoardById(board.id, (item) => {
+            const relabeled = ops.setLabel(item, nodeId, nextLabel, prefs());
+            return holderId ? addSpares(relabeled, holderId, rest) : relabeled;
+          });
         }
         showGenerateNotice(result);
       } finally {
@@ -278,7 +340,7 @@ export function useBoardController() {
         setRegeneratingIds([...regeneratingRef.current]);
       }
     },
-    [updateBoard],
+    [regenReadyAt, updateBoard, updateBoardById],
   );
 
   const setMemo = useCallback(
@@ -590,6 +652,7 @@ export function useBoardController() {
     publishWatchLink,
     toggleHeart,
     regeneratingIds,
+    regenReadyAt,
     bumpHeart,
     bumpFrameHearts,
   };

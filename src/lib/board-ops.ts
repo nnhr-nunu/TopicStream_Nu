@@ -341,6 +341,33 @@ export function beginExpand(
   return beginRadialExpand(board, parent, count, densityOrPrefs, overlay);
 }
 
+/**
+ * AI から1語届くたびに、まだ空のカード（appearIndex の若い順）へ入れる。
+ * 空きが無ければ何もしない（余った語は呼び出し側で予備に回す）。
+ */
+export function fillNextPlaceholder(
+  board: Board,
+  childIds: string[],
+  label: string,
+  densityOrPrefs: Density | LayoutPrefs = "comfortable",
+  overlay = false,
+): { board: Board; filled: boolean } {
+  const target = board.nodes
+    .filter((node) => childIds.includes(node.id) && node.data.placeholder)
+    .sort((a, b) => a.data.appearIndex - b.data.appearIndex)[0];
+  if (!target) return { board, filled: false };
+  const next = applyLayout(
+    touch(board, {
+      nodes: board.nodes.map((node) =>
+        node.id === target.id ? { ...node, data: { ...node.data, label, placeholder: false, expanding: false } } : node,
+      ),
+    }),
+    densityOrPrefs,
+    overlay,
+  );
+  return { board: next, filled: true };
+}
+
 export function fillExpand(
   board: Board,
   parentId: string,

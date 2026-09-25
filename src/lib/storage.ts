@@ -69,6 +69,9 @@ function asNode(value: unknown): TNode | null {
         typeof node.data.frameHearts === "number" && node.data.frameHearts > 0
           ? Math.min(9999, Math.round(node.data.frameHearts))
           : undefined,
+      spares: Array.isArray(node.data.spares)
+        ? node.data.spares.filter((item): item is string => typeof item === "string").slice(0, 12)
+        : undefined,
     },
   };
 }

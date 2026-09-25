@@ -17,6 +17,10 @@ type BoardActions = {
   focusedNodeId: string | null;
   /** 文を作り直している最中のカード */
   regeneratingIds?: string[];
+  /** 予備が無いとき AI の作り直しが再び使える時刻（ms） */
+  regenReadyAt?: number;
+  /** そのカードの作り直しに使える予備の数（あれば API を呼ばず即座に出せる） */
+  spareCountFor?: (id: string) => number;
   generationLayout?: GenerationLayout;
 };
 

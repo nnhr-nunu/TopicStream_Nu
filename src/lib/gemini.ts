@@ -4,6 +4,15 @@ import { isJunkTopic, padTopics } from "@/lib/gemini-core";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import type { GenerateResult } from "@/lib/types";
 
+type StreamLine =
+  | { type: "topic"; label?: unknown }
+  | ({ type: "done" } & Partial<GenerateResult>);
+
+/**
+ * サーバー経由で関連キーワードを作る。サーバーは1語ずつ流してくるので、届くたびに onTopic を呼ぶ
+ * （画面では空のカードへ順に入れて、体感の待ち時間を減らす）。
+ * 失敗やサーバーの無い公開版では、オフライン候補をまとめて返す。
+ */
 export async function generateRelatedTopics(options: {
   seed: string;
   existing: string[];
@@ -11,10 +20,31 @@ export async function generateRelatedTopics(options: {
   model?: string;
   count?: number;
   preferred?: string[];
+  onTopic?: (label: string) => void;
 }): Promise<GenerateResult> {
   const count = options.count ?? CHILD_COUNT;
   const mock = mockRelatedTopics(options.seed, options.existing, count, options.preferred ?? []);
   const override = sanitizeSecret(options.apiKey);
+  const streamed: string[] = [];
+  const accept = (label: unknown) => {
+    if (typeof label !== "string" || isJunkTopic(label) || streamed.includes(label) || streamed.length >= count) return;
+    streamed.push(label);
+    options.onTopic?.(label);
+  };
+  const finish = (json: Partial<GenerateResult>): GenerateResult => {
+    const parsed = (Array.isArray(json.topics) ? json.topics : []).filter(
+      (item): item is string => typeof item === "string" && !isJunkTopic(item),
+    );
+    // 流れてきた順を優先し、足りない分を最終結果・オフライン候補で埋める
+    const topics = padTopics(streamed, [...parsed, ...mock], count, options.seed);
+    return {
+      topics,
+      source: json.source === "gemini" && (parsed.length > 0 || streamed.length > 0) ? "gemini" : "mock",
+      warning: json.warning,
+      noticeKind: json.noticeKind,
+      debug: json.debug,
+    };
+  };
 
   try {
     const response = await fetch("/api/gemini", {
@@ -27,37 +57,42 @@ export async function generateRelatedTopics(options: {
         count,
         preferred: options.preferred ?? [],
         apiKey: override || undefined,
+        stream: true,
       }),
     });
     if (response.status === 404) {
       // GitHub Pages（サーバーの無い公開版）はオフライン生成が普通の動きなので、何も知らせない
       return { topics: mock, source: "mock" };
     }
-    if (!response.ok) {
-      throw new Error(`gemini proxy ${response.status}`);
+    if (!response.ok) throw new Error(`gemini proxy ${response.status}`);
+
+    const isStream = (response.headers.get("content-type") ?? "").includes("ndjson") && response.body;
+    if (!isStream) return finish((await response.json()) as GenerateResult);
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let done: Partial<GenerateResult> | null = null;
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const parsed = JSON.parse(line) as StreamLine;
+        if (parsed.type === "topic") accept(parsed.label);
+        else if (parsed.type === "done") done = parsed;
+      }
     }
-    const json = (await response.json()) as GenerateResult;
-    const parsed = (Array.isArray(json.topics) ? json.topics : []).filter(
-      (item): item is string => typeof item === "string" && !isJunkTopic(item),
-    );
-    const topics = padTopics(parsed, mock, count, options.seed);
-    if (parsed.length === 0) {
-      return {
-        topics,
-        source: "mock",
-        warning: json.warning,
-        noticeKind: json.noticeKind,
-        debug: json.debug,
-      };
+    if (buffer.trim()) {
+      const parsed = JSON.parse(buffer) as StreamLine;
+      if (parsed.type === "done") done = parsed;
     }
-    return {
-      topics,
-      source: json.source === "gemini" ? "gemini" : "mock",
-      warning: json.warning,
-      noticeKind: json.noticeKind,
-      debug: json.debug,
-    };
+    return finish(done ?? { source: streamed.length ? "gemini" : "mock" });
   } catch {
+    if (streamed.length > 0) return finish({ source: "gemini" });
     return {
       topics: mock,
       source: "mock",
