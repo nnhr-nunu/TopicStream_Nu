@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_MODEL, GEMINI_FALLBACK_MODELS } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
 import {
+  buildPrompt,
   GeminiRequestError,
   fallbackModels,
   geminiDebug,
@@ -57,6 +58,14 @@ describe("Gemini の返答パース", () => {
     expect(isJunkTopic("[")).toBe(true);
     expect(isJunkTopic('"')).toBe(true);
     expect(isJunkTopic("温泉")).toBe(false);
+  });
+});
+
+describe("Gemini への頼み方", () => {
+  it("文脈があれば、話の流れを遠い方から書く", () => {
+    expect(buildPrompt("一番の失敗談", [], 8, ["焼き鳥"])).toContain("「焼き鳥 → 一番の失敗談」という話の流れ");
+    expect(buildPrompt("その瞬間どうした", [], 8, ["一番の失敗談", "焼き鳥"])).toContain("「焼き鳥 → 一番の失敗談 → その瞬間どうした」");
+    expect(buildPrompt("焼き鳥", [], 8)).not.toContain("話の流れ");
   });
 });
 

@@ -13,6 +13,7 @@ import {
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
+import { topicContext } from "@/lib/topic-context";
 import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
@@ -139,6 +140,8 @@ export function useBoardController() {
         existing: existingLabels,
         count: slots + SPARE_COUNT,
         preferred: preferredForSeed(parent.data.label),
+        // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように
+        context: topicContext(started.board, nodeId),
         // トピック図鑑に十分たまっているお題は AI を呼ばずに出す
         recall: true,
         onTopic: (label) => {
@@ -347,6 +350,7 @@ export function useBoardController() {
             existing: board.nodes.map((item) => item.data.label),
             count: 1 + SPARE_COUNT,
             preferred: preferredForSeed(seed),
+            context: parent ? topicContext(board, parent.id) : [],
           }),
           new Promise((resolve) => window.setTimeout(resolve, 600)),
         ]);

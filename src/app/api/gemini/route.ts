@@ -10,7 +10,7 @@ import {
 } from "@/lib/gemini-core";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
-import { mockRelatedTopics } from "@/lib/mock-topics";
+import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
 import { isArchived } from "@/lib/topic-archive";
 import type { GeminiDebug } from "@/lib/types";
 
@@ -49,6 +49,8 @@ type Input = {
   seed: string;
   existing: string[];
   preferred: string[];
+  /** 広げるカードの祖先（近い順） */
+  context: string[];
   count: number;
   model: string;
   apiKey: string;
@@ -57,12 +59,12 @@ type Input = {
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
 async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
-  const { seed, existing, preferred, count, model, apiKey } = input;
+  const { seed, existing, preferred, context, count, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
     if (!isArchived(seed, label)) sendTopic(label);
   };
-  const mock = () => mockRelatedTopics(seed, existing, count, preferred);
+  const mock = () => mockRelatedTopics(seed, existing, count, preferred, { context });
 
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });
@@ -96,10 +98,11 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
   }
 
   try {
-    const remote = await requestGemini({ seed, existing, apiKey, model, count, onTopic });
+    const remote = await requestGemini({ seed, existing, context, apiKey, model, count, onTopic });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
-    await recordSharedKnowledge(seed, remote.topics);
+    // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
+    if (!isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
     return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
   } catch (error) {
@@ -122,6 +125,7 @@ export async function POST(request: Request) {
     model?: unknown;
     count?: unknown;
     preferred?: unknown;
+    context?: unknown;
     apiKey?: unknown;
     stream?: unknown;
   } | null;
@@ -139,6 +143,13 @@ export async function POST(request: Request) {
       : [],
     preferred: Array.isArray(body?.preferred)
       ? body.preferred.filter((item): item is string => typeof item === "string")
+      : [],
+    context: Array.isArray(body?.context)
+      ? body.context
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim().slice(0, 48))
+          .filter(Boolean)
+          .slice(0, 3)
       : [],
     count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
     model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
@@ -164,7 +175,7 @@ export async function POST(request: Request) {
         });
         send({ type: "done", ...final });
       } catch {
-        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred), source: "mock" });
+        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred, { context: input.context }), source: "mock" });
       } finally {
         controller.close();
       }

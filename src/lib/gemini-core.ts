@@ -10,11 +10,17 @@ import type { GeminiDebug } from "@/lib/types";
 
 export type { GeminiDebug };
 
-export function buildPrompt(seed: string, existing: string[], count: number): string {
+export function buildPrompt(seed: string, existing: string[], count: number, context: string[] = []): string {
   const banned = existing.slice(0, 24).join(" / ") || "なし";
+  // 祖先は近い順で届くので、話の流れとして読めるよう遠い方から並べる
+  const flow = context.length
+    ? `
+このお題は「${[...context].reverse().join(" → ")} → ${seed}」という話の流れで出てきました。流れから外れない切り口にしてください。
+`
+    : "";
   return `あなたはVTuberの雑談配信の構成作家です。
 お題「${seed}」から、配信者もリスナーも「自分の場合は…」と話を広げられる「話の切り口」をちょうど${count}個出してください。
-
+${flow}
 よい切り口:
 - 誰でも自分の体験から答えられる（場所・場面・ジャンル・時期・人・お金・失敗・あるある・比較）
 - お題の裏返しや反対側も1〜2個入れる（例: よかった → 後悔した、好き → 苦手）
@@ -356,6 +362,8 @@ type GeminiOptions = {
   apiKey: string;
   model: string;
   count: number;
+  /** 広げるカードの祖先（近い順）。汎用の切り口を広げるときに、何の話なのかを伝える */
+  context?: string[];
   /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
   onTopic?: (label: string) => void;
 };
@@ -562,7 +570,7 @@ async function generateGeminiText(
         "x-goog-api-key": options.apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count) }] }],
+        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context) }] }],
         generationConfig: generationConfig(options.model),
       }),
     });

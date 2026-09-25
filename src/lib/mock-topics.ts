@@ -159,21 +159,70 @@ export const THEME_MAP: Record<string, string[]> = {
  * どのお題の下に置いても話せる「切り口」。お題の語をつなげて「昔の〇〇」「〇〇の沼」のように
  * 機械的に作ると芸がないので、カード単体で問いかけとして読める言い回しにしている。
  * 系統ごとに分け、8 マスに同じ系統ばかり並ばないよう 1 つずつ順番に取り出す。
+ *
+ * 切り口のカード自体を広げたときは、その系統の「深掘り」を先に出す（「一番の失敗談」→「その瞬間どうした」）。
+ * 切り口はどのお題にも付くので、元のお題（context）の定番の語・図鑑の語も混ぜて、話が元に戻れるようにする。
  */
-const ANGLE_GROUPS: string[][] = [
-  // きっかけ・昔と今
-  ["ハマったきっかけ", "最初の印象", "昔と今で変わったこと", "子どものころの記憶", "初めての体験", "ブームが来た瞬間"],
-  // 失敗・本音
-  ["一番の失敗談", "正直ここが苦手", "今だから言える本音", "ちょっと恥ずかしい話", "やめられない理由", "やらなきゃよかった"],
-  // 好み・こだわり
-  ["好き嫌いが分かれる所", "ゆずれないこだわり", "高いの vs 安いの", "定番派？変わり種派？", "ひとつだけ選ぶなら", "今年のベスト"],
-  // あるある・まわり
-  ["あるあるネタ", "意外と知られてない話", "家族や友達の反応", "地域でちがうこと", "人に勧めるなら", "ハマる人の特徴"],
-  // これから・もしも
-  ["これからやりたいこと", "もし一生禁止されたら", "理想を言うなら", "10年後はどうなってる", "お金を気にしないなら", "初心者に教えるなら"],
-  // リスナーと話す
-  ["リスナーにも聞きたい", "コメントで三択", "みんなの思い出を募集", "リスナーのおすすめ", "聞かれたら困る質問", "まだ誰にも話してない"],
+type AngleGroup = { angles: string[]; followUps: string[] };
+
+const ANGLE_GROUPS: AngleGroup[] = [
+  {
+    // きっかけ・昔と今
+    angles: ["ハマったきっかけ", "最初の印象", "昔と今で変わったこと", "子どものころの記憶", "初めての体験", "ブームが来た瞬間"],
+    followUps: ["いつごろの話？", "誰の影響？", "当時の自分に一言", "今も続いてる？", "あのころの流行", "思い出の場所", "変わらないもの", "戻れるなら戻りたい？"],
+  },
+  {
+    // 失敗・本音
+    angles: ["一番の失敗談", "正直ここが苦手", "今だから言える本音", "ちょっと恥ずかしい話", "やめられない理由", "やらなきゃよかった"],
+    followUps: ["その瞬間どうした", "まわりの反応", "今なら笑える？", "二度としないこと", "実はまだ引きずってる", "同じ経験ある人いる？", "そこから学んだこと", "言い訳させて"],
+  },
+  {
+    // 好み・こだわり
+    angles: ["好き嫌いが分かれる所", "ゆずれないこだわり", "高いの vs 安いの", "定番派？変わり種派？", "ひとつだけ選ぶなら", "今年のベスト"],
+    followUps: ["そう思う理由", "反対派の言い分", "妥協できるライン", "人生で一番のやつ", "こだわりすぎた話", "人に勧められる？", "最近の推し", "譲ってもいい所"],
+  },
+  {
+    // あるある・まわり
+    angles: ["あるあるネタ", "意外と知られてない話", "家族や友達の反応", "地域でちがうこと", "人に勧めるなら", "ハマる人の特徴"],
+    followUps: ["身近な実例", "言われて気づいた", "意外な人がハマってた", "ちょっと引かれた話", "地元だとどう？", "ネットで見た話", "リスナーの体験談", "通じなかったこと"],
+  },
+  {
+    // これから・もしも
+    angles: ["これからやりたいこと", "もし一生禁止されたら", "理想を言うなら", "10年後はどうなってる", "お金を気にしないなら", "初心者に教えるなら"],
+    followUps: ["まず何から始める？", "必要なもの", "一緒にやりたい人", "叶ったら配信で報告", "反対されそう？", "予算はいくら", "期限を決めるなら", "実はもう準備中"],
+  },
+  {
+    // リスナーと話す
+    angles: ["リスナーにも聞きたい", "コメントで三択", "みんなの思い出を募集", "リスナーのおすすめ", "聞かれたら困る質問", "まだ誰にも話してない"],
+    followUps: ["多かった答え", "意外だった答え", "次の配信で続き", "アンケートにするなら", "ランキングにするなら", "答えにくい人へ", "ベストコメント選手権", "リスナー同士で話す"],
+  },
 ];
+
+/** 深掘りを先に何枚出すか（残りのマスは元のお題の語で埋める） */
+const FOLLOW_UP_FIRST = 5;
+
+function angleGroupOf(label: string): AngleGroup | undefined {
+  const trimmed = label.trim();
+  return ANGLE_GROUPS.find((group) => group.angles.includes(trimmed) || group.followUps.includes(trimmed));
+}
+
+/**
+ * どのお題にも付く汎用の切り口・深掘りか。これを広げるときは元のお題の文脈が要るし、
+ * 結果を図鑑にこのお題の語として残すと、別のお題のときに混ざってしまう。
+ */
+export function isGenericAngle(label: string): boolean {
+  return Boolean(angleGroupOf(label));
+}
+
+/** 文脈（近い祖先から順）のうち、汎用の切り口ではない最初のお題 */
+export function topicAnchor(context: string[]): string | undefined {
+  return context.map((label) => label.trim()).find((label) => label && !isGenericAngle(label));
+}
+
+function themeWordsFor(label: string | undefined): string[] | undefined {
+  if (!label) return undefined;
+  return THEME_MAP[label] ?? THEME_MAP[Object.keys(THEME_MAP).find((key) => label.includes(key)) ?? ""];
+}
 
 function hashString(value: string): number {
   let hash = 2166136261;
@@ -215,31 +264,50 @@ function uniquePush(target: string[], value: string, banned: Set<string>) {
   target.push(label);
 }
 
+/**
+ * キー無し・AI 失敗時の候補。
+ * context は広げるカードの祖先（近い順）。related は元のお題について図鑑から引いた語。
+ * 並び: 深掘り → 定番の語 → 元のお題の語 → 切り口 → よく使われる話題 → お題の一覧
+ */
 export function mockRelatedTopics(
   seed: string,
   existing: string[] = [],
   count = CHILD_COUNT,
   preferred: string[] = [],
+  { context = [], related = [] }: { context?: string[]; related?: string[] } = {},
 ): string[] {
   const banned = new Set(existing.map((item) => item.trim()).filter(Boolean));
   banned.add(seed.trim());
+  for (const label of context) banned.add(label.trim());
 
   const random = mulberry32(hashString(`${seed}:${existing.join("|")}:${Date.now() % 97}`));
   const picked: string[] = [];
+  const anchor = topicAnchor(context);
+  const ownGroup = angleGroupOf(seed);
+  const followUps = ownGroup ? shuffle(ownGroup.followUps, random) : [];
 
-  for (const item of preferred) {
+  for (const item of followUps.slice(0, FOLLOW_UP_FIRST)) {
     uniquePush(picked, item, banned);
   }
-
-  const mapped = THEME_MAP[seed] ?? THEME_MAP[Object.keys(THEME_MAP).find((key) => seed.includes(key)) ?? ""];
+  // 切り口のカードなら元のお題の定番の語、そうでなければこのお題（無ければ元のお題）の定番の語
+  const mapped = ownGroup ? themeWordsFor(anchor) : (themeWordsFor(seed) ?? themeWordsFor(anchor));
   if (mapped) {
     for (const item of shuffle(mapped, random)) {
       uniquePush(picked, item, banned);
     }
   }
+  for (const item of related) {
+    uniquePush(picked, item, banned);
+  }
+  for (const item of followUps.slice(FOLLOW_UP_FIRST)) {
+    uniquePush(picked, item, banned);
+  }
 
   // 系統をシャッフルし、各系統から 1 つずつ順に取り出す（同じ系統が固まらない）
-  const groups = shuffle(ANGLE_GROUPS, random).map((group) => shuffle(group, random));
+  const groups = shuffle(
+    ANGLE_GROUPS.filter((group) => group !== ownGroup),
+    random,
+  ).map((group) => shuffle(group.angles, random));
   const longest = Math.max(...groups.map((group) => group.length));
   for (let round = 0; round < longest; round += 1) {
     for (const group of groups) {
@@ -248,6 +316,10 @@ export function mockRelatedTopics(
     }
   }
 
+  // よく使われる話題（preferred）とお題の一覧は、このお題と関係が無いので最後の埋め草にする
+  for (const item of preferred) {
+    uniquePush(picked, item, banned);
+  }
   const unusedStarters = shuffle(
     STARTER_TOPICS.filter((topic) => topic !== seed),
     random,
