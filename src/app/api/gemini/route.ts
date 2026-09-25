@@ -11,6 +11,7 @@ import {
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { mockRelatedTopics } from "@/lib/mock-topics";
+import { isArchived } from "@/lib/topic-archive";
 import type { GeminiDebug } from "@/lib/types";
 
 /** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
@@ -55,8 +56,12 @@ type Input = {
 };
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
-async function generate(input: Input, onTopic: (label: string) => void): Promise<Final> {
+async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
   const { seed, existing, preferred, count, model, apiKey } = input;
+  // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
+  const onTopic = (label: string) => {
+    if (!isArchived(seed, label)) sendTopic(label);
+  };
   const mock = () => mockRelatedTopics(seed, existing, count, preferred);
 
   if (!apiKey) {
@@ -69,8 +74,9 @@ async function generate(input: Input, onTopic: (label: string) => void): Promise
   const cacheKey = guard.cacheKey(seed, existing, count);
   const cached = guard.readCache(cacheKey);
   if (cached) {
-    for (const label of cached) onTopic(label);
-    return { topics: padTopics(cached, mock(), count, seed), source: "gemini" };
+    const fresh = cached.filter((label) => !isArchived(seed, label));
+    for (const label of fresh) onTopic(label);
+    return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
   }
 
   const slot = guard.acquire(input.clientKey);
@@ -94,7 +100,8 @@ async function generate(input: Input, onTopic: (label: string) => void): Promise
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     await recordSharedKnowledge(seed, remote.topics);
-    return { topics: padTopics(remote.topics, mock(), count, seed), source: "gemini" };
+    const fresh = remote.topics.filter((label) => !isArchived(seed, label));
+    return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
   } catch (error) {
     const debug =
       error instanceof GeminiRequestError ? error.debug : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
