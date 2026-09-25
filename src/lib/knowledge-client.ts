@@ -12,6 +12,7 @@ import {
   type KnowledgeStore,
   type PickKind,
 } from "@/lib/topic-knowledge";
+import { withoutArchived } from "@/lib/topic-archive";
 import type { Board } from "@/lib/types";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
@@ -100,7 +101,7 @@ export async function fetchSharedRelated(seed: string): Promise<void> {
 
 /** 同梱の初期データ・自分の記録・取ってきたみんなの記録を重ねたもの */
 export function combinedKnowledge(): KnowledgeStore {
-  return mergeStores(seedKnowledge(), loadLocalKnowledge(), sharedCache);
+  return withoutArchived(mergeStores(seedKnowledge(), loadLocalKnowledge(), sharedCache));
 }
 
 export type Recall = {

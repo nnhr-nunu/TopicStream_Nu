@@ -8,6 +8,7 @@ import { LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 const PICK_TOPIC_MAX = 40;
 import { sanitizeSecret } from "@/lib/env-secret";
 import { isJunkTopic } from "@/lib/gemini-core";
+import { isArchived, withoutArchived } from "@/lib/topic-archive";
 import {
   classifyTopic,
   normalizeSeed,
@@ -198,10 +199,11 @@ export function knowledgeBackend(): "redis" | "memory" {
 /** みんなの図鑑をまるごと（よく使われる順に最大 SNAPSHOT_SIZE 件）読む */
 export async function loadSharedKnowledge(): Promise<KnowledgeStore> {
   const config = redisConfig();
-  if (!config) return loadMemory();
+  if (!config) return withoutArchived(loadMemory());
   if (snapshot && Date.now() - snapshot.at < SNAPSHOT_TTL_MS) return snapshot.store;
   try {
-    const store = parseSnapshot(await redisCommand(config, ["EVAL", SNAPSHOT_SCRIPT, 0, SNAPSHOT_SIZE]));
+    // アーカイブした語は Redis に残したまま、読むときに外す
+    const store = withoutArchived(parseSnapshot(await redisCommand(config, ["EVAL", SNAPSHOT_SCRIPT, 0, SNAPSHOT_SIZE])));
     snapshot = { store, at: Date.now() };
     return store;
   } catch (error) {
@@ -226,7 +228,7 @@ export async function loadSharedFor(seed: string): Promise<KnowledgeStore> {
   const config = redisConfig();
   if (!key || store[key] || !config) return store;
   try {
-    const found = parseSnapshot(await redisCommand(config, ["EVAL", ENTRY_SCRIPT, 0, key]));
+    const found = withoutArchived(parseSnapshot(await redisCommand(config, ["EVAL", ENTRY_SCRIPT, 0, key])));
     return found[key] ? { ...store, [key]: found[key]! } : store;
   } catch {
     return store;
@@ -248,6 +250,7 @@ export function cleanForRecord(seed: string, topics: string[]): { seed: string; 
             label.length <= LABEL_MAX &&
             !isJunkTopic(label) &&
             !looksPersonal(label) &&
+            !isArchived(trimmed, label) &&
             normalizeSeed(label) !== key,
         ),
     ),
@@ -292,7 +295,7 @@ export function cleanPick(pick: SharedPick): SharedPick | null {
   const topic = pick.topic.trim();
   if (!seed || !topic || seed.length > ROOT_LABEL_MAX || topic.length > PICK_TOPIC_MAX) return null;
   if (isJunkTopic(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
-  if (normalizeSeed(seed) === normalizeSeed(topic)) return null;
+  if (normalizeSeed(seed) === normalizeSeed(topic) || isArchived(seed, topic)) return null;
   return { seed, topic, kind: pick.kind };
 }
 
