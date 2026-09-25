@@ -44,12 +44,13 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 
 ## 広告（Google AdSense・任意）
 
-ホーム・`/community/`・`/guide/` の最下部に広告枠を 1 つ出します。オーバーレイと「いっしょに見る」には出しません。Vercel の Environment Variables に次を入れて再デプロイすると有効になります。未設定なら広告関連のタグは一切出ません（GitHub Pages のデモも未設定なので広告なし）。
+ホーム・`/community/`・`/guide/` の最下部に広告枠を 1 つ出します。ホームは画面幅が 1360px 以上あると、本文の左右にも縦長（160×600）の枠を出します。オーバーレイと「いっしょに見る」には出しません。Vercel の Environment Variables に次を入れて再デプロイすると有効になります。未設定なら広告関連のタグは一切出ません（GitHub Pages のデモも未設定なので広告なし）。
 
 | 名前 | 内容 |
 | --- | --- |
 | `NEXT_PUBLIC_ADSENSE_CLIENT` | `ca-pub-` で始まるパブリッシャー ID |
 | `NEXT_PUBLIC_ADSENSE_SLOT` | ディスプレイ広告ユニットのスロット ID（数字） |
+| `NEXT_PUBLIC_ADSENSE_SIDE_SLOT` | 任意。左右の縦長枠用のスロット ID。未設定なら `NEXT_PUBLIC_ADSENSE_SLOT` を流用 |
 
 `NEXT_PUBLIC_*` はビルド時に埋め込まれるので、値を変えたら Redeploy が必要です。
 

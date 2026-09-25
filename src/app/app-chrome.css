@@ -419,6 +419,23 @@
   scrollbar-gutter: stable;
 }
 
+/* 横幅が広いときだけ、本文の左右に縦長広告の列を足す（幅は SIDE_AD_QUERY と揃える） */
+.home-rail {
+  display: none;
+}
+@media (min-width: 1360px) {
+  .home-layout {
+    display: grid;
+    grid-template-columns: 160px minmax(0, 56rem) 160px;
+    justify-content: center;
+    column-gap: 2rem;
+  }
+  .home-rail {
+    display: block;
+    padding-top: 7rem;
+  }
+}
+
 .home-resume {
   display: flex;
   width: 100%;

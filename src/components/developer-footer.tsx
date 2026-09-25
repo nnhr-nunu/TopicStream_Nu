@@ -30,7 +30,7 @@ function External({ href }: { href: string }) {
 /** ホームの最下部。開発者情報と関連サービス（姉妹サービスと同じ内容・並び）。 */
 export function DeveloperFooter() {
   return (
-    <footer className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6">
+    <footer className="w-full pb-12">
       <section className="rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground">
         <h2 className="text-base font-semibold tracking-tight">開発者情報</h2>
         <div className="mt-4 space-y-2">

@@ -5,6 +5,8 @@ export type AdConfig = {
   client: string;
   /** ディスプレイ広告ユニットのスロット ID。空なら枠を出さない。 */
   slot: string;
+  /** 横幅が広い画面の両サイドに出す縦長ユニットのスロット ID。未設定なら `slot` を使う。 */
+  sideSlot: string;
 };
 
 const CLIENT_PATTERN = /^ca-pub-\d{10,20}$/;
@@ -13,17 +15,23 @@ const SLOT_PATTERN = /^\d{6,20}$/;
 export function readAdConfig(env: {
   client?: string | undefined;
   slot?: string | undefined;
+  sideSlot?: string | undefined;
 }): AdConfig {
   const client = env.client?.trim() ?? "";
-  const slot = env.slot?.trim() ?? "";
-  if (!CLIENT_PATTERN.test(client)) return { client: "", slot: "" };
-  return { client, slot: SLOT_PATTERN.test(slot) ? slot : "" };
+  if (!CLIENT_PATTERN.test(client)) return { client: "", slot: "", sideSlot: "" };
+  const valid = (value: string | undefined) => {
+    const trimmed = value?.trim() ?? "";
+    return SLOT_PATTERN.test(trimmed) ? trimmed : "";
+  };
+  const slot = valid(env.slot);
+  return { client, slot, sideSlot: valid(env.sideSlot) || slot };
 }
 
 // NEXT_PUBLIC_* はビルド時に文字列へ置き換わるので、プロパティを直接参照する。
 export const adConfig = readAdConfig({
   client: process.env.NEXT_PUBLIC_ADSENSE_CLIENT,
   slot: process.env.NEXT_PUBLIC_ADSENSE_SLOT,
+  sideSlot: process.env.NEXT_PUBLIC_ADSENSE_SIDE_SLOT,
 });
 
 export function adScriptSrc(client: string): string {
