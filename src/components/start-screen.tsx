@@ -117,7 +117,7 @@ export function StartScreen({
               <Input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder="話したいお題を入力"
+                placeholder="話したいお題を入力、または 🎲 でランダム"
                 aria-label="開始キーワード"
                 className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
                 autoFocus={recent.length === 0}

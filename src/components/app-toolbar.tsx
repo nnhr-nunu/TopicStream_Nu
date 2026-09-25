@@ -50,6 +50,7 @@ export function AppToolbar({
   onRedo,
   onShare,
   onPostToX,
+  onShareBoard,
   onPatchSettings,
 }: {
   boards: Board[];
@@ -71,6 +72,7 @@ export function AppToolbar({
   onRedo: () => void;
   onShare: () => void;
   onPostToX: () => void;
+  onShareBoard: (id: string) => void;
   onPatchSettings: (patch: Partial<Settings>) => void;
 }) {
   return (
@@ -96,6 +98,7 @@ export function AppToolbar({
           onDelete={onDelete}
           onExport={onExport}
           onImport={onImport}
+          onShare={onShareBoard}
         />
       </nav>
 
