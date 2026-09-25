@@ -5,6 +5,7 @@ import { ChevronRight, Redo2, Share2, Undo2 } from "lucide-react";
 import { BoardPanel } from "@/components/board-panel";
 import { BrandMark } from "@/components/brand-mark";
 import { SettingsSheet } from "@/components/settings-sheet";
+import { XLogo } from "@/components/share-post-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -47,6 +48,7 @@ export function AppToolbar({
   onUndo,
   onRedo,
   onShare,
+  onPostToX,
   onPatchSettings,
 }: {
   boards: Board[];
@@ -67,6 +69,7 @@ export function AppToolbar({
   onUndo: () => void;
   onRedo: () => void;
   onShare: () => void;
+  onPostToX: () => void;
   onPatchSettings: (patch: Partial<Settings>) => void;
 }) {
   return (
@@ -112,6 +115,11 @@ export function AppToolbar({
             <Tip label="視聴者といっしょに見るリンクを作る">
               <Button size="icon-sm" variant="ghost" aria-label="いっしょに見るリンク" onClick={onShare} disabled={!hasNodes}>
                 <Share2 />
+              </Button>
+            </Tip>
+            <Tip label="X でシェア">
+              <Button size="icon-sm" variant="ghost" aria-label="X でシェア" onClick={onPostToX} disabled={!hasNodes}>
+                <XLogo className="size-3.5" />
               </Button>
             </Tip>
           </>

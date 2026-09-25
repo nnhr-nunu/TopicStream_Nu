@@ -8,6 +8,7 @@ import { BoardCanvas } from "@/components/board-canvas";
 import { LiveChatDock } from "@/components/live-chat-dock";
 import { PinBanner } from "@/components/pin-banner";
 import { PrivacyNotice } from "@/components/privacy-notice";
+import { SharePostDialog } from "@/components/share-post-dialog";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
@@ -21,6 +22,9 @@ export function TopicWorkspace() {
   const focusedId = board?.focusedNodeId ?? board?.pinnedNodeId ?? null;
   const [atHome, setAtHome] = useState(false);
   const [privacyNotice, setPrivacyNotice] = useState(0);
+  // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す
+  const [sharePostOpen, setSharePostOpen] = useState(false);
+  const [sharePostKey, setSharePostKey] = useState(0);
   const notifyPrivacy = () => setPrivacyNotice((value) => value + 1);
 
   useHotkeys({
@@ -117,6 +121,10 @@ export function TopicWorkspace() {
           onUndo={controller.undo}
           onRedo={controller.redo}
           onShare={() => void controller.publishWatchLink()}
+          onPostToX={() => {
+            setSharePostKey((key) => key + 1);
+            setSharePostOpen(true);
+          }}
           onPatchSettings={controller.patchSettings}
         />
 
@@ -177,6 +185,7 @@ export function TopicWorkspace() {
         )}
       </div>
       <PrivacyNotice trigger={privacyNotice} />
+      <SharePostDialog key={sharePostKey} open={sharePostOpen} onOpenChange={setSharePostOpen} board={board} />
     </BoardActionsProvider>
   );
 }
