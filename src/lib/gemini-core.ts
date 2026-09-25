@@ -138,6 +138,8 @@ export function padTopics(parsed: string[], fallback: string[], count: number, s
 
 /** 1回の呼び出しの上限。ストリーミングなので、時間切れでも届いた分は使う。 */
 export const GEMINI_TIMEOUT_MS = 12_000;
+/** 最初の文字がこの時間内に来ないモデルは諦めて次へ（混んでいるモデルで待ち続けない）。 */
+export const GEMINI_FIRST_CHUNK_MS = 5_000;
 /** モデルを替えて試す全体の上限。API route の maxDuration（30秒）より短くする。 */
 export const GEMINI_DEADLINE_MS = 24_000;
 
@@ -345,6 +347,8 @@ type GeminiOptions = {
   apiKey: string;
   model: string;
   count: number;
+  /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
+  onTopic?: (label: string) => void;
 };
 
 type Remaining = () => number;
@@ -369,25 +373,22 @@ function networkError(model: string, error: unknown): GeminiRequestError {
   );
 }
 
-async function requestGeminiWithSameModelRetry(
-  options: GeminiOptions,
-  remaining: Remaining,
-  signal?: AbortSignal,
-): Promise<string[]> {
+async function requestGeminiWithSameModelRetry(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
   try {
-    return await requestGeminiOnce(options, remaining, signal);
+    return await requestGeminiOnce(options, remaining);
   } catch (error) {
     const first = error instanceof GeminiRequestError ? error : networkError(options.model, error);
-    if (signal?.aborted || !shouldRetrySameModel(first) || remaining() < geminiRetry.sameModelMs + 3_000) throw first;
+    if (!shouldRetrySameModel(first) || remaining() < geminiRetry.sameModelMs + 3_000) throw first;
     await geminiRetry.sleep(geminiRetry.sameModelMs);
-    if (signal?.aborted) throw first;
-    return requestGeminiOnce(options, remaining, signal);
+    return requestGeminiOnce(options, remaining);
   }
 }
 
-/** 先頭のモデルがこの時間内に最初の返事をしなければ、次のモデルも同時に走らせる。 */
-export const GEMINI_HEDGE_MS = 3_000;
-
+/**
+ * モデルを1つずつ試す（同時に複数は投げない＝枠を倍使わない）。
+ * 最初の文字が GEMINI_FIRST_CHUNK_MS 以内に来なければ、そのモデルは諦めて次へ進む。
+ * 途中まで出た語は取っておき、次のモデルには「それ以外」を頼む。
+ */
 export async function requestGemini(
   options: GeminiOptions,
 ): Promise<{ topics: string[]; model: string; tried: string[] }> {
@@ -396,7 +397,14 @@ export async function requestGemini(
   const tried: string[] = [];
   const attempts: string[] = [];
   const models = fallbackModels(options.model);
+  const collected: string[] = [];
   let lastError: GeminiRequestError | undefined;
+
+  const emit = (label: string) => {
+    if (collected.includes(label) || collected.length >= options.count) return;
+    collected.push(label);
+    options.onTopic?.(label);
+  };
 
   const record = (error: unknown, model: string) => {
     const failed = error instanceof GeminiRequestError ? error : networkError(model, error);
@@ -406,54 +414,32 @@ export async function requestGemini(
     return failed;
   };
 
-  // 混んでいる日に1つずつ待つと遅いので、返事が遅いモデルがあれば次のモデルを重ねて走らせ、先に返ったほうを使う。
-  const raced = await new Promise<{ topics: string[]; model: string } | GeminiRequestError | null>((resolve) => {
-    const controllers: AbortController[] = [];
-    let nextIndex = 0;
-    let active = 0;
-    let settled = false;
-    let hedgeTimer: ReturnType<typeof setTimeout> | undefined;
+  const runModel = async (model: string) => {
+    const need = options.count - collected.length;
+    const topics = await requestGeminiWithSameModelRetry(
+      { ...options, model, count: need, existing: [...options.existing, ...collected], onTopic: emit },
+      remaining,
+    );
+    for (const label of topics) emit(label);
+  };
 
-    const finish = (value: { topics: string[]; model: string } | GeminiRequestError | null) => {
-      if (settled) return;
-      settled = true;
-      if (hedgeTimer) clearTimeout(hedgeTimer);
-      for (const controller of controllers) controller.abort();
-      resolve(value);
-    };
-
-    const launch = (): boolean => {
-      if (settled || nextIndex >= models.length || remaining() < 3_000) return false;
-      const model = models[nextIndex]!;
-      nextIndex += 1;
-      tried.push(model);
-      active += 1;
-      const controller = new AbortController();
-      controllers.push(controller);
-      requestGeminiWithSameModelRetry({ ...options, model }, remaining, controller.signal).then(
-        (topics) => finish({ topics, model }),
-        (error: unknown) => {
-          active -= 1;
-          if (settled) return;
-          lastError = record(error, model);
-          if (!shouldTryNextModel(lastError)) return finish(lastError);
-          if (launch()) return;
-          if (active === 0) finish(null);
-        },
-      );
-      if (hedgeTimer) clearTimeout(hedgeTimer);
-      hedgeTimer = setTimeout(() => void launch(), GEMINI_HEDGE_MS);
-      return true;
-    };
-
-    if (!launch()) finish(null);
-  });
-
-  if (raced && !(raced instanceof GeminiRequestError)) return { topics: raced.topics, model: raced.model, tried };
-  if (raced instanceof GeminiRequestError) throw raced;
+  for (const model of models) {
+    if (remaining() < 3_000 || collected.length >= options.count) break;
+    tried.push(model);
+    try {
+      await runModel(model);
+      return { topics: [...collected], model, tried };
+    } catch (error) {
+      lastError = record(error, model);
+      if (collected.length > 0 && !shouldTryNextModel(lastError)) break;
+      if (shouldTryNextModel(lastError)) continue;
+      throw lastError;
+    }
+  }
 
   const lastModel = tried[tried.length - 1];
   if (
+    collected.length < options.count &&
     lastError &&
     lastModel &&
     isGeminiBusyError(lastError) &&
@@ -462,13 +448,14 @@ export async function requestGemini(
   ) {
     await geminiRetry.sleep(geminiRetry.lastModelMs);
     try {
-      const topics = await requestGeminiOnce({ ...options, model: lastModel }, remaining);
-      return { topics, model: lastModel, tried };
+      await runModel(lastModel);
     } catch (error) {
       lastError = record(error, lastModel);
     }
   }
 
+  // 一部でも AI の語が取れていれば成功として返す（足りない分は呼び出し側がオフライン候補で埋める）
+  if (collected.length > 0) return { topics: [...collected], model: lastModel ?? options.model, tried };
   throw lastError ?? new GeminiRequestError("timeout", geminiDebug({ reason: "deadline", model: options.model, tried, attempts }));
 }
 
@@ -514,17 +501,14 @@ function chunkText(chunk: StreamChunk): string {
 /**
  * ストリーミングで生成する。必要な数のキーワードがそろった時点で打ち切り、
  * 時間切れでも途中まで届いた分は返す（遅い日やループしたときでも空で終わらないように）。
+ * 最初の文字が GEMINI_FIRST_CHUNK_MS 以内に来ないときは時間切れとして次のモデルへ回す。
  */
 async function generateGeminiText(
   options: GeminiOptions,
   remaining: Remaining,
-  enough?: (text: string) => boolean,
-  outer?: AbortSignal,
+  progress?: (text: string) => boolean,
 ): Promise<GeminiText> {
   const controller = new AbortController();
-  // 他のモデルが先に返ったときなど、呼び出し側から止められる
-  if (outer?.aborted) controller.abort();
-  else outer?.addEventListener("abort", () => controller.abort(), { once: true });
   const started = geminiRetry.now();
   let timedOut = false;
   let satisfied = false;
@@ -535,6 +519,10 @@ async function generateGeminiText(
     },
     Math.max(1_000, Math.min(GEMINI_TIMEOUT_MS, remaining())),
   );
+  const firstChunkTimer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, GEMINI_FIRST_CHUNK_MS);
   const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse`;
   const result: GeminiText = { text: "", partial: false, totalMs: 0 };
   let retryPlain = false;
@@ -546,7 +534,10 @@ async function generateGeminiText(
         geminiDebug({ reason: "http-200-error", httpStatus: 200, model: options.model, ...parseGoogleError(chunk) }),
       );
     }
-    result.firstChunkMs ??= geminiRetry.now() - started;
+    if (result.firstChunkMs === undefined) {
+      result.firstChunkMs = geminiRetry.now() - started;
+      clearTimeout(firstChunkTimer);
+    }
     result.text += chunkText(chunk);
     result.finishReason = chunk.candidates?.[0]?.finishReason ?? result.finishReason;
     result.thoughtsTokens = chunk.usageMetadata?.thoughtsTokenCount ?? result.thoughtsTokens;
@@ -567,6 +558,7 @@ async function generateGeminiText(
       }),
     });
     if (!response.ok) {
+      clearTimeout(firstChunkTimer);
       const google = parseGoogleError(await response.json().catch(() => null));
       // 思考・JSON 指定を知らないモデルなら、付けずにもう一度頼む
       if (response.status === 400 && google.googleStatus === "INVALID_ARGUMENT" && !plainModels.has(options.model)) {
@@ -596,7 +588,7 @@ async function generateGeminiText(
             .join("");
           if (data) absorb(JSON.parse(data) as StreamChunk);
         }
-        if (enough?.(result.text)) {
+        if (progress?.(result.text)) {
           satisfied = true;
           controller.abort();
           break;
@@ -606,6 +598,7 @@ async function generateGeminiText(
       // ストリームを返さない環境（テストのモックなど）は通常の JSON として読む
       const json = (await response.json()) as StreamChunk | StreamChunk[];
       for (const chunk of Array.isArray(json) ? json : [json]) absorb(chunk);
+      progress?.(result.text);
     }
   } catch (error) {
     if (error instanceof GeminiRequestError) throw error;
@@ -617,8 +610,9 @@ async function generateGeminiText(
     }
   } finally {
     clearTimeout(timer);
+    clearTimeout(firstChunkTimer);
   }
-  if (retryPlain) return generateGeminiText(options, remaining, enough, outer);
+  if (retryPlain) return generateGeminiText(options, remaining, progress);
   result.partial = satisfied || timedOut;
   result.totalMs = geminiRetry.now() - started;
   return result;
@@ -633,11 +627,34 @@ function mergeParsedTopics(base: string[], extra: string[], count: number): stri
   return topics;
 }
 
-async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining, signal?: AbortSignal): Promise<string[]> {
-  const enough = (existing: string[]) => (text: string) =>
-    parseTopics(text, options.seed, existing).length >= options.count;
+/** ストリームの途中で、書きかけの文字列（閉じていない "…）を切り落とす。 */
+export function closedPart(text: string): string {
+  let inString = false;
+  let lastClosed = -1;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === "\\") {
+      i += 1;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      if (!inString) lastClosed = i;
+    }
+  }
+  return inString ? text.slice(0, lastClosed + 1) : text;
+}
+
+async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
+  // 届いた分をその都度パースし、新しい語は onTopic で先に知らせる。必要数そろったら打ち切る。
+  const watch = (existing: string[]) => (text: string) => {
+    const topics = parseTopics(closedPart(text), options.seed, existing);
+    // 最後の1語は書きかけかもしれないので、閉じた語だけ知らせる（JSON 配列の途中は quoted で拾える）
+    for (const label of topics.slice(0, options.count)) options.onTopic?.(label);
+    return topics.length >= options.count;
+  };
   const first = parseTopics(
-    (await generateGeminiText(options, remaining, enough(options.existing), signal)).text,
+    (await generateGeminiText(options, remaining, watch(options.existing))).text,
     options.seed,
     options.existing,
   );
@@ -645,7 +662,7 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining, s
   const seen = [...options.existing, ...first];
   try {
     const retry = parseTopics(
-      (await generateGeminiText(options, remaining, enough(seen), signal)).text,
+      (await generateGeminiText({ ...options, count: options.count - first.length }, remaining, watch(seen))).text,
       options.seed,
       seen,
     );

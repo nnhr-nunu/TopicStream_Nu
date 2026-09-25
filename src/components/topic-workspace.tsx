@@ -11,6 +11,7 @@ import { PrivacyNotice } from "@/components/privacy-notice";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import { spareCount } from "@/lib/board-spares";
 import { cellCode } from "@/lib/mandala-ids";
 
 export function TopicWorkspace() {
@@ -68,6 +69,8 @@ export function TopicWorkspace() {
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
         regeneratingIds: controller.regeneratingIds,
+        regenReadyAt: controller.regenReadyAt,
+        spareCountFor: (id) => spareCount(board, board.nodes.find((node) => node.id === id)?.data.parentId),
         generationLayout: settings.generationLayout,
       }}
     >

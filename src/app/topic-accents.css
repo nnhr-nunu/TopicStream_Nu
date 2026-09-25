@@ -258,3 +258,52 @@
   top: -1rem;
   right: -0.55rem;
 }
+
+/* AI から1語届くたびに、カードの文字がぽこっと出る */
+.topic-label-pop {
+  animation: topic-label-pop 320ms cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+@keyframes topic-label-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 作り直し: すぐ出せる予備の数と、AI を待つ残り秒数 */
+.topic-action-btn {
+  position: relative;
+}
+
+.topic-regen-spares {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 1rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1rem;
+  text-align: center;
+  padding: 0 0.2rem;
+}
+
+.topic-regen-countdown {
+  font-size: 0.85rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-label-pop {
+    animation: none;
+  }
+}

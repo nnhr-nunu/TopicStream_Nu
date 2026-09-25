@@ -8,27 +8,15 @@ import {
   padTopics,
   requestGemini,
 } from "@/lib/gemini-core";
+import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { mockRelatedTopics } from "@/lib/mock-topics";
-import type { GenerateResult, GeminiDebug } from "@/lib/types";
+import type { GeminiDebug } from "@/lib/types";
 
 /** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
 export const maxDuration = 30;
 
-function mockResult(
-  seed: string,
-  existing: string[],
-  count: number,
-  preferred: string[],
-  warning: string,
-  debug: GeminiDebug,
-): GenerateResult {
-  return {
-    topics: mockRelatedTopics(seed, existing, count, preferred),
-    source: "mock",
-    warning,
-    debug,
-  };
-}
+/** インスタンスが生きている間だけ効く交通整理（回数制限・同時実行・書き出しの使い回し） */
+const guard = createGeminiGuard();
 
 const MISSING_KEY_HINT =
   "Vercel の GEMINI_API_KEY が空です。いまの長い *-projects.vercel.app は Preview 用なので、環境変数は Production だけでなく Preview にも入れてください。変えたあとは再デプロイが必要です。";
@@ -46,6 +34,77 @@ export async function GET() {
   });
 }
 
+/** 画面へ返す最後の1行（stream のときは NDJSON の "done"、そうでなければ JSON 本体） */
+type Final = {
+  topics: string[];
+  source: "gemini" | "mock";
+  warning?: string;
+  noticeKind?: string;
+  debug?: GeminiDebug;
+};
+
+type Input = {
+  seed: string;
+  existing: string[];
+  preferred: string[];
+  count: number;
+  model: string;
+  apiKey: string;
+  clientKey: string;
+};
+
+/** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
+async function generate(input: Input, onTopic: (label: string) => void): Promise<Final> {
+  const { seed, existing, preferred, count, model, apiKey } = input;
+  const mock = () => mockRelatedTopics(seed, existing, count, preferred);
+
+  if (!apiKey) {
+    const debug = geminiDebug({ reason: "missing-key", model });
+    logDebug(debug);
+    // キーの無い公開版ではオフライン生成が普通の動きなので、利用者には何も出さない（原因は debug とサーバーログに残す）
+    return { topics: mock(), source: "mock", debug };
+  }
+
+  const cacheKey = guard.cacheKey(seed, existing, count);
+  const cached = guard.readCache(cacheKey);
+  if (cached) {
+    for (const label of cached) onTopic(label);
+    return { topics: padTopics(cached, mock(), count, seed), source: "gemini" };
+  }
+
+  const slot = guard.acquire(input.clientKey);
+  if (!slot.ok) {
+    const debug = geminiDebug({ reason: `guard-${slot.reason}`, model });
+    logDebug(debug);
+    return {
+      topics: mock(),
+      source: "mock",
+      warning:
+        slot.reason === "rate"
+          ? "続けてたくさん広げたので、少しの間はオフラインの候補で広げます。"
+          : "AI が混み合っているので、今回はオフラインの候補で広げました。",
+      noticeKind: slot.reason === "rate" ? "rate" : "busy",
+      debug,
+    };
+  }
+
+  try {
+    const remote = await requestGemini({ seed, existing, apiKey, model, count, onTopic });
+    guard.writeCache(cacheKey, remote.topics);
+    return { topics: padTopics(remote.topics, mock(), count, seed), source: "gemini" };
+  } catch (error) {
+    const debug =
+      error instanceof GeminiRequestError ? error.debug : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
+    logDebug(debug);
+    // 技術的な詳細（試したモデル・Google の返事）はサーバーログへ。利用者には短いお知らせだけ返す
+    console.warn("[gemini]", geminiFailureWarning(error));
+    const notice = geminiUserNotice(error);
+    return { topics: mock(), source: "mock", warning: notice.message, noticeKind: notice.kind, debug };
+  } finally {
+    slot.release();
+  }
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     seed?: unknown;
@@ -54,6 +113,7 @@ export async function POST(request: Request) {
     count?: unknown;
     preferred?: unknown;
     apiKey?: unknown;
+    stream?: unknown;
   } | null;
 
   const seed = typeof body?.seed === "string" ? body.seed.trim() : "";
@@ -61,52 +121,46 @@ export async function POST(request: Request) {
     return Response.json({ error: "お題が空です" }, { status: 400 });
   }
 
-  const existing = Array.isArray(body?.existing)
-    ? body.existing.filter((item): item is string => typeof item === "string")
-    : [];
-  const preferred = Array.isArray(body?.preferred)
-    ? body.preferred.filter((item): item is string => typeof item === "string")
-    : [];
-  const count = typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT;
-  const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
   const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
-  const apiKey = override || readGeminiApiKey();
+  const input: Input = {
+    seed,
+    existing: Array.isArray(body?.existing)
+      ? body.existing.filter((item): item is string => typeof item === "string").slice(0, 200)
+      : [],
+    preferred: Array.isArray(body?.preferred)
+      ? body.preferred.filter((item): item is string => typeof item === "string")
+      : [],
+    count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
+    model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
+    apiKey: override || readGeminiApiKey(),
+    clientKey: clientKeyFromHeaders(request.headers),
+  };
 
-  if (!apiKey) {
-    const debug = geminiDebug({ reason: "missing-key", model });
-    logDebug(debug);
-    // キーの無い公開版ではオフライン生成が普通の動きなので、利用者には何も出さない（原因は debug とサーバーログに残す）
-    return Response.json({ topics: mockRelatedTopics(seed, existing, count, preferred), source: "mock" as const, debug });
+  if (body?.stream !== true) {
+    return Response.json(await generate(input, () => undefined));
   }
 
-  try {
-    const remote = await requestGemini({ seed, existing, apiKey, model, count });
-    const mock = mockRelatedTopics(seed, existing, count, preferred);
-    const topics = padTopics(remote.topics, mock, count, seed);
-    if (remote.topics.length === 0) {
-      const debug = geminiDebug({ reason: "empty", model: remote.model, tried: remote.tried });
-      logDebug(debug);
-      return Response.json({
-        topics,
-        source: "mock" as const,
-        warning: "AI の返答が空だったので、今回はオフラインの候補で広げました。",
-        noticeKind: "unavailable",
-        debug,
-      });
-    }
-    return Response.json({
-      topics,
-      source: "gemini" as const,
-    });
-  } catch (error) {
-    const debug =
-      error instanceof GeminiRequestError
-        ? error.debug
-        : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
-    logDebug(debug);
-    // 技術的な詳細（試したモデル・Google の返事）はサーバーログへ。利用者には短いお知らせだけ返す
-    console.warn("[gemini]", geminiFailureWarning(error));
-    const notice = geminiUserNotice(error);
-    return Response.json({ ...mockResult(seed, existing, count, preferred, notice.message, debug), noticeKind: notice.kind });
-  }
+  // 1語届くたびに1行送る（NDJSON）。画面はそれを空のカードへ順に入れる。
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (value: unknown) => controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`));
+      const sent = new Set<string>();
+      try {
+        const final = await generate(input, (label) => {
+          if (sent.has(label)) return;
+          sent.add(label);
+          send({ type: "topic", label });
+        });
+        send({ type: "done", ...final });
+      } catch {
+        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred), source: "mock" });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+  });
 }

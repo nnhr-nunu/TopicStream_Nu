@@ -32,6 +32,8 @@ export type TopicNodeData = {
   hostsGroupId?: number;
   heartCount?: number;
   frameHearts?: number;
+  /** この下に広げたときに AI から余分にもらった候補。「作り直す」で API を呼ばずに使う */
+  spares?: string[];
 };
 
 export type TNode = {
