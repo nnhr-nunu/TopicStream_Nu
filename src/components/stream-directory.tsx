@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   mergePublicStreams,
   publicStreamFromLink,
+  SEED_PUBLIC_STREAMS,
   watchMapHref,
   type PublicStream,
 } from "@/lib/stream-directory";
@@ -23,7 +24,7 @@ export function StreamDirectory({
   linkedStreamer?: string;
   linkedWatchId?: string;
 }) {
-  const [remote, setRemote] = useState<PublicStream[]>([]);
+  const [remote, setRemote] = useState<PublicStream[]>(SEED_PUBLIC_STREAMS);
   const linked = useMemo(
     () =>
       publicStreamFromLink({
@@ -35,7 +36,7 @@ export function StreamDirectory({
     [linkedStreamer, linkedTitle, linkedUrl, linkedWatchId],
   );
   const streams = useMemo(
-    () => mergePublicStreams(remote, linked ? [linked] : []),
+    () => mergePublicStreams(SEED_PUBLIC_STREAMS, remote, linked ? [linked] : []),
     [linked, remote],
   );
 
@@ -60,14 +61,14 @@ export function StreamDirectory({
       <div className="mb-4 text-center">
         <h2 className="text-lg font-semibold">このサービスを利用している配信</h2>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          いま TopicStream(ぬ) で話題マップを出している枠です。タイトルから本編の YouTube / Twitch へ飛べます。
+          TopicStream(ぬ) と連携した配信です（終わった枠も載ります）。タイトルから本編の YouTube / Twitch へ飛べます。
         </p>
       </div>
       {streams.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-center">
           <p className="text-sm font-medium">まだ載っている配信はありません</p>
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-            これから増えていきます。配信で使ってみたら、マップ下に配信URLを貼るとここに載ります。
+            これから増えていきます。配信で使うときにマップ下へ配信URLを貼ると、ここに載ります。
           </p>
         </div>
       ) : (

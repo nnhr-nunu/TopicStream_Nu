@@ -1,35 +1,16 @@
-import { mergePublicStreams, type PublicStream } from "@/lib/stream-directory";
-import { parseStreamUrl } from "@/lib/stream-url";
-
-const extra: PublicStream[] = [];
+import { listStreams, saveStream } from "@/lib/community-server";
+import { mergePublicStreams, SEED_PUBLIC_STREAMS } from "@/lib/stream-directory";
 
 export async function GET() {
-  return Response.json({ streams: mergePublicStreams(extra) });
+  return Response.json({ streams: mergePublicStreams(SEED_PUBLIC_STREAMS, await listStreams()) });
 }
 
+/** 配信URLを連携した枠を一覧に載せる（連携中は定期的に呼ばれ、しばらく来なければ「ライブ」が外れる） */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as {
-    title?: unknown;
-    streamer?: unknown;
-    url?: unknown;
-    watchId?: unknown;
-  } | null;
-  const url = typeof body?.url === "string" ? body.url.trim() : "";
-  const ref = parseStreamUrl(url);
-  if (!ref) {
+  const body = (await request.json().catch(() => null)) as { url?: unknown; watchId?: unknown } | null;
+  const stream = await saveStream({ url: body?.url, watchId: body?.watchId });
+  if (!stream) {
     return Response.json({ error: "YouTubeかTwitchの配信URLを貼ってください" }, { status: 400 });
   }
-  const stream: PublicStream = {
-    id: `live_${Date.now()}`,
-    title: typeof body?.title === "string" && body.title.trim() ? body.title.trim().slice(0, 80) : "雑談配信",
-    streamer: typeof body?.streamer === "string" && body.streamer.trim() ? body.streamer.trim().slice(0, 24) : "ななし",
-    platform: ref.kind,
-    url: ref.url,
-    live: true,
-    watchId: typeof body?.watchId === "string" ? body.watchId : undefined,
-    updatedAt: Date.now(),
-  };
-  extra.unshift(stream);
-  extra.splice(40);
-  return Response.json({ stream, streams: mergePublicStreams(extra) });
+  return Response.json({ stream });
 }

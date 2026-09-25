@@ -220,7 +220,7 @@ export function StartScreen({
           <section className="mt-14">
             <div className="mb-4 text-center">
               <h2 className="text-lg font-semibold">みんなのトークテーマ</h2>
-              <p className="mt-1 text-xs text-muted-foreground">話題マップをまるごと取り込んで、そのまま配信に使えます。</p>
+              <p className="mt-1 text-xs text-muted-foreground">最近よく使われた話題マップです。まるごと取り込んで、そのまま配信に使えます。</p>
             </div>
             <ThemeBoardList onImport={onImport} busy={busy} />
           </section>

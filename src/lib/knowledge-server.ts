@@ -6,8 +6,9 @@ import { LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 
 /** 票で入る語の長さの上限（自分で書き直した語は少し長いこともある） */
 const PICK_TOPIC_MAX = 40;
-import { sanitizeSecret } from "@/lib/env-secret";
 import { isJunkTopic } from "@/lib/gemini-core";
+import { looksPersonal } from "@/lib/personal-text";
+import { redisCommand, redisConfig } from "@/lib/redis";
 import { isArchived, withoutArchived } from "@/lib/topic-archive";
 import {
   classifyTopic,
@@ -34,27 +35,6 @@ const TOPIC_LIMIT = 80;
 /** 読み込むお題の数と、読み直す間隔（Redis のコマンド数を抑える） */
 const SNAPSHOT_SIZE = 500;
 const SNAPSHOT_TTL_MS = 3 * 60_000;
-
-type Redis = { url: string; token: string };
-
-function redisConfig(): Redis | null {
-  const url = sanitizeSecret(process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL);
-  const token = sanitizeSecret(process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN);
-  return url && token ? { url: url.replace(/\/$/, ""), token } : null;
-}
-
-async function redisCommand(config: Redis, command: (string | number)[]): Promise<unknown> {
-  const response = await fetch(config.url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${config.token}`, "Content-Type": "application/json" },
-    body: JSON.stringify(command),
-    cache: "no-store",
-    signal: AbortSignal.timeout(3_000),
-  });
-  const json = (await response.json().catch(() => null)) as { result?: unknown; error?: string } | null;
-  if (!response.ok || !json || json.error) throw new Error(json?.error ?? `redis ${response.status}`);
-  return json.result;
-}
 
 /** お題が多すぎたら、強さ（tsk:rank）のいちばん弱いものから消す */
 const EVICT = `
@@ -197,6 +177,8 @@ export function knowledgeBackend(): "redis" | "memory" {
 }
 
 /** みんなの図鑑をまるごと（よく使われる順に最大 SNAPSHOT_SIZE 件）読む */
+export { looksPersonal };
+
 export async function loadSharedKnowledge(): Promise<KnowledgeStore> {
   const config = redisConfig();
   if (!config) return withoutArchived(loadMemory());
@@ -211,14 +193,6 @@ export async function loadSharedKnowledge(): Promise<KnowledgeStore> {
     // 読めないときは前回の分（無ければ空）で続ける
     return snapshot?.store ?? {};
   }
-}
-
-/** 連絡先・URL・@ハンドルなど、個人につながりそうな文字列。図鑑には入れない */
-const PERSONAL_PATTERN =
-  /(https?:\/\/|www\.|[\w.+-]+@[\w-]+\.|@[A-Za-z0-9_]{3,}|\d{2,4}-\d{2,4}-\d{3,4}|\d{10,}|〒\s*\d{3}-?\d{4})/;
-
-export function looksPersonal(text: string): boolean {
-  return PERSONAL_PATTERN.test(text.normalize("NFKC"));
 }
 
 /** みんなの図鑑に、そのお題そのものも確実に入れて返す */

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Heart, Search, Share2, Users } from "lucide-react";
-import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,19 +41,16 @@ export function ThemeBoardList({
         setLoaded(true);
       })
       .catch(() => {
-        if (cancelled) return;
-        setLoaded(true);
-        toast.error("テーマボードを読めませんでした");
+        // GitHub Pages のようにサーバーが無いときは、空の案内を出す
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
     };
   }, [initialBoards]);
 
-  const shown = useMemo(
-    () => [...boards].sort((a, b) => b.favorites - a.favorites),
-    [boards],
-  );
+  // 並びはサーバーの順（ちゃんと使われている・新しいボードが上）
+  const shown = boards;
 
   async function runSearch(value: string) {
     setQuery(value);

@@ -1,4 +1,4 @@
-import { parseStreamUrl } from "@/lib/stream-url";
+import { parseStreamUrl, type StreamRef } from "@/lib/stream-url";
 
 export type PublicStream = {
   id: string;
@@ -10,6 +10,26 @@ export type PublicStream = {
   watchId?: string;
   updatedAt: number;
 };
+
+/** 開発者の開発配信。終わった枠でも「このサービスを使った配信」として載せておく */
+export const SEED_PUBLIC_STREAMS: PublicStream[] = [
+  {
+    id: "stream_dev_nunuhara",
+    title: "【開発作業】①エゴサ支援、②雑談配信支援、③心音配信連携、④推し活支援サービスなどの開発【Claude Opus5.5/GPT6/Grok】",
+    streamer: "ぬぬはら（開発者）",
+    platform: "youtube",
+    url: "https://www.youtube.com/watch?v=NUCX55gmkkM",
+    live: false,
+    updatedAt: Date.parse("2026-09-25T00:00:00+09:00"),
+  },
+];
+
+/** 同じ枠を1行にまとめるための正規の URL（Studio のチャット URL なども本編の URL にそろえる） */
+export function canonicalStreamUrl(ref: StreamRef): string {
+  return ref.kind === "youtube"
+    ? `https://www.youtube.com/watch?v=${ref.videoId}`
+    : `https://www.twitch.tv/${ref.channel.toLowerCase()}`;
+}
 
 export function sortPublicStreams(streams: PublicStream[]): PublicStream[] {
   return [...streams].sort((a, b) => {
@@ -32,7 +52,7 @@ export function publicStreamFromLink(opts: {
     title: (opts.title?.trim() || "いまの雑談").slice(0, 80),
     streamer: (opts.streamer?.trim() || "配信中").slice(0, 24),
     platform: ref.kind,
-    url: ref.url,
+    url: canonicalStreamUrl(ref),
     live: true,
     watchId: opts.watchId?.trim() || undefined,
     updatedAt: Date.now(),
