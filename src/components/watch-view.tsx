@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Copy, Heart } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -10,17 +10,37 @@ import { BoardCanvas } from "@/components/board-canvas";
 import { PinBanner } from "@/components/pin-banner";
 import { Button } from "@/components/ui/button";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
-import type { Board } from "@/lib/types";
+import { layoutBoard, prefsFromSettings } from "@/lib/layout";
+import type { Board, GenerationLayout } from "@/lib/types";
+
+const NO_FAVORITES: string[] = [];
+
+function layoutOf(board: Board): GenerationLayout {
+  return board.nodes.some((node) => typeof node.data.groupId === "number") ? "mandala" : "radial";
+}
 
 export function WatchView({ shareId }: { shareId: string }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [nickname, setNickname] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [localFocus, setLocalFocus] = useState<string | null>(null);
+  // 配信者の文字サイズ・間隔の設定で並んだ位置のままだとカードが詰まったり離れたりするので、
+  // 見る側の標準の大きさで並べ直す（メイン画面と同じ見た目にそろえる）
+  const layout = board ? layoutOf(board) : "mandala";
+  const laidOut = useMemo(
+    () =>
+      board
+        ? layoutBoard(
+            board,
+            prefsFromSettings({ density: "comfortable", fontScale: 1, generationLayout: layoutOf(board) }, false, board.pinnedNodeId),
+          )
+        : null,
+    [board],
+  );
   const favs = useSyncExternalStore(
     subscribeTopicFavorites,
     loadFavoriteTopics,
-    (): string[] => [],
+    () => NO_FAVORITES,
   );
 
   useEffect(() => {
@@ -61,7 +81,7 @@ export function WatchView({ shareId }: { shareId: string }) {
     );
   }
 
-  if (!board) {
+  if (!board || !laidOut) {
     return (
       <div className="flex h-svh items-center justify-center text-sm text-muted-foreground">
         いっしょに見る画面を読み込み中…
@@ -70,7 +90,7 @@ export function WatchView({ shareId }: { shareId: string }) {
   }
 
   const viewBoard = {
-    ...board,
+    ...laidOut,
     focusedNodeId: localFocus ?? board.focusedNodeId,
   };
   const focused = viewBoard.focusedNodeId ?? viewBoard.pinnedNodeId;
@@ -90,12 +110,13 @@ export function WatchView({ shareId }: { shareId: string }) {
           toast.success(`「${label}」をコピーしました`);
         },
         overlay: true,
+        viewer: true,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: viewBoard.focusedNodeId,
-        generationLayout: board.nodes.some((node) => typeof node.data.groupId === "number") ? "mandala" : "radial",
+        generationLayout: layout,
       }}
     >
-      <div className="relative h-svh overflow-hidden">
+      <div className="relative h-svh overflow-hidden" data-layout={layout}>
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-between gap-3 p-3">
           <div className="pointer-events-auto rounded-2xl border border-border/70 bg-background/75 px-3 py-2 backdrop-blur-md">
             <p className="text-[10px] tracking-[0.2em] text-primary">いっしょに見ている</p>
@@ -132,7 +153,7 @@ export function WatchView({ shareId }: { shareId: string }) {
           </div>
         </header>
         <PinBanner label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""} />
-        <BoardCanvas board={viewBoard} overlay onFocus={setLocalFocus} onPositions={() => undefined} />
+        <BoardCanvas board={viewBoard} overlay layout={layout} onFocus={setLocalFocus} onPositions={() => undefined} />
       </div>
     </BoardActionsProvider>
   );

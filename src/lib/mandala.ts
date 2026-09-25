@@ -98,16 +98,18 @@ function pickBlockOrigin(parent: Grid, outward: Point, taken: Set<string>, inclu
 }
 
 export function mandalaPitch(nodes: TNode[], prefs: Required<LayoutPrefs>): { pitchX: number; pitchY: number } {
-  let width = 184;
-  let height = 88;
+  let width = 0;
+  let height = 0;
   for (const node of nodes) {
     const box = estimateLocalBox(node, prefs);
     width = Math.max(width, box.right - box.left);
     height = Math.max(height, box.bottom - box.top);
   }
+  // 「カードの間隔を詰める」ではマスどうしのすき間を狭める（重なり判定の余白 GLYPH_PAD より広くは残す）
+  const gap = prefs.density === "compact" ? GLYPH_PAD + 2 : GLYPH_PAD * 2;
   return {
-    pitchX: Math.ceil(width + GLYPH_PAD * 2),
-    pitchY: Math.ceil(height + GLYPH_PAD * 2),
+    pitchX: Math.ceil(width + gap),
+    pitchY: Math.ceil(height + gap),
   };
 }
 
