@@ -41,6 +41,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     copyLabel,
     toggleHeart,
     overlay,
+    viewer,
     pinnedNodeId,
     focusedNodeId,
     regeneratingIds,
@@ -103,7 +104,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
 
   return (
     <div
-      className={cn("topic-node relative", overlay && "topic-node-overlay", menu.open && "topic-node-menu")}
+      className={cn("topic-node relative", overlay && !viewer && "topic-node-overlay", menu.open && "topic-node-menu")}
       data-family={family}
       data-role={role}
       data-cell={data.cellIndex}
@@ -233,7 +234,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
               </span>
             ) : null}
             {/* key で語が入れ替わるたびに付け直し、ぽこっと出るアニメーションを毎回かける */}
-            <span key={data.label} className="topic-label topic-label-pop" style={{ fontSize: `${fontSize}px` }}>
+            <span key={data.label} className="topic-label topic-label-pop" style={{ fontSize: `calc(${fontSize}px * var(--ts-scale))` }}>
               {data.label}
             </span>
             {regenerating ? (

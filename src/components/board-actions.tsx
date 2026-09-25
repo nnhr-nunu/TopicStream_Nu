@@ -13,6 +13,8 @@ type BoardActions = {
   copyLabel: (id: string) => void;
   toggleHeart?: (id: string) => void;
   overlay?: boolean;
+  /** いっしょに見る画面: 操作はオーバーレイと同じく読むだけ、見た目はメイン画面と同じ */
+  viewer?: boolean;
   pinnedNodeId: string | null;
   focusedNodeId: string | null;
   /** 文を作り直している最中のカード */

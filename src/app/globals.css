@@ -241,7 +241,7 @@ html.overlay-mode .react-flow__attribution {
   z-index: 4;
   display: inline-flex;
   flex-direction: column;
-  max-width: 16rem;
+  max-width: calc(16rem * var(--ts-scale));
   align-items: center;
   justify-content: center;
   gap: 0.12rem;
@@ -558,13 +558,14 @@ html.overlay-mode .topic-chip {
   overflow: visible !important;
 }
 
+/* カードの大きさは node-box.ts の MANDALA_CHIP_W / H × 文字サイズ（--ts-scale）とそろえる */
 [data-layout="mandala"] .topic-chip {
-  width: 11.5rem;
-  min-width: 11.5rem;
-  max-width: 11.5rem;
-  height: 5.25rem;
-  min-height: 5.25rem;
-  max-height: 5.25rem;
+  width: calc(11.5rem * var(--ts-scale));
+  min-width: calc(11.5rem * var(--ts-scale));
+  max-width: calc(11.5rem * var(--ts-scale));
+  height: calc(5.25rem * var(--ts-scale));
+  min-height: calc(5.25rem * var(--ts-scale));
+  max-height: calc(5.25rem * var(--ts-scale));
   box-sizing: border-box;
   flex-direction: column;
   justify-content: center;
@@ -577,8 +578,8 @@ html.overlay-mode .topic-chip {
 
 [data-layout="mandala"] .topic-chip-root,
 [data-layout="mandala"] .topic-chip-source {
-  width: 11.5rem;
-  max-width: 11.5rem;
+  width: calc(11.5rem * var(--ts-scale));
+  max-width: calc(11.5rem * var(--ts-scale));
   padding-inline: 0.55rem;
   border-width: 3px;
   border-color: var(--family-line, var(--primary));
@@ -603,7 +604,7 @@ html[data-theme="stream"] [data-layout="mandala"] .topic-chip-keyword,
 
 [data-layout="mandala"] .topic-node {
   display: block;
-  width: 11.5rem;
+  width: calc(11.5rem * var(--ts-scale));
 }
 
 [data-layout="mandala"] .sticky-note {

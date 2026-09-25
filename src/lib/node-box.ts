@@ -92,12 +92,14 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const padX = overlay ? 1.1 * REM : (isRoot ? 1.15 * REM : 0.95 * REM * dense);
   const nowWidth = isPinned ? fontSize * 0.62 * 3.05 + 0.24 * fontSize + 0.45 * REM : 0;
   const gap = nowWidth > 0 ? 0.45 * REM : 0;
-  const innerMax = Math.max(48, CHIP_MAX - padX * 2 - nowWidth - gap);
+  // カードの幅も文字サイズに合わせて伸び縮みさせる（CSS の calc(… * var(--ts-scale)) と同じ）
+  const chipMax = CHIP_MAX * scale;
+  const innerMax = Math.max(48, chipMax - padX * 2 - nowWidth - gap);
   const label = node.data.placeholder ? "………" : node.data.label || "話題";
   const lineWidths = wrapWidths(label, innerMax, fontSize, LABEL_LINES);
   const labelWidth = Math.min(innerMax, Math.max(...lineWidths, node.data.placeholder ? 4.6 * REM : 0));
   let chipW = Math.min(
-    CHIP_MAX,
+    chipMax,
     Math.max(
       node.data.placeholder ? 7.5 * REM : 0,
       padX * 2 + labelWidth + gap + nowWidth + 2,
@@ -106,8 +108,8 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const lineHeight = fontSize * 1.25;
   let chipH = padY * 2 + Math.max(1, lineWidths.length) * lineHeight + 2;
   if (prefs.generationLayout === "mandala") {
-    chipW = MANDALA_CHIP_W;
-    chipH = MANDALA_CHIP_H;
+    chipW = MANDALA_CHIP_W * scale;
+    chipH = MANDALA_CHIP_H * scale;
     return {
       left: -chipW / 2,
       right: chipW / 2,
