@@ -9,7 +9,7 @@ import { getBoardSnapshot, writeBoardSnapshot } from "@/lib/board-store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
-export function CommunityCatalog({ initialBoards }: { initialBoards: CatalogBoard[] }) {
+export function CommunityCatalog() {
   const router = useRouter();
 
   function importBoard(board: CatalogBoard) {
@@ -29,9 +29,9 @@ export function CommunityCatalog({ initialBoards }: { initialBoards: CatalogBoar
       <header className="mb-6">
         <BrandMark onHome={() => router.push("/")} />
         <h1 className="mt-4 text-2xl font-semibold">みんなのトークテーマ</h1>
-        <p className="mt-1 text-sm text-muted-foreground">ホームと同じカタログです。取り込みは自分のボードに追加されます。</p>
+        <p className="mt-1 text-sm text-muted-foreground">最近ちゃんと使われた話題マップが、よく使われた順に並びます。取り込むと自分のボードに追加されます。</p>
       </header>
-      <ThemeBoardList initialBoards={initialBoards} onImport={importBoard} />
+      <ThemeBoardList onImport={importBoard} />
       <div className="mt-10">
         <AdSlot />
       </div>

@@ -81,7 +81,7 @@ AI が出した話題を「お題 → 出てきた語（回数つき）」の形
 | `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント。1日1万ユニットの枠があるので、8秒より短い間隔では読まない |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
 | `CRON_SECRET` | トピック図鑑の自動育成（`/api/knowledge/grow`）を呼ぶための合言葉。Vercel Cron が自動で付ける |
-| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | みんなのトピック図鑑の保存先（Upstash Redis）。Vercel の Storage → Marketplace で Upstash Redis をつなぐと自動で入る。`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` でも可 |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | みんなのトピック図鑑・みんなのトークテーマ・配信一覧の保存先（Upstash Redis）。Vercel の Storage → Marketplace で Upstash Redis をつなぐと自動で入る。`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` でも可 |
 
 キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
 

@@ -11,6 +11,7 @@ import { PrivacyNotice } from "@/components/privacy-notice";
 import { SharePostDialog } from "@/components/share-post-dialog";
 import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
+import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { spareCount } from "@/lib/board-spares";
 import { cellCode } from "@/lib/mandala-ids";
@@ -26,6 +27,8 @@ export function TopicWorkspace() {
   const [sharePostOpen, setSharePostOpen] = useState(false);
   const [sharePostKey, setSharePostKey] = useState(0);
   const notifyPrivacy = () => setPrivacyNotice((value) => value + 1);
+
+  useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
 
   useHotkeys({
     expand: () => {
