@@ -22,12 +22,18 @@ import {
   rankedTopics,
   searchKnowledge,
   type CategoryId,
+  type KnowledgeEntry,
   type KnowledgeSearchHit,
   type KnowledgeStore,
 } from "@/lib/topic-knowledge";
 import { cn } from "@/lib/utils";
 
 type Scope = "all" | "mine";
+
+/** 選ばれた重みの合計（♡・クリック・ピン・コメントのハート） */
+function picksOf(entry: KnowledgeEntry): number {
+  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
+}
 
 const CHIP =
   "rounded-full border px-3 py-1 text-xs transition hover:border-primary/50 hover:text-foreground disabled:opacity-50";
@@ -182,6 +188,7 @@ export function TopicDatabase() {
                   </div>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {hit.entry.uses} 回広げられた · {Object.keys(hit.entry.topics).length} 語
+                    {picksOf(hit.entry) > 0 ? ` · ♡ ${picksOf(hit.entry)}` : null}
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-1.5">
                     {topics.map((label) => (
@@ -216,7 +223,7 @@ export function TopicDatabase() {
       )}
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        話題の文言は AI が作ったものを名前なしで集めています。一覧には、2回以上使われたお題だけが載ります。
+        話題の文言は AI が作ったものを名前なしで集めています。♡・クリック・ピン・コメントのハートで選ばれた話題ほど上に出ます。
         <Link href="/" className="ml-1 inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
           ホームで広げる
           <ArrowRight className="size-3" />

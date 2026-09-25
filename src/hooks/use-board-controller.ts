@@ -13,7 +13,7 @@ import {
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
-import { fetchSharedRelated, recallTopicsNow } from "@/lib/knowledge-client";
+import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
@@ -106,6 +106,8 @@ export function useBoardController() {
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
       if (!parent || parent.data.expanding) return;
+      // この語を選んで広げた＝図鑑での票
+      notePick(working, nodeId, "expand");
 
       const prefs = prefsFromSettings(current.settings, overlay, working.pinnedNodeId);
       const started = ops.beginExpand(working, nodeId, 8, prefs);
@@ -385,6 +387,7 @@ export function useBoardController() {
       const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
       const label = nodeId ? board?.nodes.find((node) => node.id === nodeId)?.data.label : undefined;
       if (label) recordUsage(label, "pins");
+      if (board && nodeId) notePick(board, nodeId, "pin");
       updateBoard((item) => {
         const current = currentSnapshot();
         return ops.pinNode(item, nodeId, prefsFromSettings(current.settings, false, item.pinnedNodeId));
@@ -403,7 +406,12 @@ export function useBoardController() {
   );
 
   const toggleHeart = useCallback(
-    (nodeId: string) => updateBoard((board) => ops.toggleHeart(board, nodeId)),
+    (nodeId: string) =>
+      updateBoard((board) => {
+        const liked = !(board.nodes.find((node) => node.id === nodeId)?.data.heartCount ?? 0);
+        if (liked) notePick(board, nodeId, "heart");
+        return ops.toggleHeart(board, nodeId);
+      }),
     [updateBoard],
   );
   const bumpHeart = useCallback(
@@ -411,7 +419,12 @@ export function useBoardController() {
     [updateBoard],
   );
   const bumpFrameHearts = useCallback(
-    (nodeId: string, delta = 1) => updateBoard((board) => ops.bumpFrameHearts(board, nodeId, delta)),
+    (nodeId: string, delta = 1) =>
+      updateBoard((board) => {
+        // 視聴者がコメントで「1Eが聞きたい」などとハートを送った
+        if (delta > 0) notePick(board, nodeId, "chat");
+        return ops.bumpFrameHearts(board, nodeId, delta);
+      }),
     [updateBoard],
   );
 
@@ -583,6 +596,7 @@ export function useBoardController() {
     try {
       await navigator.clipboard.writeText(label);
       recordUsage(label, "copies");
+      if (board) notePick(board, nodeId, "copy");
       toast.success(`「${label}」をコピーしました`);
     } catch {
       toast.error("コピーできませんでした");

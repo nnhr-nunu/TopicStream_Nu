@@ -29,7 +29,27 @@ export type KnowledgeEntry = {
   /** そのお題が広げられた回数 */
   uses: number;
   updatedAt: number;
+  /** その語が選ばれた重み（♡・クリックで広げた・ピン・コピー・コメントのハート）。多いほど上に出す */
+  picks?: Record<string, number>;
 };
+
+export type PickKind = "heart" | "chat" | "pin" | "expand" | "copy";
+
+/** 選ばれ方ごとの重み */
+export const PICK_WEIGHTS: Record<PickKind, number> = { heart: 3, chat: 3, pin: 3, expand: 2, copy: 2 };
+
+export function isPickKind(value: unknown): value is PickKind {
+  return typeof value === "string" && value in PICK_WEIGHTS;
+}
+
+/** 語の強さ: 出た回数 + 選ばれた重み */
+export function topicScore(entry: KnowledgeEntry, label: string): number {
+  return (entry.topics[label] ?? 0) + (entry.picks?.[label] ?? 0);
+}
+
+function totalPicks(entry: KnowledgeEntry): number {
+  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
+}
 
 /** キーは normalizeSeed したお題 */
 export type KnowledgeStore = Record<string, KnowledgeEntry>;
@@ -110,6 +130,12 @@ export function similarity(a: string, b: string): number {
 /** 1つのお題に持たせる語の上限（少ない回数のものから落とす） */
 export const TOPICS_PER_SEED = 40;
 
+function keepPicks(picks: Record<string, number> | undefined, topics: Record<string, number>) {
+  if (!picks) return undefined;
+  const kept = Object.entries(picks).filter(([label, value]) => label in topics && value > 0);
+  return kept.length ? Object.fromEntries(kept) : undefined;
+}
+
 function trimTopics(topics: Record<string, number>, limit = TOPICS_PER_SEED): Record<string, number> {
   const entries = Object.entries(topics);
   if (entries.length <= limit) return topics;
@@ -133,14 +159,32 @@ export function recordTopics(
   const allTopics = Object.keys(merged);
   return {
     ...store,
-    [key]: {
-      seed: current?.seed ?? seed.trim(),
-      category: classifyTopic(current?.seed ?? seed, allTopics),
-      topics: trimTopics(merged),
-      uses: (current?.uses ?? 0) + 1,
-      updatedAt: now,
-    },
+    [key]: withPicks(
+      {
+        seed: current?.seed ?? seed.trim(),
+        category: classifyTopic(current?.seed ?? seed, allTopics),
+        topics: trimTopics(merged),
+        uses: (current?.uses ?? 0) + 1,
+        updatedAt: now,
+      },
+      current?.picks,
+    ),
   };
+}
+
+function withPicks(entry: KnowledgeEntry, picks: Record<string, number> | undefined): KnowledgeEntry {
+  const kept = keepPicks(picks, entry.topics);
+  return kept ? { ...entry, picks: kept } : entry;
+}
+
+/** 語が選ばれたことを記録する。図鑑に無い語は増やさない（選ぶだけで新しい文言は入れられない） */
+export function recordPick(store: KnowledgeStore, seed: string, topic: string, kind: PickKind): KnowledgeStore {
+  const key = normalizeSeed(seed);
+  const entry = store[key];
+  if (!entry || !(topic in entry.topics)) return store;
+  const picks = { ...(entry.picks ?? {}) };
+  picks[topic] = (picks[topic] ?? 0) + PICK_WEIGHTS[kind];
+  return { ...store, [key]: { ...entry, picks } };
 }
 
 /** 複数の保存先を1つに重ねる（回数は足し合わせる） */
@@ -150,18 +194,24 @@ export function mergeStores(...stores: KnowledgeStore[]): KnowledgeStore {
     for (const [key, entry] of Object.entries(store)) {
       const current = out[key];
       if (!current) {
-        out[key] = { ...entry, topics: { ...entry.topics } };
+        out[key] = { ...entry, topics: { ...entry.topics }, ...(entry.picks ? { picks: { ...entry.picks } } : {}) };
         continue;
       }
       const topics = { ...current.topics };
       for (const [label, count] of Object.entries(entry.topics)) topics[label] = (topics[label] ?? 0) + count;
-      out[key] = {
-        seed: current.seed,
-        category: current.category === "other" ? entry.category : current.category,
-        topics: trimTopics(topics),
-        uses: current.uses + entry.uses,
-        updatedAt: Math.max(current.updatedAt, entry.updatedAt),
-      };
+      const picks = { ...(current.picks ?? {}) };
+      for (const [label, count] of Object.entries(entry.picks ?? {})) picks[label] = (picks[label] ?? 0) + count;
+      const trimmed = trimTopics(topics);
+      out[key] = withPicks(
+        {
+          seed: current.seed,
+          category: current.category === "other" ? entry.category : current.category,
+          topics: trimmed,
+          uses: current.uses + entry.uses,
+          updatedAt: Math.max(current.updatedAt, entry.updatedAt),
+        },
+        picks,
+      );
     }
   }
   return out;
@@ -186,13 +236,23 @@ export function asKnowledgeEntry(value: unknown): KnowledgeEntry | null {
     if (label.trim() && typeof count === "number" && Number.isFinite(count) && count > 0) topics[label] = count;
   }
   if (Object.keys(topics).length === 0) return null;
-  return {
-    seed: raw.seed.trim(),
-    category: isCategoryId(raw.category) ? raw.category : classifyTopic(raw.seed, Object.keys(topics)),
-    topics: trimTopics(topics),
-    uses: typeof raw.uses === "number" && raw.uses > 0 ? raw.uses : 1,
-    updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0,
-  };
+  const picks: Record<string, number> = {};
+  if (raw.picks && typeof raw.picks === "object") {
+    for (const [label, count] of Object.entries(raw.picks)) {
+      if (typeof count === "number" && Number.isFinite(count) && count > 0) picks[label] = count;
+    }
+  }
+  const trimmed = trimTopics(topics);
+  return withPicks(
+    {
+      seed: raw.seed.trim(),
+      category: isCategoryId(raw.category) ? raw.category : classifyTopic(raw.seed, Object.keys(topics)),
+      topics: trimmed,
+      uses: typeof raw.uses === "number" && raw.uses > 0 ? raw.uses : 1,
+      updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0,
+    },
+    picks,
+  );
 }
 
 /** これ以上似ていれば「似たお題」として語を借りる */
@@ -236,9 +296,9 @@ export function suggestFromKnowledge(
   const banned = new Set([...exclude.map((item) => item.trim()), seed.trim()]);
   const weights = new Map<string, number>();
   for (const { entry, score, exact } of relatedEntries(store, seed)) {
-    for (const [label, times] of Object.entries(entry.topics)) {
+    for (const label of Object.keys(entry.topics)) {
       if (banned.has(label)) continue;
-      const weight = (exact ? 3 : score) * Math.sqrt(times);
+      const weight = (exact ? 3 : score) * Math.sqrt(topicScore(entry, label));
       weights.set(label, (weights.get(label) ?? 0) + weight);
     }
   }
@@ -274,7 +334,10 @@ export function searchKnowledge(
   const hits: KnowledgeSearchHit[] = [];
   for (const entry of Object.values(store)) {
     if (category !== "all" && entry.category !== category) continue;
-    const popularity = Math.log2(1 + entry.uses + Object.values(entry.topics).reduce((sum, value) => sum + value, 0) / 4);
+    // 使われた回数より「選ばれた」ほうを重く見る
+    const popularity = Math.log2(
+      1 + entry.uses + Object.values(entry.topics).reduce((sum, value) => sum + value, 0) / 4 + totalPicks(entry),
+    );
     if (!q) {
       hits.push({ entry, score: popularity, matchedTopics: [] });
       continue;
@@ -289,10 +352,9 @@ export function searchKnowledge(
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-/** 回数の多い順の語 */
+/** 強い順（出た回数 + 選ばれた重み）の語 */
 export function rankedTopics(entry: KnowledgeEntry, limit = TOPICS_PER_SEED): string[] {
-  return Object.entries(entry.topics)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([label]) => label);
+  return Object.keys(entry.topics)
+    .sort((a, b) => topicScore(entry, b) - topicScore(entry, a))
+    .slice(0, limit);
 }

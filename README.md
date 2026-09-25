@@ -46,10 +46,19 @@ OBS: `https://nnhr-nunu.github.io/overlay/?transparent=1`（1920×1080）
 
 AI が出した話題を「お題 → 出てきた語（回数つき）」の形でためて、同じお題・似たお題では AI を呼ばずに候補を出します。`/topics/` で検索・分類別に見られ、そのままボードにできます。
 
-- 保存先は3つ: 同梱の初期データ（キー無しの公開版でも使える）・自分の端末（localStorage）・みんなの図鑑（`/api/gemini` が AI の結果だけを記録。利用者からの書き込み口は無い）
+- 保存先は3つ: 同梱の初期データ（[`topic-knowledge-seed-data.ts`](./src/lib/topic-knowledge-seed-data.ts) の手書き分など。キー無しの公開版でも使える）・自分の端末（localStorage）・みんなの図鑑（Upstash Redis）
+- 新しい文言を書き込めるのは AI の結果だけ（`/api/gemini` と下の自動育成）。利用者から届くのは「図鑑にある語が選ばれた」という票だけ（♡・クリックで広げた・ピン・コピー・コメントのハート）で、票の多い語ほど上に出る
 - 「作り直す」は 予備 → 図鑑 → AI の順。広げるときも、図鑑にそのお題の語が十分あれば 4 回に 3 回は図鑑から出す
 - みんなの図鑑は Redis が無いとサーバーのメモリだけ（Vercel では再起動で消える）。育てたいときは上の `KV_REST_API_*` を入れて再デプロイ
-- 図鑑の一覧には 2 回以上使われたお題だけを出す（1 回だけのお題は個人的な言葉かもしれないため）
+- URL・メールアドレス・電話番号・@ハンドルを含む語は記録しない
+
+### 自動で育てる（Vercel Cron）
+
+`/api/knowledge/grow` が毎日 1 回（UTC 6 時台 = 日本時間 15 時台）、語の少ないお題と、よく選ばれた語（次にお題になりやすい）を AI に広げてもらって図鑑に入れます。Gemini の 1 日の枠は太平洋時間 0 時（日本時間 16〜17 時）に戻るので、その直前に「その日の余り」を使う設計です。上限（quota）に当たったらその場でやめます。
+
+1. Vercel の Environment Variables に `CRON_SECRET`（長いランダムな文字列）を Production で入れて再デプロイ。未設定だと自動育成は動きません（誰でも呼べて枠を使われるのを防ぐため）
+2. 1 回に頼む数は `GROW_LIMIT`（既定 20、最大 60。1 回の実行は 60 秒まで）
+3. 公開前にまとめて育てるときは、手で何度か呼ぶ: `curl -H "Authorization: Bearer $CRON_SECRET" "https://<本番ドメイン>/api/knowledge/grow?limit=20"`
 
 ## 広告（Google AdSense・任意）
 
@@ -70,6 +79,7 @@ AI が出した話題を「お題 → 出てきた語（回数つき）」の形
 | `GEMINI_API_KEY` | 話題の生成。無いときはオフライン生成。サーバーの `/api/gemini` だけが読む |
 | `YOUTUBE_API_KEY` | YouTubeライブチャット。無いときはテストコメント。1日1万ユニットの枠があるので、8秒より短い間隔では読まない |
 | Twitch | 公開チャットはブラウザから匿名で読む。トークン不要 |
+| `CRON_SECRET` | トピック図鑑の自動育成（`/api/knowledge/grow`）を呼ぶための合言葉。Vercel Cron が自動で付ける |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | みんなのトピック図鑑の保存先（Upstash Redis）。Vercel の Storage → Marketplace で Upstash Redis をつなぐと自動で入る。`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` でも可 |
 
 キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
