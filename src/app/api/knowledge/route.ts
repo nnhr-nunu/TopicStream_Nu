@@ -1,13 +1,19 @@
-import { clientKeyFromHeaders } from "@/lib/gemini-guard";
-import { knowledgeBackend, loadSharedFor, loadSharedKnowledge, recordSharedPick } from "@/lib/knowledge-server";
+import {
+  knowledgeBackend,
+  loadSharedFor,
+  loadSharedKnowledge,
+  recordSharedPicks,
+  type SharedPick,
+} from "@/lib/knowledge-server";
 import { isCategoryId, isPickKind, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
 
 /**
  * みんなの図鑑の口。
  * - GET ?seed=お題 … そのお題と似たお題（カードの候補に使う）
  * - GET ?q=検索語&category=分類 … 図鑑ページの検索（空なら人気順）
- * - POST { seed, topic, kind } … 図鑑にある語が選ばれた（♡・クリック・ピンなど）。新しい文言は入れられない
- * 新しい語の記録は /api/gemini と /api/knowledge/grow が AI の結果をそのまま入れるだけ。
+ * - POST { picks: [{ seed, topic, kind }] } … 語が選ばれた（♡・クリック・ピン・書き直し・コメントのハート）。
+ *   図鑑に無い語でもそのまま加える（データ集め優先）
+ * AI の結果は /api/gemini と /api/knowledge/grow が記録する。
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -34,26 +40,21 @@ export async function GET(request: Request) {
   );
 }
 
-/** 1人あたり1分に受け付ける票の数（インスタンスごと・連打で順位を動かしにくくする） */
-const PICKS_PER_MINUTE = 30;
-const recentPicks = new Map<string, number[]>();
+/** 1回に受け付ける票の数（画面は数秒ごとにまとめて送る） */
+const MAX_BATCH = 100;
 
-function allowPick(clientKey: string): boolean {
-  const now = Date.now();
-  const times = (recentPicks.get(clientKey) ?? []).filter((time) => now - time < 60_000);
-  if (times.length >= PICKS_PER_MINUTE) return false;
-  times.push(now);
-  recentPicks.set(clientKey, times);
-  if (recentPicks.size > 5_000) recentPicks.clear();
-  return true;
+type RawPick = { seed?: unknown; topic?: unknown; kind?: unknown };
+
+function asPick(raw: RawPick): SharedPick | null {
+  if (typeof raw?.seed !== "string" || typeof raw.topic !== "string" || !isPickKind(raw.kind)) return null;
+  return { seed: raw.seed.slice(0, 80), topic: raw.topic.slice(0, 80), kind: raw.kind };
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { seed?: unknown; topic?: unknown; kind?: unknown } | null;
-  const seed = typeof body?.seed === "string" ? body.seed.trim().slice(0, 80) : "";
-  const topic = typeof body?.topic === "string" ? body.topic.trim().slice(0, 40) : "";
-  if (!seed || !topic || !isPickKind(body?.kind)) return Response.json({ ok: false }, { status: 400 });
-  if (!allowPick(clientKeyFromHeaders(request.headers))) return Response.json({ ok: false }, { status: 429 });
-  const ok = await recordSharedPick(seed, topic, body.kind);
-  return Response.json({ ok });
+  const body = (await request.json().catch(() => null)) as ({ picks?: unknown } & RawPick) | null;
+  const raw: RawPick[] = Array.isArray(body?.picks) ? (body.picks as RawPick[]) : body ? [body] : [];
+  const picks = raw.slice(0, MAX_BATCH).map(asPick).filter((pick): pick is SharedPick => pick !== null);
+  if (picks.length === 0) return Response.json({ ok: false }, { status: 400 });
+  const recorded = await recordSharedPicks(picks);
+  return Response.json({ ok: true, recorded });
 }

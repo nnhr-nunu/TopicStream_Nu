@@ -33,10 +33,11 @@ export type KnowledgeEntry = {
   picks?: Record<string, number>;
 };
 
-export type PickKind = "heart" | "chat" | "pin" | "expand" | "copy";
+/** edit = 利用者が自分で書き直した語（人が考えた話題なので、そのまま図鑑に入れる） */
+export type PickKind = "heart" | "chat" | "pin" | "expand" | "copy" | "edit";
 
 /** 選ばれ方ごとの重み */
-export const PICK_WEIGHTS: Record<PickKind, number> = { heart: 3, chat: 3, pin: 3, expand: 2, copy: 2 };
+export const PICK_WEIGHTS: Record<PickKind, number> = { heart: 3, chat: 3, pin: 3, expand: 2, copy: 2, edit: 2 };
 
 export function isPickKind(value: unknown): value is PickKind {
   return typeof value === "string" && value in PICK_WEIGHTS;
@@ -136,10 +137,16 @@ function keepPicks(picks: Record<string, number> | undefined, topics: Record<str
   return kept.length ? Object.fromEntries(kept) : undefined;
 }
 
-function trimTopics(topics: Record<string, number>, limit = TOPICS_PER_SEED): Record<string, number> {
+/** 語が多すぎたら弱いものから落とす（選ばれた語は残りやすい） */
+function trimTopics(
+  topics: Record<string, number>,
+  picks?: Record<string, number>,
+  limit = TOPICS_PER_SEED,
+): Record<string, number> {
   const entries = Object.entries(topics);
   if (entries.length <= limit) return topics;
-  return Object.fromEntries(entries.sort((a, b) => b[1] - a[1]).slice(0, limit));
+  const strength = ([label, count]: [string, number]) => count + (picks?.[label] ?? 0);
+  return Object.fromEntries(entries.sort((a, b) => strength(b) - strength(a)).slice(0, limit));
 }
 
 /** お題と、そこから出た語を1回分記録する（元の store は変えない） */
@@ -163,7 +170,7 @@ export function recordTopics(
       {
         seed: current?.seed ?? seed.trim(),
         category: classifyTopic(current?.seed ?? seed, allTopics),
-        topics: trimTopics(merged),
+        topics: trimTopics(merged, current?.picks),
         uses: (current?.uses ?? 0) + 1,
         updatedAt: now,
       },
@@ -177,14 +184,33 @@ function withPicks(entry: KnowledgeEntry, picks: Record<string, number> | undefi
   return kept ? { ...entry, picks: kept } : entry;
 }
 
-/** 語が選ばれたことを記録する。図鑑に無い語は増やさない（選ぶだけで新しい文言は入れられない） */
-export function recordPick(store: KnowledgeStore, seed: string, topic: string, kind: PickKind): KnowledgeStore {
+/**
+ * 語が選ばれたことを記録する。図鑑にまだ無いお題・語なら、その場で1回出たものとして加える
+ * （盛り上がった話題が AI 以外から出ていても取りこぼさないため）。
+ */
+export function recordPick(
+  store: KnowledgeStore,
+  seed: string,
+  topic: string,
+  kind: PickKind,
+  now = Date.now(),
+): KnowledgeStore {
   const key = normalizeSeed(seed);
-  const entry = store[key];
-  if (!entry || !(topic in entry.topics)) return store;
-  const picks = { ...(entry.picks ?? {}) };
-  picks[topic] = (picks[topic] ?? 0) + PICK_WEIGHTS[kind];
-  return { ...store, [key]: { ...entry, picks } };
+  const label = topic.trim();
+  if (!key || !label || normalizeSeed(label) === key) return store;
+  const current = store[key];
+  const topics = { ...(current?.topics ?? {}) };
+  if (!(label in topics)) topics[label] = 1;
+  const picks = { ...(current?.picks ?? {}) };
+  picks[label] = (picks[label] ?? 0) + PICK_WEIGHTS[kind];
+  const entry: KnowledgeEntry = {
+    seed: current?.seed ?? seed.trim(),
+    category: current?.category ?? classifyTopic(seed, Object.keys(topics)),
+    topics: trimTopics(topics, picks),
+    uses: current?.uses ?? 1,
+    updatedAt: now,
+  };
+  return { ...store, [key]: withPicks(entry, picks) };
 }
 
 /** 複数の保存先を1つに重ねる（回数は足し合わせる） */
@@ -201,7 +227,7 @@ export function mergeStores(...stores: KnowledgeStore[]): KnowledgeStore {
       for (const [label, count] of Object.entries(entry.topics)) topics[label] = (topics[label] ?? 0) + count;
       const picks = { ...(current.picks ?? {}) };
       for (const [label, count] of Object.entries(entry.picks ?? {})) picks[label] = (picks[label] ?? 0) + count;
-      const trimmed = trimTopics(topics);
+      const trimmed = trimTopics(topics, picks);
       out[key] = withPicks(
         {
           seed: current.seed,
@@ -242,7 +268,7 @@ export function asKnowledgeEntry(value: unknown): KnowledgeEntry | null {
       if (typeof count === "number" && Number.isFinite(count) && count > 0) picks[label] = count;
     }
   }
-  const trimmed = trimTopics(topics);
+  const trimmed = trimTopics(topics, picks);
   return withPicks(
     {
       seed: raw.seed.trim(),
