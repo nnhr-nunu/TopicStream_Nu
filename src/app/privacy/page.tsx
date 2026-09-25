@@ -55,7 +55,7 @@ export default function PrivacyPage() {
               <Link href="/topics/" className="underline underline-offset-2">
                 トピック図鑑
               </Link>
-              に使われます。図鑑の一覧には、2回以上使われたキーワードだけが載ります。
+              に使われます。話題に ♡ を付けたり選んだりした回数も、名前なしで数えて並び順に使います。URL・メールアドレス・電話番号などを含む言葉は記録しません。
             </li>
             <li>
               「いっしょに見る」やテーマの公開：共有したボードとニックネームが保存され、URL を知っている人が見られます。

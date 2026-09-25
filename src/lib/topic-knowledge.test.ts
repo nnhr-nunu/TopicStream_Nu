@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { cleanForRecord, isPublicEntry } from "@/lib/knowledge-server";
+import { pickGrowCandidates } from "@/lib/knowledge-grow";
+import { cleanForRecord, looksPersonal } from "@/lib/knowledge-server";
 import {
   asKnowledgeEntry,
   classifyTopic,
   knowledgeDepth,
   mergeStores,
   normalizeSeed,
+  rankedTopics,
+  recordPick,
   recordTopics,
   relatedEntries,
   searchKnowledge,
@@ -14,7 +17,9 @@ import {
   suggestFromKnowledge,
   type KnowledgeStore,
 } from "@/lib/topic-knowledge";
+import { LABEL_MAX } from "@/lib/constants";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
+import { SEED_TOPICS } from "@/lib/topic-knowledge-seed-data";
 
 function fixed(value = 0.5) {
   return () => value;
@@ -151,10 +156,19 @@ describe("asKnowledgeEntry", () => {
 });
 
 describe("seedKnowledge", () => {
+  it("手書きの初期データはカードに収まる長さで、重複しない", () => {
+    for (const [seed, topics] of Object.entries(SEED_TOPICS)) {
+      expect(topics.length, seed).toBeGreaterThanOrEqual(8);
+      expect(new Set(topics).size, seed).toBe(topics.length);
+      for (const label of topics) expect(label.length, `${seed} / ${label}`).toBeLessThanOrEqual(LABEL_MAX);
+    }
+    expect(Object.keys(seedKnowledge()).length).toBeGreaterThanOrEqual(90);
+  });
+
   it("同梱の図鑑でホームの定番お題が引ける", () => {
     const store = seedKnowledge();
     expect(knowledgeDepth(store, "最近買ってよかったもの")).toBeGreaterThanOrEqual(8);
-    expect(knowledgeDepth(store, "眠れない夜にすること")).toBe(8);
+    expect(knowledgeDepth(store, "眠れない夜にすること")).toBeGreaterThanOrEqual(8);
     expect(suggestFromKnowledge(store, "最近買ってよかった家電", [], 4)).toHaveLength(4);
   });
 });
@@ -166,9 +180,67 @@ describe("knowledge-server", () => {
     expect(cleanForRecord("雨", ["雨音", "雨音", "傘"])).toEqual({ seed: "雨", topics: ["雨音", "傘"] });
   });
 
-  it("1回しか使われていないお題は一覧に出さない", () => {
-    const once = recordTopics({}, "田中さんの家", ["庭"])[normalizeSeed("田中さんの家")]!;
-    expect(isPublicEntry(once)).toBe(false);
-    expect(isPublicEntry({ ...once, uses: 2 })).toBe(true);
+  it("連絡先・URL・@ハンドルは記録しない", () => {
+    expect(looksPersonal("https://example.com")).toBe(true);
+    expect(looksPersonal("090-1234-5678")).toBe(true);
+    expect(looksPersonal("連絡は@someone_ まで")).toBe(true);
+    expect(looksPersonal("100均の神")).toBe(false);
+    expect(looksPersonal("2024年のベスト")).toBe(false);
+    expect(cleanForRecord("雨", ["雨音", "https://x.jp"])).toEqual({ seed: "雨", topics: ["雨音"] });
+    expect(cleanForRecord("xx@example.com", ["雨音"])).toBeNull();
+  });
+});
+
+describe("recordPick", () => {
+  const base = recordTopics(recordTopics({}, "朝", ["白湯", "二度寝"]), "朝", ["白湯"]);
+
+  it("選ばれた語を上に出す", () => {
+    expect(rankedTopics(base["朝"]!)).toEqual(["白湯", "二度寝"]);
+    const liked = recordPick(recordPick(base, "朝", "二度寝", "heart"), "朝", "二度寝", "expand");
+    expect(liked["朝"]!.picks).toEqual({ 二度寝: 5 });
+    expect(rankedTopics(liked["朝"]!)).toEqual(["二度寝", "白湯"]);
+  });
+
+  it("図鑑に無い語・お題には票を入れない（新しい文言は入れられない）", () => {
+    expect(recordPick(base, "朝", "知らない語", "heart")).toBe(base);
+    expect(recordPick(base, "夜", "白湯", "heart")).toBe(base);
+  });
+
+  it("票は重ねても保存し直しても残る", () => {
+    const liked = recordPick(base, "朝", "白湯", "pin");
+    expect(mergeStores(liked, liked)["朝"]!.picks).toEqual({ 白湯: 6 });
+    expect(recordTopics(liked, "朝", ["朝日"])["朝"]!.picks).toEqual({ 白湯: 3 });
+    expect(asKnowledgeEntry(JSON.parse(JSON.stringify(liked["朝"])))?.picks).toEqual({ 白湯: 3 });
+  });
+});
+
+describe("pickGrowCandidates", () => {
+  it("語の少ないお題と、よく選ばれた語（次のお題）を先に育てる", () => {
+    let shared = recordTopics({}, "深夜の過ごし方", ["夜食", "ラジオ", "散歩"]);
+    shared = recordPick(shared, "深夜の過ごし方", "ラジオ", "heart");
+    const picked = pickGrowCandidates({}, shared, 10, () => 0);
+    const seeds = picked.map((item) => item.seed);
+    expect(seeds).toContain("深夜の過ごし方");
+    expect(seeds).toContain("ラジオ");
+    expect(seeds.indexOf("ラジオ")).toBeLessThan(seeds.indexOf("夜食"));
+    expect(picked.find((item) => item.seed === "深夜の過ごし方")?.known).toHaveLength(3);
+  });
+
+  it("十分たまったお題は育てない・数を守る", () => {
+    const many = Array.from({ length: 30 }, (_, index) => `語${index}`);
+    const shared = recordTopics({}, "満タン", many);
+    const seeds = pickGrowCandidates({}, shared, 3, () => 0).map((item) => item.seed);
+    expect(seeds).not.toContain("満タン");
+    expect(seeds).toHaveLength(3);
+  });
+});
+
+describe("recordSharedPick（Redis 無し）", () => {
+  it("同梱の語への票は受け付け、知らない語は無視する", async () => {
+    const { recordSharedPick, loadSharedKnowledge } = await import("@/lib/knowledge-server");
+    expect(await recordSharedPick("今週の推し活", "グッズ開封", "heart")).toBe(true);
+    expect(await recordSharedPick("今週の推し活", "図鑑に無い語", "heart")).toBe(false);
+    const entry = (await loadSharedKnowledge())[normalizeSeed("今週の推し活")];
+    expect(entry?.picks?.["グッズ開封"]).toBeGreaterThanOrEqual(3);
   });
 });
