@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { MonitorPlay, Palette, PlugZap, Settings, Users } from "lucide-react";
-import Link from "next/link";
+import { Palette, PlugZap, Settings, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -295,26 +294,11 @@ export function SettingsSheet({
             </Row>
           </Section>
 
-          <Section icon={<MonitorPlay />} title="OBS オーバーレイ" description="ブラウザソースに読み込む、配信画面用のページです。">
-            <SwitchRow
-              id="overlay-transparent"
-              label="背景を透過する"
-              checked={settings.overlayTransparent}
-              onChange={(checked) => onPatch({ overlayTransparent: checked })}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              nativeButton={false}
-              render={
-                <Link href={settings.overlayTransparent ? "/overlay?transparent=1" : "/overlay"} target="_blank" />
-              }
-            >
-              <MonitorPlay />
-              OBS 用ページを開く
-            </Button>
-          </Section>
+          {/*
+            OBS オーバーレイ（/overlay）の入口は外した。OBS のブラウザソースはブラウザと保存領域が別なので
+            自分のボードが映らず、ウィンドウキャプチャか「いっしょに見るリンク」で足りるため。
+            既に OBS に設定している人のために /overlay のページ自体は残してある。
+          */}
           <details className="rounded-xl border border-border/70 px-3 py-2">
             <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
               AI の話題づくりがうまくいかないとき
