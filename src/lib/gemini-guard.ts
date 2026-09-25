@@ -59,9 +59,9 @@ export function createGeminiGuard(now: Clock = Date.now) {
   }
 
   /** 書き出し（既存の語がほぼ無い）のときだけ使い回す。以降の展開は盤面ごとに違うので保存しない。 */
-  function cacheKey(seed: string, existing: string[], count: number): string | null {
+  function cacheKey(seed: string, existing: string[], count: number, mode = "chat"): string | null {
     if (existing.length > 1) return null;
-    return `${seed.trim().toLowerCase()}|${count}`;
+    return `${mode}|${seed.trim().toLowerCase()}|${count}`;
   }
 
   function readCache(key: string | null): string[] | null {

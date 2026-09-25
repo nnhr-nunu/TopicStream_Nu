@@ -21,7 +21,8 @@ import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { nextBoardName } from "@/lib/ids";
 import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
-import type { AppSnapshot, Board, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
+import { boardMode, DEFAULT_MODE, pickModeStarter, sharesKnowledge, withMode } from "@/lib/modes";
+import type { AppSnapshot, Board, BoardMode, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
 
 function currentSnapshot(): AppSnapshot {
   return getBoardSnapshot();
@@ -142,6 +143,7 @@ export function useBoardController() {
         preferred: preferredForSeed(parent.data.label),
         // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように
         context: topicContext(started.board, nodeId),
+        mode: started.board.mode,
         // トピック図鑑に十分たまっているお題は AI を呼ばずに出す
         recall: true,
         onTopic: (label) => {
@@ -198,7 +200,7 @@ export function useBoardController() {
         }
         return next;
       });
-      recordUsage(parent.data.label, "expands");
+      if (sharesKnowledge(started.board.mode)) recordUsage(parent.data.label, "expands");
       setBusy(false);
       showGenerateNotice(result);
     },
@@ -206,7 +208,7 @@ export function useBoardController() {
   );
 
   const startWithKeyword = useCallback(
-    async (label: string) => {
+    async (label: string, mode: BoardMode = DEFAULT_MODE) => {
       const current = currentSnapshot();
       if (!label.trim()) return;
       const active = current.boards.find((board) => board.id === current.activeBoardId);
@@ -216,7 +218,8 @@ export function useBoardController() {
       const reuse = active.nodes.length === 0 ? active : current.boards.find((board) => board.nodes.length === 0);
       const target = reuse ?? emptyBoard();
       const defaultName = /^(新しいボード( \d+)?|\d+月\d+日の雑談)$/.test(target.name);
-      const named = !reuse || defaultName ? ops.renameBoard(target, label.trim().slice(0, 24)) : target;
+      const renamed = !reuse || defaultName ? ops.renameBoard(target, label.trim().slice(0, 24)) : target;
+      const named = withMode(renamed, mode);
       const rooted = ops.createRootBoard(named, label, prefsFromSettings(current.settings, false, named.pinnedNodeId));
       persist({
         ...current,
@@ -237,13 +240,14 @@ export function useBoardController() {
     const current = currentSnapshot();
     const board = current.boards.find((item) => item.id === current.activeBoardId);
     const labels = board?.nodes.map((node) => node.data.label) ?? [];
-    const topic = pickWeightedStarter(labels);
+    const mode = boardMode(board);
+    const topic = pickModeStarter(mode, labels) ?? pickWeightedStarter(labels);
     if (board && board.nodes.length > 0) {
       updateBoard((item) => ops.addRootNode(item, topic, prefsFromSettings(current.settings, false, item.pinnedNodeId)));
       toast.success(`新しいきっかけ: ${topic}`);
       return;
     }
-    await startWithKeyword(topic);
+    await startWithKeyword(topic, mode);
   }, [startWithKeyword, updateBoard]);
 
   const undo = useCallback(() => {
@@ -298,7 +302,7 @@ export function useBoardController() {
       const seed = parent?.data.label || node.data.label;
       let spare = holderId ? takeSpare(board, holderId) : { board, label: null };
       let recalled: string[] = [];
-      if (!spare.label) {
+      if (!spare.label && sharesKnowledge(board.mode)) {
         // 予備が尽きたら、まずトピック図鑑（自分とみんなの過去の結果・似たお題）から探す。AI は呼ばない。
         // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
         void fetchSharedRelated(seed);
@@ -351,6 +355,7 @@ export function useBoardController() {
             count: 1 + SPARE_COUNT,
             preferred: preferredForSeed(seed),
             context: parent ? topicContext(board, parent.id) : [],
+            mode: board.mode,
           }),
           new Promise((resolve) => window.setTimeout(resolve, 600)),
         ]);
@@ -393,7 +398,7 @@ export function useBoardController() {
     (nodeId: string | null) => {
       const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
       const label = nodeId ? board?.nodes.find((node) => node.id === nodeId)?.data.label : undefined;
-      if (label) recordUsage(label, "pins");
+      if (label && sharesKnowledge(board?.mode)) recordUsage(label, "pins");
       if (board && nodeId) notePick(board, nodeId, "pin");
       updateBoard((item) => {
         const current = currentSnapshot();
@@ -602,7 +607,7 @@ export function useBoardController() {
     if (!label) return;
     try {
       await navigator.clipboard.writeText(label);
-      recordUsage(label, "copies");
+      if (sharesKnowledge(board?.mode)) recordUsage(label, "copies");
       if (board) notePick(board, nodeId, "copy");
       toast.success(`「${label}」をコピーしました`);
     } catch {

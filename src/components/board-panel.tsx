@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Check, ChevronDown, Copy, Download, LayoutGrid, Pencil, Plus, Share2, Trash2, Upload, X } from "lucide-react";
 
+import { ModeBadge } from "@/components/mode-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -126,6 +127,7 @@ function BoardRow({
       <button type="button" className="board-row-open" onClick={onOpen} aria-current={active ? "true" : undefined}>
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-sm font-semibold">{board.name}</span>
+          <ModeBadge mode={board.mode} />
           {active ? <span className="board-row-badge">表示中</span> : null}
         </span>
         <span className="mt-0.5 block text-[11px] text-muted-foreground">
@@ -228,6 +230,7 @@ export function BoardPanel({
       >
         {atHome ? <LayoutGrid className="size-3.5 shrink-0 opacity-70" /> : null}
         <span className="truncate font-semibold">{atHome ? `ボード一覧（${boards.length}）` : activeBoard.name}</span>
+        {atHome ? null : <ModeBadge mode={activeBoard.mode} className="max-sm:hidden" />}
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(100%,24rem)] gap-0">

@@ -11,6 +11,9 @@ export type LayoutPrefs = {
   pinnedNodeId?: string | null;
 };
 
+/** ボードの用途。未設定は雑談 */
+export type BoardMode = "chat" | "advice" | "idea" | "goal" | "review" | "learn";
+
 export type TopicNodeRole = "source" | "keyword";
 
 export type TopicNodeData = {
@@ -57,6 +60,8 @@ export type Board = {
   edges: TEdge[];
   pinnedNodeId: string | null;
   focusedNodeId: string | null;
+  /** 用途（未設定は雑談）。生成の指示・オフライン候補・図鑑に送るかが変わる */
+  mode?: BoardMode;
 };
 
 export type Settings = {

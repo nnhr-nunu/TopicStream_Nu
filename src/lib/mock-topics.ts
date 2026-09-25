@@ -1,5 +1,7 @@
 import { CHILD_COUNT, LABEL_MAX } from "@/lib/constants";
+import { DEFAULT_MODE, MODE_PRESETS, modePreset, type AngleGroup } from "@/lib/modes";
 import { STARTER_TOPICS } from "@/lib/starters";
+import type { BoardMode } from "@/lib/types";
 
 /** お題ごとの定番の語。オフライン生成と、トピック図鑑の初期データに使う */
 export const THEME_MAP: Record<string, string[]> = {
@@ -163,7 +165,6 @@ export const THEME_MAP: Record<string, string[]> = {
  * 切り口のカード自体を広げたときは、その系統の「深掘り」を先に出す（「一番の失敗談」→「その瞬間どうした」）。
  * 切り口はどのお題にも付くので、元のお題（context）の定番の語・図鑑の語も混ぜて、話が元に戻れるようにする。
  */
-type AngleGroup = { angles: string[]; followUps: string[] };
 
 const ANGLE_GROUPS: AngleGroup[] = [
   {
@@ -201,9 +202,12 @@ const ANGLE_GROUPS: AngleGroup[] = [
 /** 深掘りを先に何枚出すか（残りのマスは元のお題の語で埋める） */
 const FOLLOW_UP_FIRST = 5;
 
+/** 雑談の系統と、ほかのモードの系統（別のモードの切り口を広げても深掘りが出るよう、探すときは全部見る） */
+const ALL_ANGLE_GROUPS: AngleGroup[] = [...ANGLE_GROUPS, ...MODE_PRESETS.flatMap((preset) => preset.angleGroups)];
+
 function angleGroupOf(label: string): AngleGroup | undefined {
   const trimmed = label.trim();
-  return ANGLE_GROUPS.find((group) => group.angles.includes(trimmed) || group.followUps.includes(trimmed));
+  return ALL_ANGLE_GROUPS.find((group) => group.angles.includes(trimmed) || group.followUps.includes(trimmed));
 }
 
 /**
@@ -274,8 +278,10 @@ export function mockRelatedTopics(
   existing: string[] = [],
   count = CHILD_COUNT,
   preferred: string[] = [],
-  { context = [], related = [] }: { context?: string[]; related?: string[] } = {},
+  { context = [], related = [], mode = DEFAULT_MODE }: { context?: string[]; related?: string[]; mode?: BoardMode } = {},
 ): string[] {
+  if (mode !== DEFAULT_MODE) return modeRelatedTopics(seed, existing, count, context, modePreset(mode).angleGroups);
+
   const banned = new Set(existing.map((item) => item.trim()).filter(Boolean));
   banned.add(seed.trim());
   for (const label of context) banned.add(label.trim());
@@ -328,5 +334,47 @@ export function mockRelatedTopics(
     uniquePush(picked, starter, banned);
   }
 
+  return picked.slice(0, count);
+}
+
+/**
+ * 雑談以外のモードの候補。そのモードの系統だけから出す
+ * （雑談の定番の語・図鑑・お題の一覧は、相談や目標のカードには合わないので混ぜない）。
+ */
+function modeRelatedTopics(
+  seed: string,
+  existing: string[],
+  count: number,
+  context: string[],
+  modeGroups: AngleGroup[],
+): string[] {
+  const banned = new Set(existing.map((item) => item.trim()).filter(Boolean));
+  banned.add(seed.trim());
+  for (const label of context) banned.add(label.trim());
+
+  const random = mulberry32(hashString(`${seed}:${existing.join("|")}:${Date.now() % 97}`));
+  const picked: string[] = [];
+  // 「最初の一歩」のように複数のモードにある切り口は、今のモードの深掘りを出す
+  const trimmed = seed.trim();
+  const ownGroup =
+    modeGroups.find((group) => group.angles.includes(trimmed) || group.followUps.includes(trimmed)) ?? angleGroupOf(seed);
+  if (ownGroup) {
+    for (const item of shuffle(ownGroup.followUps, random)) uniquePush(picked, item, banned);
+  }
+  const groups = shuffle(
+    modeGroups.filter((group) => group !== ownGroup),
+    random,
+  ).map((group) => shuffle(group.angles, random));
+  const longest = Math.max(0, ...groups.map((group) => group.length));
+  for (let round = 0; round < longest; round += 1) {
+    for (const group of groups) {
+      const angle = group[round];
+      if (angle) uniquePush(picked, angle, banned);
+    }
+  }
+  // 深い所まで広げて系統を使い切ったら、深掘りの問いで埋める
+  for (const group of shuffle(modeGroups, random)) {
+    for (const item of group.followUps) uniquePush(picked, item, banned);
+  }
   return picked.slice(0, count);
 }
