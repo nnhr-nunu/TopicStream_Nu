@@ -155,38 +155,24 @@ export const THEME_MAP: Record<string, string[]> = {
   ],
 };
 
-const GENERIC_SUFFIXES = [
-  "の失敗",
-  "あるある",
-  "の沼",
-  "の思い出",
-  "をやめた理由",
-  "の正解",
-  "の新常識",
-];
-
-const GENERIC_PREFIXES = [
-  "初めての",
-  "今の",
-  "昔の",
-  "意外な",
-  "深夜の",
-  "リスナーの",
-];
-
-const SPICE = [
-  "高い vs 安い",
-  "好き嫌いが割れる",
-  "今だから言える",
-  "まだ誰にも話してない",
-  "三択で聞きたい",
-  "答えにくい質問",
-  "今年のベスト",
-  "やらなきゃよかった",
-  "リピート確定",
-  "一回で飽きた",
-  "布教してもいい？",
-  "秘密のルーティン",
+/**
+ * どのお題の下に置いても話せる「切り口」。お題の語をつなげて「昔の〇〇」「〇〇の沼」のように
+ * 機械的に作ると芸がないので、カード単体で問いかけとして読める言い回しにしている。
+ * 系統ごとに分け、8 マスに同じ系統ばかり並ばないよう 1 つずつ順番に取り出す。
+ */
+const ANGLE_GROUPS: string[][] = [
+  // きっかけ・昔と今
+  ["ハマったきっかけ", "最初の印象", "昔と今で変わったこと", "子どものころの記憶", "初めての体験", "ブームが来た瞬間"],
+  // 失敗・本音
+  ["一番の失敗談", "正直ここが苦手", "今だから言える本音", "ちょっと恥ずかしい話", "やめられない理由", "やらなきゃよかった"],
+  // 好み・こだわり
+  ["好き嫌いが分かれる所", "ゆずれないこだわり", "高いの vs 安いの", "定番派？変わり種派？", "ひとつだけ選ぶなら", "今年のベスト"],
+  // あるある・まわり
+  ["あるあるネタ", "意外と知られてない話", "家族や友達の反応", "地域でちがうこと", "人に勧めるなら", "ハマる人の特徴"],
+  // これから・もしも
+  ["これからやりたいこと", "もし一生禁止されたら", "理想を言うなら", "10年後はどうなってる", "お金を気にしないなら", "初心者に教えるなら"],
+  // リスナーと話す
+  ["リスナーにも聞きたい", "コメントで三択", "みんなの思い出を募集", "リスナーのおすすめ", "聞かれたら困る質問", "まだ誰にも話してない"],
 ];
 
 function hashString(value: string): number {
@@ -252,14 +238,14 @@ export function mockRelatedTopics(
     }
   }
 
-  for (const prefix of shuffle(GENERIC_PREFIXES, random)) {
-    uniquePush(picked, `${prefix}${seed}`, banned);
-  }
-  for (const suffix of shuffle(GENERIC_SUFFIXES, random)) {
-    uniquePush(picked, `${seed}${suffix}`, banned);
-  }
-  for (const spice of shuffle(SPICE, random)) {
-    uniquePush(picked, spice, banned);
+  // 系統をシャッフルし、各系統から 1 つずつ順に取り出す（同じ系統が固まらない）
+  const groups = shuffle(ANGLE_GROUPS, random).map((group) => shuffle(group, random));
+  const longest = Math.max(...groups.map((group) => group.length));
+  for (let round = 0; round < longest; round += 1) {
+    for (const group of groups) {
+      const angle = group[round];
+      if (angle) uniquePush(picked, angle, banned);
+    }
   }
 
   const unusedStarters = shuffle(
