@@ -296,10 +296,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           }
           regenSpares={menu.open ? (spareCountFor?.(id) ?? 0) : 0}
           regenReadyAt={regenReadyAt ?? 0}
-          onRegenerate={() => {
-            leaveMenu();
-            regenerateNode?.(id);
-          }}
+          onRegenerate={
+            isRoot || data.expanded
+              ? undefined
+              : () => {
+                  leaveMenu();
+                  regenerateNode?.(id);
+                }
+          }
           onCopy={async () => {
             await copyLabel(id);
             setCopied(true);

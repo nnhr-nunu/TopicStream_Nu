@@ -33,7 +33,8 @@ export function TopicActionsMenu({
   onPin: () => void;
   /** 「具体的にする」（まだ広げていないカードだけ） */
   onDetail?: () => void;
-  onRegenerate: () => void;
+  /** 無いときは作り直しを出さない（中心のカードは周りの話題とつながらなくなるので） */
+  onRegenerate?: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
   regenSpares?: number;
   /** 予備が無いとき、AI の作り直しが使えるようになる時刻 */
@@ -58,7 +59,9 @@ export function TopicActionsMenu({
           <ListChecks />
         </ActionBtn>
       ) : null}
-      <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
+      {onRegenerate ? (
+        <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
+      ) : null}
       <ActionBtn label="文を直す" onClick={onEditLabel}>
         <Pencil />
       </ActionBtn>
