@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, MapPinned, Play, Radio } from "lucide-react";
+import { MapPinned, Play } from "lucide-react";
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import {
   mergePublicStreams,
   publicStreamFromLink,
@@ -80,50 +79,27 @@ export function StreamDirectory({
               >
                 <StreamThumbnail stream={stream} />
                 <span className="min-w-0 flex-1">
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <a
-                      href={stream.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="line-clamp-2 text-sm font-medium leading-snug hover:underline"
-                    >
-                      {stream.title}
-                    </a>
-                    {stream.live ? (
-                      <Badge variant="secondary" className="gap-1 text-[10px]">
-                        <Radio className="size-2.5" />
-                        ライブ
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px]">
-                        TopicStream
-                      </Badge>
-                    )}
-                  </span>
-                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                    {stream.streamer} · {stream.platform === "youtube" ? "YouTube" : "Twitch"}
-                  </span>
-                </span>
-                <span className="flex shrink-0 flex-col items-end gap-1">
                   <a
                     href={stream.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    className="line-clamp-2 text-sm font-medium leading-snug hover:underline"
                   >
-                    本配信
-                    <ExternalLink className="size-3" />
+                    {stream.title}
                   </a>
-                  {mapHref ? (
-                    <Link
-                      href={mapHref}
-                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-                    >
-                      マップ
-                      <MapPinned className="size-3" />
-                    </Link>
-                  ) : null}
+                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                    {stream.streamer} · {stream.platform === "youtube" ? "YouTube" : "Twitch"}
+                  </span>
                 </span>
+                {mapHref ? (
+                  <Link
+                    href={mapHref}
+                    className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    マップ
+                    <MapPinned className="size-3" />
+                  </Link>
+                ) : null}
               </li>
             );
           })}
