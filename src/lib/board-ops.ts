@@ -645,7 +645,7 @@ export function syncPositions(board: Board, positions: Record<string, { x: numbe
   return changed ? touch(board, { nodes }) : board;
 }
 
-/** 「具体的にする」で作った空のカードに印を付ける（答えのカード。文字を小さめにし、それ以上は広げない） */
+/** 「具体的にする」で作った空のカードに印を付ける（答えのカード。文字を小さめにし、作り直しも答えとして行う） */
 export function markDetail(board: Board, childIds: string[]): Board {
   return {
     ...board,

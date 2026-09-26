@@ -60,9 +60,6 @@ export function StreamDirectory({
     <section className="mt-12 w-full">
       <div className="mb-4 text-center">
         <h2 className="text-lg font-semibold">このサービスを利用している配信</h2>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          TopicStream(ぬ) と連携した配信です（終わった枠も載ります）。タイトルから本編の YouTube / Twitch へ飛べます。
-        </p>
       </div>
       {streams.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-center">

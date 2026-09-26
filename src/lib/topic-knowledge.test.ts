@@ -176,7 +176,7 @@ describe("seedKnowledge", () => {
 describe("knowledge-server", () => {
   it("記録前に長すぎる語・壊れた語・お題そのものを落とす", () => {
     expect(cleanForRecord("", ["a"])).toBeNull();
-    expect(cleanForRecord("雨", ["雨", "]", "とても長すぎる語がここに入っていて記録できない"])).toBeNull();
+    expect(cleanForRecord("雨", ["雨", "]", "あ".repeat(45)])).toBeNull();
     expect(cleanForRecord("雨", ["雨音", "雨音", "傘"])).toEqual({ seed: "雨", topics: ["雨音", "傘"] });
   });
 

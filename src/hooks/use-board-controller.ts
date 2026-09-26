@@ -108,7 +108,7 @@ export function useBoardController() {
 
   /**
    * カードを広げる。detail（「具体的にする」）は、切り口ではなく対応策・答え・話し方の例を短い文で出す
-   * （形はふつうの広げ方と同じ 3×3。出したカードは答えなので、それ以上は広げない）。
+   * （形はふつうの広げ方と同じ 3×3。出した答えのカードも、ふつうのカードと同じように広げられる）。
    */
   const expandNode = useCallback(
     async (nodeId: string, replace = false, overlay = false, detail = false) => {
@@ -122,7 +122,7 @@ export function useBoardController() {
         if (cleared.history) pushUndo(working.id, cleared.history);
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
-      if (!parent || parent.data.expanding || parent.data.detail) return;
+      if (!parent || parent.data.expanding) return;
       // この語を選んで広げた＝図鑑での票
       notePick(working, nodeId, "expand");
 

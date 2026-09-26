@@ -8,6 +8,7 @@
  * 雑談以外のモード（お悩み相談など）も記録するが、キーにモードを付けて分ける（雑談の候補に相談の語が混ざらないように）。
  */
 
+import { LABEL_MAX } from "@/lib/constants";
 import { isBoardMode } from "@/lib/modes";
 import type { BoardMode } from "@/lib/types";
 
@@ -353,9 +354,17 @@ export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6, m
   return [...(exact ? [{ entry: exact, score: 1, exact: true }] : []), ...similar.slice(0, limit)];
 }
 
-/** そのお題そのものについて、いくつの語がたまっているか */
+/**
+ * カードの候補として使える短い語か。図鑑には「具体的にする」の答え（対応策などの文）もたまるが、
+ * ふつうに広げたときの候補は短い切り口だけにする
+ */
+export function isCardTopic(label: string): boolean {
+  return label.length <= LABEL_MAX;
+}
+
+/** そのお題そのものについて、いくつの語（候補に使える短い語）がたまっているか */
 export function knowledgeDepth(store: KnowledgeStore, seed: string, mode: BoardMode = "chat"): number {
-  return Object.keys(store[knowledgeKey(seed, mode)]?.topics ?? {}).length;
+  return Object.keys(store[knowledgeKey(seed, mode)]?.topics ?? {}).filter(isCardTopic).length;
 }
 
 /**
@@ -374,7 +383,7 @@ export function suggestFromKnowledge(
   const weights = new Map<string, number>();
   for (const { entry, score, exact } of relatedEntries(store, seed, 6, mode)) {
     for (const label of Object.keys(entry.topics)) {
-      if (banned.has(label)) continue;
+      if (banned.has(label) || !isCardTopic(label)) continue;
       const weight = (exact ? 3 : score) * Math.sqrt(topicScore(entry, label));
       weights.set(label, (weights.get(label) ?? 0) + weight);
     }

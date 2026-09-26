@@ -1,4 +1,5 @@
-import type { Density, LayoutPrefs, TNode } from "@/lib/types";
+import { LABEL_MAX } from "@/lib/constants";
+import type { Density, LayoutPrefs, TNode, TopicNodeData } from "@/lib/types";
 
 export type Point = { x: number; y: number };
 
@@ -87,8 +88,8 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const dense = densityFactor(prefs.density, overlay);
   const isRoot = node.data.parentId === null;
   const isPinned = prefs.pinnedNodeId === node.id;
-  // 「具体的にする」の答えは文なので、小さめの文字で4行まで（topic-node の fitLabelFontSize と合わせる）
-  const detail = Boolean(node.data.detail);
+  // 文のカードは小さめの文字で4行まで（topic-node の fitLabelFontSize と合わせる）
+  const detail = isSentenceCard(node.data);
   const fontSize = overlay ? 22 * scale : (isRoot ? 17 : detail ? 12 : 15) * scale;
   const padY = overlay ? 0.7 * REM : 0.55 * REM * dense;
   const padX = overlay ? 1.1 * REM : (isRoot ? 1.15 * REM : 0.95 * REM * dense);
@@ -242,4 +243,9 @@ export function penetration(a: AbsBox, b: AbsBox, pad = GLYPH_PAD): { x: number;
   }
   const dir = ay <= by ? -1 : 1;
   return { x: 0, y: dir * overlapY };
+}
+
+/** 文のカード（「具体的にする」の答えや、図鑑から取り込んだ長い文）。小さめの文字で左寄せにする。中央のお題は除く */
+export function isSentenceCard(data: Pick<TopicNodeData, "detail" | "label" | "parentId">): boolean {
+  return data.parentId !== null && (Boolean(data.detail) || data.label.length > LABEL_MAX);
 }

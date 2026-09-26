@@ -58,9 +58,6 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
           <h2 id="home-showcase" className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">
             みんなの配信で、盛り上がった話題
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            ♡ を押された話題・深掘りされた話題ほど上に並びます。気になるお題から、そのまま始められます。
-          </p>
         </div>
         <p className="flex shrink-0 gap-2 text-xs">
           <span className="home-stat">
