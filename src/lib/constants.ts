@@ -8,6 +8,8 @@ export const COMMENT_SCALE_MIN = 0.9;
 export const COMMENT_SCALE_MAX = 2.2;
 export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
+/** 「具体的にする」で出す答えの長さの上限（カードの文字を小さくして収める） */
+export const DETAIL_LABEL_MAX = 44;
 export const ROOT_LABEL_MAX = 48;
 export const LABEL_EDIT_MAX = 80;
 /**

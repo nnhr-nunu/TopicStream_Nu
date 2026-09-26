@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, Pencil, Pin, RefreshCw } from "lucide-react";
+import { Check, Copy, ListChecks, Pencil, Pin, RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ export function TopicActionsMenu({
   isPinned,
   copied,
   onPin,
+  onDetail,
   onRegenerate,
   regenSpares = 0,
   regenReadyAt = 0,
@@ -30,6 +31,8 @@ export function TopicActionsMenu({
   isPinned: boolean;
   copied: boolean;
   onPin: () => void;
+  /** 「具体的にする」（まだ広げていないカードだけ） */
+  onDetail?: () => void;
   onRegenerate: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
   regenSpares?: number;
@@ -50,6 +53,11 @@ export function TopicActionsMenu({
       <ActionBtn label={isPinned ? "ピンを外す" : "いま話している"} onClick={onPin}>
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
+      {onDetail ? (
+        <ActionBtn label="具体的にする（対応策・答え・話し方の例を 8 つ出す）" onClick={onDetail}>
+          <ListChecks />
+        </ActionBtn>
+      ) : null}
       <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
       <ActionBtn label="文を直す" onClick={onEditLabel}>
         <Pencil />

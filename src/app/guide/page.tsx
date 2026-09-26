@@ -126,6 +126,8 @@ export default function GuidePage() {
         </ol>
         <p className="text-muted-foreground">
           カードにカーソルを合わせると、♡（お気に入り）や 📝（付箋）などのメニューが出ます。
+          「で、どうすればいい？」と思ったら、メニューの <Term>具体的にする</Term>{" "}
+          で、対応策や答え・話し方の例を 8 つ出せます。
         </p>
       </Card>
 

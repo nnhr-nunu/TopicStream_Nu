@@ -7,6 +7,8 @@ import type { GenerationLayout } from "@/lib/types";
 type BoardActions = {
   expandNode: (id: string) => void;
   regenerateNode?: (id: string) => void;
+  /** 「具体的にする」: 対応策・答え・話し方の例を 8 つ出す */
+  detailNode?: (id: string) => void;
   pinNode: (id: string | null) => void;
   setMemo: (id: string, memo: string) => void;
   setLabel?: (id: string, label: string) => void;

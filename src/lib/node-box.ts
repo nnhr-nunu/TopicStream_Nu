@@ -87,7 +87,9 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const dense = densityFactor(prefs.density, overlay);
   const isRoot = node.data.parentId === null;
   const isPinned = prefs.pinnedNodeId === node.id;
-  const fontSize = overlay ? 22 * scale : (isRoot ? 17 : 15) * scale;
+  // 「具体的にする」の答えは文なので、小さめの文字で4行まで（topic-node の fitLabelFontSize と合わせる）
+  const detail = Boolean(node.data.detail);
+  const fontSize = overlay ? 22 * scale : (isRoot ? 17 : detail ? 12 : 15) * scale;
   const padY = overlay ? 0.7 * REM : 0.55 * REM * dense;
   const padX = overlay ? 1.1 * REM : (isRoot ? 1.15 * REM : 0.95 * REM * dense);
   const nowWidth = isPinned ? fontSize * 0.62 * 3.05 + 0.24 * fontSize + 0.45 * REM : 0;
@@ -96,7 +98,7 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   const chipMax = CHIP_MAX * scale;
   const innerMax = Math.max(48, chipMax - padX * 2 - nowWidth - gap);
   const label = node.data.placeholder ? "………" : node.data.label || "話題";
-  const lineWidths = wrapWidths(label, innerMax, fontSize, LABEL_LINES);
+  const lineWidths = wrapWidths(label, innerMax, fontSize, detail ? 4 : LABEL_LINES);
   const labelWidth = Math.min(innerMax, Math.max(...lineWidths, node.data.placeholder ? 4.6 * REM : 0));
   let chipW = Math.min(
     chipMax,
