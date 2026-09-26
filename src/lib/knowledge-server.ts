@@ -2,10 +2,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
+import { DETAIL_LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 
 /** 票で入る語の長さの上限（自分で書き直した語は少し長いこともある） */
-const PICK_TOPIC_MAX = 40;
+const PICK_TOPIC_MAX = DETAIL_LABEL_MAX;
 import { isJunkTopic } from "@/lib/gemini-core";
 import { looksPersonal } from "@/lib/personal-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
@@ -227,7 +227,7 @@ export function cleanForRecord(seed: string, topics: string[]): { seed: string; 
         .filter(
           (label) =>
             label &&
-            label.length <= LABEL_MAX &&
+            label.length <= DETAIL_LABEL_MAX &&
             !isJunkTopic(label) &&
             !looksPersonal(label) &&
             !isArchived(trimmed, label) &&

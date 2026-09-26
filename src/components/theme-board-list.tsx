@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Heart, Search, Share2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { searchCatalog, type CatalogBoard } from "@/lib/catalog-data";
 import { loadFavoriteBoardIds, toggleFavoriteBoard } from "@/lib/favorites";
@@ -130,7 +130,6 @@ export function ThemeBoardList({
                       <span>{board.name}</span>
                       <span className="text-xs font-normal text-muted-foreground">{board.author}</span>
                     </CardTitle>
-                    <CardDescription>{board.summary}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-1.5">
                     {board.keywords.slice(0, 6).map((keyword) => (

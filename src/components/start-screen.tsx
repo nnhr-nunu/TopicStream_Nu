@@ -108,8 +108,6 @@ export function StartScreen({
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-pretty text-muted-foreground sm:text-base">
               お題をひとつ入れるだけで、話せるネタや考えの切り口が 8 方向に広がる。
-              <br className="hidden sm:inline" />
-              雑談配信のネタ出しから、お悩み相談・アイデア出しまで使える AI マインドマップ（マンダラート）です。
             </p>
 
             <div className="mt-7 w-full max-w-2xl">
@@ -195,7 +193,7 @@ export function StartScreen({
             )}
             <p className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-              {isChat ? PRIVACY_NOTICE : "このモードの内容はトピック図鑑に送らず、この端末の中だけに残ります。"}
+              {PRIVACY_NOTICE}
             </p>
             {preset.note ? <p className="mt-1.5 max-w-xl text-[11px] text-muted-foreground">{preset.note}</p> : null}
           </header>
@@ -259,7 +257,6 @@ export function StartScreen({
           <section className="mt-14">
             <div className="mb-4 text-center">
               <h2 className="text-lg font-semibold">みんなのトークテーマ</h2>
-              <p className="mt-1 text-xs text-muted-foreground">最近よく使われた話題マップです。まるごと取り込んで、そのまま配信に使えます。</p>
             </div>
             <ThemeBoardList onImport={onImport} busy={busy} />
           </section>

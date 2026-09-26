@@ -1,6 +1,6 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
-import { mockDetailTopics } from "@/lib/detail-modes";
+import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { isJunkTopic, padTopics } from "@/lib/gemini-core";
 import { fetchSharedRelated, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
@@ -25,7 +25,7 @@ type StreamLine =
  * recall を付けると、図鑑に十分たまっているお題は AI を呼ばずに図鑑から出す。
  * context（広げるカードの祖先、近い順）を渡すと、AI にもオフライン候補にも「何の話の中のお題か」が伝わる。
  * 図鑑はモードごとに分けて読み書きする（お悩み相談の語が雑談の候補に混ざらない）。
- * detail（「具体的にする」）は対応策・答えの短い文を出す。図鑑は読みも書きもしない（切り口ではなく文なので）。
+ * detail（「具体的にする」）は対応策・答えの短い文を出す。図鑑からは引かず毎回作り、結果は図鑑に記録する。
  */
 export async function generateRelatedTopics(options: {
   seed: string;
@@ -45,7 +45,7 @@ export async function generateRelatedTopics(options: {
   const mode = parseMode(options.mode);
   if (options.detail) {
     const mock = mockDetailTopics(options.seed, options.existing, count, mode, context);
-    return requestTopics(options, { count, context, mode, mock, generic: true, detail: true });
+    return requestTopics(options, { count, context, mode, mock, recordSeed: detailRecordSeed(options.seed, context), detail: true });
   }
   // 「一番の失敗談」のような汎用の切り口は、図鑑にもこのお題としてはためない（別のお題の話が混ざる）
   const generic = isGenericAngle(options.seed);
@@ -75,7 +75,7 @@ export async function generateRelatedTopics(options: {
     count,
     options.seed,
   );
-  return requestTopics(options, { count, context, mode, mock, generic, detail: false });
+  return requestTopics(options, { count, context, mode, mock, recordSeed: generic ? undefined : options.seed, detail: false });
 }
 
 type RequestOptions = Parameters<typeof generateRelatedTopics>[0];
@@ -83,9 +83,10 @@ type RequestOptions = Parameters<typeof generateRelatedTopics>[0];
 /** サーバーに頼む本体。届いた語は onTopic で先に知らせ、足りない分は mock で埋める */
 async function requestTopics(
   options: RequestOptions,
-  plan: { count: number; context: string[]; mode: BoardMode; mock: string[]; generic: boolean; detail: boolean },
+  /** recordSeed: AI の結果を自分の図鑑に残すときのお題（無ければ残さない） */
+  plan: { count: number; context: string[]; mode: BoardMode; mock: string[]; recordSeed?: string; detail: boolean },
 ): Promise<GenerateResult> {
-  const { count, context, mode, mock, generic, detail } = plan;
+  const { count, context, mode, mock, recordSeed, detail } = plan;
   const override = sanitizeSecret(options.apiKey);
   const streamed: string[] = [];
   const accept = (label: unknown) => {
@@ -101,7 +102,7 @@ async function requestTopics(
     // 流れてきた順を優先し、足りない分を最終結果・オフライン候補で埋める。
     // AI が使えなかったときのサーバーの候補は定型なので、図鑑を先に使う手元の候補で置き換える
     const topics = padTopics(streamed, [...(fromAi ? parsed : []), ...mock], count, options.seed, detail);
-    if (fromAi && !generic) rememberTopics(options.seed, [...streamed, ...parsed], mode);
+    if (fromAi && recordSeed) rememberTopics(recordSeed, [...streamed, ...parsed], mode);
     return {
       topics,
       source: fromAi ? "gemini" : "mock",

@@ -8,7 +8,7 @@ import {
   padTopics,
   requestGemini,
 } from "@/lib/gemini-core";
-import { mockDetailTopics } from "@/lib/detail-modes";
+import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
@@ -54,7 +54,7 @@ type Input = {
   /** 広げるカードの祖先（近い順） */
   context: string[];
   mode: BoardMode;
-  /** 「具体的にする」: 対応策・答えを短い文で。図鑑には記録しない */
+  /** 「具体的にする」: 対応策・具体的な話題を短い文で */
   detail: boolean;
   count: number;
   model: string;
@@ -109,8 +109,9 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
     // お悩み相談などもモードごとに分けて記録する（公開前提。個人につながりそうな語は記録側で捨てる）
-    // 「具体的にする」の答えは相談ごとの文なので記録しない（図鑑は短い切り口の集まり）
-    if (!isGenericAngle(seed) && !detail) await recordSharedKnowledge(seed, remote.topics, mode);
+    // 「具体的にする」の答えも記録する（汎用の切り口のカードなら、話の流れの元のお題の下へ）
+    const recordSeed = detail ? detailRecordSeed(seed, context) : isGenericAngle(seed) ? undefined : seed;
+    if (recordSeed) await recordSharedKnowledge(recordSeed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
     return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini" };
   } catch (error) {
