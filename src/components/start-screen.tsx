@@ -107,9 +107,9 @@ export function StartScreen({
               もう、話題に詰まらない。
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-pretty text-muted-foreground sm:text-base">
-              お題をひとつ入れるだけで、話せるネタが 8 方向に広がる。
+              お題をひとつ入れるだけで、話せるネタや考えの切り口が 8 方向に広がる。
               <br className="hidden sm:inline" />
-              雑談配信のための話題マップです。
+              雑談配信のネタ出しから、お悩み相談・アイデア出しまで使える AI マインドマップ（マンダラート）です。
             </p>
 
             <div className="mt-7 w-full max-w-2xl">

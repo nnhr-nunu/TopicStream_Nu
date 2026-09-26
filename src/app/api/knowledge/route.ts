@@ -5,24 +5,26 @@ import {
   recordSharedPicks,
   type SharedPick,
 } from "@/lib/knowledge-server";
+import { isBoardMode, parseMode } from "@/lib/modes";
 import { isCategoryId, isPickKind, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
 
 /**
  * みんなの図鑑の口。
- * - GET ?seed=お題 … そのお題と似たお題（カードの候補に使う）
- * - GET ?q=検索語&category=分類 … 図鑑ページの検索（空なら人気順）
- * - POST { picks: [{ seed, topic, kind }] } … 語が選ばれた（♡・クリック・ピン・書き直し・コメントのハート）。
+ * - GET ?seed=お題&mode=モード … そのお題と似たお題（カードの候補に使う。同じモードの中だけ）
+ * - GET ?q=検索語&category=分類&mode=モード … 図鑑ページの検索（空なら人気順。mode を省くと雑談）
+ * - POST { picks: [{ seed, topic, kind, mode? }] } … 語が選ばれた（♡・クリック・ピン・書き直し・コメントのハート）。
  *   図鑑に無い語でもそのまま加える（データ集め優先）
  * AI の結果は /api/gemini と /api/knowledge/grow が記録する。
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const seed = searchParams.get("seed")?.trim().slice(0, 80);
+  const mode = parseMode(searchParams.get("mode"));
   const headers = { "Cache-Control": "public, max-age=60, s-maxage=120" };
 
   if (seed) {
-    const shared = await loadSharedFor(seed);
-    const entries = relatedEntries(shared, seed, 8).map((item) => item.entry);
+    const shared = await loadSharedFor(seed, mode);
+    const entries = relatedEntries(shared, seed, 8, mode).map((item) => item.entry);
     return Response.json({ entries, backend: knowledgeBackend() }, { headers });
   }
 
@@ -33,6 +35,7 @@ export async function GET(request: Request) {
     (searchParams.get("q") ?? "").slice(0, 80),
     isCategoryId(category) ? category : "all",
     80,
+    mode,
   );
   return Response.json(
     { entries: hits.map((hit) => hit.entry), total: Object.keys(shared).length, backend: knowledgeBackend() },
@@ -43,11 +46,16 @@ export async function GET(request: Request) {
 /** 1回に受け付ける票の数（画面は数秒ごとにまとめて送る） */
 const MAX_BATCH = 100;
 
-type RawPick = { seed?: unknown; topic?: unknown; kind?: unknown };
+type RawPick = { seed?: unknown; topic?: unknown; kind?: unknown; mode?: unknown };
 
 function asPick(raw: RawPick): SharedPick | null {
   if (typeof raw?.seed !== "string" || typeof raw.topic !== "string" || !isPickKind(raw.kind)) return null;
-  return { seed: raw.seed.slice(0, 80), topic: raw.topic.slice(0, 80), kind: raw.kind };
+  return {
+    seed: raw.seed.slice(0, 80),
+    topic: raw.topic.slice(0, 80),
+    kind: raw.kind,
+    ...(isBoardMode(raw.mode) ? { mode: raw.mode } : {}),
+  };
 }
 
 export async function POST(request: Request) {

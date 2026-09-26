@@ -21,7 +21,7 @@ import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { nextBoardName } from "@/lib/ids";
 import { emptyBoard, exportSnapshot, parseSnapshot } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
-import { boardMode, DEFAULT_MODE, pickModeStarter, sharesKnowledge, withMode } from "@/lib/modes";
+import { boardMode, DEFAULT_MODE, pickModeStarter, isChatMode, withMode } from "@/lib/modes";
 import type { AppSnapshot, Board, BoardMode, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
 
 function currentSnapshot(): AppSnapshot {
@@ -200,7 +200,7 @@ export function useBoardController() {
         }
         return next;
       });
-      if (sharesKnowledge(started.board.mode)) recordUsage(parent.data.label, "expands");
+      if (isChatMode(started.board.mode)) recordUsage(parent.data.label, "expands");
       setBusy(false);
       showGenerateNotice(result);
     },
@@ -302,11 +302,12 @@ export function useBoardController() {
       const seed = parent?.data.label || node.data.label;
       let spare = holderId ? takeSpare(board, holderId) : { board, label: null };
       let recalled: string[] = [];
-      if (!spare.label && sharesKnowledge(board.mode)) {
+      if (!spare.label) {
         // 予備が尽きたら、まずトピック図鑑（自分とみんなの過去の結果・似たお題）から探す。AI は呼ばない。
         // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
-        void fetchSharedRelated(seed);
-        recalled = recallTopicsNow(seed, board.nodes.map((item) => item.data.label), 1 + SPARE_COUNT).topics;
+        const mode = boardMode(board);
+        void fetchSharedRelated(seed, mode);
+        recalled = recallTopicsNow(seed, board.nodes.map((item) => item.data.label), 1 + SPARE_COUNT, mode).topics;
         if (recalled[0]) spare = { board, label: recalled[0] };
       }
       // 予備も図鑑の候補も無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
@@ -398,7 +399,7 @@ export function useBoardController() {
     (nodeId: string | null) => {
       const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
       const label = nodeId ? board?.nodes.find((node) => node.id === nodeId)?.data.label : undefined;
-      if (label && sharesKnowledge(board?.mode)) recordUsage(label, "pins");
+      if (label && isChatMode(board?.mode)) recordUsage(label, "pins");
       if (board && nodeId) notePick(board, nodeId, "pin");
       updateBoard((item) => {
         const current = currentSnapshot();
@@ -607,7 +608,7 @@ export function useBoardController() {
     if (!label) return;
     try {
       await navigator.clipboard.writeText(label);
-      if (sharesKnowledge(board?.mode)) recordUsage(label, "copies");
+      if (isChatMode(board?.mode)) recordUsage(label, "copies");
       if (board) notePick(board, nodeId, "copy");
       toast.success(`「${label}」をコピーしました`);
     } catch {

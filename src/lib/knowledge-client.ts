@@ -1,9 +1,10 @@
 import { KNOWLEDGE_KEY } from "@/lib/constants";
-import { sharesKnowledge } from "@/lib/modes";
+import { boardMode } from "@/lib/modes";
 import {
   asKnowledgeEntry,
   entriesToStore,
   knowledgeDepth,
+  knowledgeKey,
   mergeStores,
   normalizeSeed,
   recordPick,
@@ -14,7 +15,7 @@ import {
   type PickKind,
 } from "@/lib/topic-knowledge";
 import { withoutArchived } from "@/lib/topic-archive";
-import type { Board } from "@/lib/types";
+import type { Board, BoardMode } from "@/lib/types";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
 /** 端末に残すお題の数の上限（古いものから消す） */
@@ -53,9 +54,9 @@ function writeLocal(store: KnowledgeStore) {
 }
 
 /** AI が出した語を自分の図鑑に残す（みんなの図鑑へはサーバーが AI の結果をそのまま記録する） */
-export function rememberTopics(seed: string, topics: string[], weight = 1) {
+export function rememberTopics(seed: string, topics: string[], mode: BoardMode = "chat") {
   if (typeof window === "undefined" || !seed.trim() || topics.length === 0) return;
-  writeLocal(recordTopics(loadLocalKnowledge(), seed, topics, Date.now(), weight));
+  writeLocal(recordTopics(loadLocalKnowledge(), seed, topics, Date.now(), 1, mode));
 }
 
 /** みんなの図鑑から取ってきたお題（このタブが開いている間だけ覚えておく） */
@@ -87,16 +88,18 @@ function absorbShared(raw: unknown): KnowledgeEntry[] {
   const entries = (Array.isArray(raw) ? raw : [])
     .map(asKnowledgeEntry)
     .filter((entry): entry is KnowledgeEntry => entry !== null);
-  for (const entry of entries) sharedCache[normalizeSeed(entry.seed)] = entry;
+  for (const entry of entries) sharedCache[knowledgeKey(entry.seed, entry.mode)] = entry;
   return entries;
 }
 
-/** そのお題と似たお題を、みんなの図鑑から取ってくる（同じお題は1回だけ） */
-export async function fetchSharedRelated(seed: string): Promise<void> {
-  const key = normalizeSeed(seed);
+/** そのお題と似たお題を、みんなの図鑑から取ってくる（同じモード・同じお題は1回だけ） */
+export async function fetchSharedRelated(seed: string, mode: BoardMode = "chat"): Promise<void> {
+  const key = knowledgeKey(seed, mode);
   if (!key || fetchedSeeds.has(key) || typeof window === "undefined") return;
   fetchedSeeds.add(key);
-  const json = await fetchJson<{ entries?: unknown }>(`/api/knowledge?seed=${encodeURIComponent(seed)}`);
+  const json = await fetchJson<{ entries?: unknown }>(
+    `/api/knowledge?seed=${encodeURIComponent(seed)}&mode=${encodeURIComponent(mode)}`,
+  );
   absorbShared(json?.entries);
 }
 
@@ -111,28 +114,33 @@ export type Recall = {
   depth: number;
 };
 
-/** 手元にあるものだけで候補を引く（待たない） */
-export function recallTopicsNow(seed: string, exclude: string[], count: number): Recall {
+/** 手元にあるものだけで候補を引く（待たない）。ほかのモードのお題の語は使わない */
+export function recallTopicsNow(seed: string, exclude: string[], count: number, mode: BoardMode = "chat"): Recall {
   const store = combinedKnowledge();
-  return { topics: suggestFromKnowledge(store, seed, exclude, count), depth: knowledgeDepth(store, seed) };
+  return {
+    topics: suggestFromKnowledge(store, seed, exclude, count, Math.random, mode),
+    depth: knowledgeDepth(store, seed, mode),
+  };
 }
 
 /** みんなの図鑑も少しだけ待って候補を引く */
-export async function recallTopics(seed: string, exclude: string[], count: number): Promise<Recall> {
-  await fetchSharedRelated(seed);
-  return recallTopicsNow(seed, exclude, count);
+export async function recallTopics(seed: string, exclude: string[], count: number, mode: BoardMode = "chat"): Promise<Recall> {
+  await fetchSharedRelated(seed, mode);
+  return recallTopicsNow(seed, exclude, count, mode);
 }
 
-/** 図鑑ページ用: みんなの図鑑の検索結果を取ってきて手元に重ねる */
-export async function fetchSharedSearch(query: string): Promise<{ available: boolean }> {
+/** 図鑑ページ用: みんなの図鑑の検索結果を取ってきて手元に重ねる（mode を省くと雑談） */
+export async function fetchSharedSearch(query: string, mode: BoardMode = "chat"): Promise<{ available: boolean }> {
   if (typeof window === "undefined") return { available: false };
-  const json = await fetchJson<{ entries?: unknown }>(`/api/knowledge?q=${encodeURIComponent(query)}`);
+  const json = await fetchJson<{ entries?: unknown }>(
+    `/api/knowledge?q=${encodeURIComponent(query)}&mode=${encodeURIComponent(mode)}`,
+  );
   absorbShared(json?.entries);
   return { available: !sharedUnavailable && json !== null };
 }
 
 /** 送る前の票。数秒ごと（とページを閉じるとき）にまとめて送る */
-let pendingPicks: { seed: string; topic: string; kind: PickKind }[] = [];
+let pendingPicks: { seed: string; topic: string; kind: PickKind; mode?: BoardMode }[] = [];
 let flushTimer: number | null = null;
 const FLUSH_MS = 4_000;
 
@@ -161,8 +169,9 @@ let listening = false;
  * お題はそのカードの親の語。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
  */
 export function notePick(board: Board, nodeId: string, kind: PickKind) {
-  // 雑談以外のボード（お悩み相談など）の語は、自分の図鑑にもみんなの図鑑にも入れない
-  if (typeof window === "undefined" || !sharesKnowledge(board.mode)) return;
+  if (typeof window === "undefined") return;
+  // お悩み相談などもモードごとに分けて記録する（雑談の図鑑には混ぜない）
+  const mode = boardMode(board);
   const node = board.nodes.find((item) => item.id === nodeId);
   const parent = node?.data.parentId ? board.nodes.find((item) => item.id === node.data.parentId) : undefined;
   const topic = node?.data.label.trim();
@@ -170,9 +179,9 @@ export function notePick(board: Board, nodeId: string, kind: PickKind) {
   // 最初のお題（親が無い）と、マンダラートの中央（親の写し）は「選ばれた語」ではない
   if (!topic || !seed || node?.data.placeholder || normalizeSeed(topic) === normalizeSeed(seed)) return;
 
-  writeLocal(recordPick(loadLocalKnowledge(), seed, topic, kind));
+  writeLocal(recordPick(loadLocalKnowledge(), seed, topic, kind, Date.now(), mode));
   if (sharedUnavailable) return;
-  pendingPicks.push({ seed, topic, kind });
+  pendingPicks.push({ seed, topic, kind, ...(mode === "chat" ? {} : { mode }) });
   if (!listening) {
     listening = true;
     window.addEventListener("pagehide", () => flushPicks(true));

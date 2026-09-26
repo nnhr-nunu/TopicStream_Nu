@@ -11,7 +11,7 @@ import {
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
-import { parseMode, sharesKnowledge } from "@/lib/modes";
+import { parseMode } from "@/lib/modes";
 import { isArchived } from "@/lib/topic-archive";
 import type { BoardMode, GeminiDebug } from "@/lib/types";
 
@@ -104,8 +104,8 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
-    // 雑談以外（お悩み相談など）は個人的な内容になりやすいので、みんなの図鑑には送らない
-    if (sharesKnowledge(mode) && !isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics);
+    // お悩み相談などもモードごとに分けて記録する（公開前提。個人につながりそうな語は記録側で捨てる）
+    if (!isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
     return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
   } catch (error) {

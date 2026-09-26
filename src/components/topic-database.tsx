@@ -15,9 +15,11 @@ import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/
 import { boardFromTopics } from "@/lib/catalog-data";
 import { combinedKnowledge, fetchSharedSearch, loadLocalKnowledge } from "@/lib/knowledge-client";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
+import { MODE_PRESETS, modePreset, withMode } from "@/lib/modes";
 import {
   CATEGORIES,
   categoryLabel,
+  entryMode,
   normalizeSeed,
   rankedTopics,
   searchKnowledge,
@@ -26,6 +28,7 @@ import {
   type KnowledgeSearchHit,
   type KnowledgeStore,
 } from "@/lib/topic-knowledge";
+import type { BoardMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Scope = "all" | "mine";
@@ -44,6 +47,7 @@ export function TopicDatabase() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [scope, setScope] = useState<Scope>("all");
+  const [mode, setMode] = useState<BoardMode>("chat");
   // localStorage とみんなの図鑑は読み込んだあとに差し替える（最初の描画はサーバーと同じ空のまま）
   const [store, setStore] = useState<KnowledgeStore>({});
   const [mine, setMine] = useState<KnowledgeStore>({});
@@ -53,7 +57,7 @@ export function TopicDatabase() {
     let cancelled = false;
     const timer = window.setTimeout(
       async () => {
-        const result = await fetchSharedSearch(query);
+        const result = await fetchSharedSearch(query, mode);
         if (cancelled) return;
         setShared(result.available ? "on" : "off");
         setStore(combinedKnowledge());
@@ -65,10 +69,20 @@ export function TopicDatabase() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, mode]);
 
-  const source = scope === "mine" ? mine : store;
-  const hits = useMemo(() => searchKnowledge(source, query, category, 60), [source, query, category]);
+  const scoped = scope === "mine" ? mine : store;
+  // 雑談・お悩み相談などのモードごとに分けて見せる（混ぜると雑談のネタ探しの邪魔になる）
+  const source = useMemo(
+    () => Object.fromEntries(Object.entries(scoped).filter(([, entry]) => entryMode(entry) === mode)),
+    [scoped, mode],
+  );
+  const modeCounts = useMemo(() => {
+    const map = new Map<BoardMode, number>();
+    for (const entry of Object.values(scoped)) map.set(entryMode(entry), (map.get(entryMode(entry)) ?? 0) + 1);
+    return map;
+  }, [scoped]);
+  const hits = useMemo(() => searchKnowledge(source, query, category, 60, mode), [source, query, category, mode]);
   const counts = useMemo(() => {
     const map = new Map<CategoryId, number>();
     for (const entry of Object.values(source)) map.set(entry.category, (map.get(entry.category) ?? 0) + 1);
@@ -78,10 +92,11 @@ export function TopicDatabase() {
     () => Object.values(source).reduce((sum, entry) => sum + Object.keys(entry.topics).length, 0),
     [source],
   );
+  const preset = modePreset(mode);
 
   function startBoard(hit: KnowledgeSearchHit) {
     const snapshot = getBoardSnapshot();
-    const built = boardFromTopics(hit.entry.seed, rankedTopics(hit.entry));
+    const built = withMode(boardFromTopics(hit.entry.seed, rankedTopics(hit.entry)), entryMode(hit.entry));
     const board = layoutBoard(built, prefsFromSettings(snapshot.settings, false, built.pinnedNodeId));
     writeBoardSnapshot({ ...snapshot, boards: [...snapshot.boards, board], activeBoardId: board.id });
     toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "図鑑で人気の話題から並べました" });
@@ -99,10 +114,12 @@ export function TopicDatabase() {
             トピック図鑑
           </p>
         </div>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">みんなの配信で、盛り上がった話題</h1>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+          {mode === "chat" ? "みんなの配信で、盛り上がった話題" : `みんなの「${preset.label}」で出た切り口`}
+        </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          TopicStream で広げられた話題を、お題ごとに集めています。♡ を押された話題・深掘りされた話題ほど上に並ぶので、
-          「次なに話そう」のヒントに。気になるお題は、そのまま話題マップにできます。
+          TopicStream で広げられた話題を、モード・お題ごとに集めています。♡ を押された話題・深掘りされた話題ほど上に並ぶので、
+          「次なに話そう」「ほかの人はどう考えた？」のヒントに。気になるお題は、そのまま話題マップにできます。
         </p>
         <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="home-stat">
@@ -150,6 +167,30 @@ export function TopicDatabase() {
         ))}
       </div>
 
+      <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="モード">
+        {MODE_PRESETS.map((item) => {
+          const count = modeCounts.get(item.id) ?? 0;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={mode === item.id}
+              className={cn(
+                CHIP,
+                mode === item.id ? "border-primary/60 bg-primary/10 text-foreground" : "border-border/70 text-muted-foreground",
+              )}
+              onClick={() => {
+                setMode(item.id);
+                setCategory("all");
+              }}
+            >
+              {item.label}
+              <span className="ml-1 opacity-60">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mb-6 flex flex-wrap gap-1.5" role="group" aria-label="分類">
         {[{ id: "all" as const, label: "すべて" }, ...CATEGORIES].map((item) => {
           const count = item.id === "all" ? Object.keys(source).length : (counts.get(item.id) ?? 0);
@@ -189,7 +230,7 @@ export function TopicDatabase() {
             const topics = rankedTopics(hit.entry, 14);
             const q = normalizeSeed(query);
             return (
-              <li key={hit.entry.seed}>
+              <li key={`${mode}|${hit.entry.seed}`}>
                 <article className="home-topic-card">
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">{hit.entry.seed}</h2>
@@ -232,7 +273,7 @@ export function TopicDatabase() {
       )}
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        話題は名前なしで集めています（候補には自動で作ったものも含みます）。♡・深掘り・ピン・コメントのハートで選ばれた話題ほど上に並びます。
+        話題は名前なしで集めています（候補には自動で作ったものも含みます）。お悩み相談などのモードの内容も公開されるので、個人がわかることは書かないでください。付箋の中身は集めません。♡・深掘り・ピン・コメントのハートで選ばれた話題ほど上に並びます。
         <Link href="/" className="ml-1 inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
           ホームで広げる
           <ArrowRight className="size-3" />

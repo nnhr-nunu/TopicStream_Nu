@@ -254,3 +254,37 @@ describe("recordSharedPicks（Redis 無し）", () => {
     expect(entry?.picks?.["盛り上がった話題"]).toBe(6);
   });
 });
+
+describe("モードごとの図鑑", () => {
+  const store = recordTopics(
+    recordTopics({}, "仕事", ["職場の人間関係", "向いていない気がする"], 0, 1, "advice"),
+    "仕事",
+    ["バイトの失敗談", "職場のあるある"],
+    0,
+  );
+
+  it("同じお題でもモードごとに別のお題として記録し、候補は同じモードからだけ引く", () => {
+    expect(Object.keys(store).sort()).toEqual(["advice|仕事", "仕事"]);
+    expect(store["advice|仕事"]?.mode).toBe("advice");
+    expect(store["仕事"]?.mode).toBeUndefined();
+    expect(suggestFromKnowledge(store, "仕事", [], 10, fixed(0)).sort()).toEqual(["バイトの失敗談", "職場のあるある"]);
+    expect(suggestFromKnowledge(store, "仕事", [], 10, fixed(0), "advice").sort()).toEqual([
+      "向いていない気がする",
+      "職場の人間関係",
+    ]);
+    expect(knowledgeDepth(store, "仕事", "idea")).toBe(0);
+  });
+
+  it("検索は既定で雑談だけ、モードを指定するとそのモードだけ", () => {
+    expect(searchKnowledge(store, "").map((hit) => hit.entry.mode)).toEqual([undefined]);
+    expect(searchKnowledge(store, "", "all", 60, "advice").map((hit) => hit.entry.mode)).toEqual(["advice"]);
+    expect(searchKnowledge(store, "", "all", 60, "all")).toHaveLength(2);
+  });
+
+  it("票もモードごと。読み直してもモードが残る", () => {
+    const picked = recordPick(store, "仕事", "休む勇気", "heart", 0, "advice");
+    expect(picked["advice|仕事"]?.picks?.["休む勇気"]).toBe(3);
+    expect(picked["仕事"]?.topics["休む勇気"]).toBeUndefined();
+    expect(asKnowledgeEntry(JSON.parse(JSON.stringify(picked["advice|仕事"])))?.mode).toBe("advice");
+  });
+});

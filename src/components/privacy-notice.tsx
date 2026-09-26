@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 
-export const PRIVACY_NOTICE = "ボードは公開されることがあるので、個人情報は書かないでください。";
+export const PRIVACY_NOTICE = "ボードや入力したお題・話題は公開されることがあるので、個人情報は書かないでください。";
 
 const SHOW_MS = 6_500;
 

@@ -3,17 +3,17 @@ import { describe, expect, it } from "vitest";
 import { LABEL_MAX } from "@/lib/constants";
 import { buildPrompt } from "@/lib/gemini-core";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
-import { MODE_PRESETS, modePreset, parseMode, sharesKnowledge, withMode } from "@/lib/modes";
+import { MODE_PRESETS, modePreset, parseMode, isChatMode, withMode } from "@/lib/modes";
 import { parseSnapshot } from "@/lib/storage";
 
 describe("ボードの用途（モード）", () => {
-  it("未設定・知らない値は雑談として扱い、図鑑に送るのは雑談だけ", () => {
+  it("未設定・知らない値は雑談として扱い、みんなのトークテーマに載せるのは雑談だけ", () => {
     expect(parseMode(undefined)).toBe("chat");
     expect(parseMode("unknown")).toBe("chat");
     expect(parseMode("advice")).toBe("advice");
-    expect(sharesKnowledge(undefined)).toBe(true);
+    expect(isChatMode(undefined)).toBe(true);
     for (const preset of MODE_PRESETS.filter((item) => item.id !== "chat")) {
-      expect(sharesKnowledge(preset.id)).toBe(false);
+      expect(isChatMode(preset.id)).toBe(false);
     }
   });
 

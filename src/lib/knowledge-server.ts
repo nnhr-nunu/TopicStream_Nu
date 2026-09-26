@@ -10,8 +10,11 @@ import { isJunkTopic } from "@/lib/gemini-core";
 import { looksPersonal } from "@/lib/personal-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
 import { isArchived, withoutArchived } from "@/lib/topic-archive";
+import type { BoardMode } from "@/lib/types";
 import {
   classifyTopic,
+  knowledgeKey,
+  modeFromKey,
   normalizeSeed,
   PICK_WEIGHTS,
   recordPick,
@@ -132,6 +135,8 @@ function parseSnapshot(raw: unknown): KnowledgeStore {
     const topics = hashToCounts(flat);
     if (Object.keys(topics).length === 0) continue;
     const picks = Array.isArray(flatPicks) ? hashToCounts(flatPicks) : {};
+    // モードは別に持たず、キーの頭（advice|… など）で見分ける
+    const mode = modeFromKey(key);
     store[key] = {
       seed: String(seed),
       category: classifyTopic(String(seed), Object.keys(topics)),
@@ -139,6 +144,7 @@ function parseSnapshot(raw: unknown): KnowledgeStore {
       uses: Number(uses) || 1,
       updatedAt: Number(updated) || 0,
       ...(Object.keys(picks).length ? { picks } : {}),
+      ...(mode === "chat" ? {} : { mode }),
     };
   }
   return store;
@@ -196,9 +202,9 @@ export async function loadSharedKnowledge(): Promise<KnowledgeStore> {
 }
 
 /** みんなの図鑑に、そのお題そのものも確実に入れて返す */
-export async function loadSharedFor(seed: string): Promise<KnowledgeStore> {
+export async function loadSharedFor(seed: string, mode: BoardMode = "chat"): Promise<KnowledgeStore> {
   const store = await loadSharedKnowledge();
-  const key = normalizeSeed(seed);
+  const key = knowledgeKey(seed, mode);
   const config = redisConfig();
   if (!key || store[key] || !config) return store;
   try {
@@ -232,16 +238,16 @@ export function cleanForRecord(seed: string, topics: string[]): { seed: string; 
   return cleaned.length > 0 ? { seed: trimmed, topics: cleaned } : null;
 }
 
-/** AI の結果を1回分記録する。失敗しても生成そのものは止めない */
-export async function recordSharedKnowledge(seed: string, topics: string[]): Promise<void> {
+/** AI の結果を1回分記録する（お悩み相談などはモードごとに分けて）。失敗しても生成そのものは止めない */
+export async function recordSharedKnowledge(seed: string, topics: string[], mode: BoardMode = "chat"): Promise<void> {
   const cleaned = cleanForRecord(seed, topics);
   if (!cleaned) return;
   const now = Date.now();
   // 読み込み済みの分にもすぐ反映して、同じインスタンスでは次の問い合わせから使えるようにする
-  if (snapshot) snapshot.store = recordTopics(snapshot.store, cleaned.seed, cleaned.topics, now);
+  if (snapshot) snapshot.store = recordTopics(snapshot.store, cleaned.seed, cleaned.topics, now, 1, mode);
   const config = redisConfig();
   if (!config) {
-    memory = recordTopics(loadMemory(), cleaned.seed, cleaned.topics, now);
+    memory = recordTopics(loadMemory(), cleaned.seed, cleaned.topics, now, 1, mode);
     persistMemory();
     return;
   }
@@ -250,7 +256,7 @@ export async function recordSharedKnowledge(seed: string, topics: string[]): Pro
       "EVAL",
       RECORD_SCRIPT,
       0,
-      normalizeSeed(cleaned.seed),
+      knowledgeKey(cleaned.seed, mode),
       cleaned.seed,
       now,
       TOPIC_LIMIT,
@@ -261,7 +267,7 @@ export async function recordSharedKnowledge(seed: string, topics: string[]): Pro
   }
 }
 
-export type SharedPick = { seed: string; topic: string; kind: PickKind };
+export type SharedPick = { seed: string; topic: string; kind: PickKind; mode?: BoardMode };
 
 /** 票として受け付ける形にそろえる（長すぎる語・個人につながりそうな語は捨てる） */
 export function cleanPick(pick: SharedPick): SharedPick | null {
@@ -270,7 +276,7 @@ export function cleanPick(pick: SharedPick): SharedPick | null {
   if (!seed || !topic || seed.length > ROOT_LABEL_MAX || topic.length > PICK_TOPIC_MAX) return null;
   if (isJunkTopic(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
   if (normalizeSeed(seed) === normalizeSeed(topic) || isArchived(seed, topic)) return null;
-  return { seed, topic, kind: pick.kind };
+  return { seed, topic, kind: pick.kind, ...(pick.mode && pick.mode !== "chat" ? { mode: pick.mode } : {}) };
 }
 
 /** 選ばれた語（♡・クリック・ピン・コピー・書き直し・コメントのハート）をまとめて記録する。記録できた数を返す */
@@ -279,7 +285,7 @@ export async function recordSharedPicks(picks: SharedPick[]): Promise<number> {
   if (cleaned.length === 0) return 0;
   const now = Date.now();
   const apply = (store: KnowledgeStore) =>
-    cleaned.reduce((acc, pick) => recordPick(acc, pick.seed, pick.topic, pick.kind, now), store);
+    cleaned.reduce((acc, pick) => recordPick(acc, pick.seed, pick.topic, pick.kind, now, pick.mode), store);
   if (snapshot) snapshot.store = apply(snapshot.store);
   const config = redisConfig();
   if (!config) {
@@ -288,7 +294,12 @@ export async function recordSharedPicks(picks: SharedPick[]): Promise<number> {
     return cleaned.length;
   }
   try {
-    const args = cleaned.flatMap((pick) => [normalizeSeed(pick.seed), pick.seed, pick.topic, PICK_WEIGHTS[pick.kind]]);
+    const args = cleaned.flatMap((pick) => [
+      knowledgeKey(pick.seed, pick.mode),
+      pick.seed,
+      pick.topic,
+      PICK_WEIGHTS[pick.kind],
+    ]);
     return Number(await redisCommand(config, ["EVAL", PICK_SCRIPT, 0, now, ...args])) || 0;
   } catch (error) {
     console.warn("[knowledge] pick", error instanceof Error ? error.message : error);

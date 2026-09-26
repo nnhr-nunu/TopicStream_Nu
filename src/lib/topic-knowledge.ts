@@ -4,7 +4,12 @@
  * 「お題 → そこから広がった語（と出た回数）」をためておき、
  * 同じお題・似たお題が来たら AI を呼ばずにここから出す。保存先は
  * 同梱の初期データ（topic-knowledge-seed）・自分の端末（knowledge-local）・みんなの共有（knowledge-server）の3つ。
+ *
+ * 雑談以外のモード（お悩み相談など）も記録するが、キーにモードを付けて分ける（雑談の候補に相談の語が混ざらないように）。
  */
+
+import { isBoardMode } from "@/lib/modes";
+import type { BoardMode } from "@/lib/types";
 
 export type CategoryId =
   | "game"
@@ -17,6 +22,8 @@ export type CategoryId =
   | "shopping"
   | "memory"
   | "hobby"
+  | "work"
+  | "people"
   | "talk"
   | "other";
 
@@ -31,6 +38,8 @@ export type KnowledgeEntry = {
   updatedAt: number;
   /** その語が選ばれた重み（♡・クリックで広げた・ピン・コピー・コメントのハート）。多いほど上に出す */
   picks?: Record<string, number>;
+  /** どのモードのボードで出た語か（未設定は雑談） */
+  mode?: BoardMode;
 };
 
 /** edit = 利用者が自分で書き直した語（人が考えた話題なので、そのまま図鑑に入れる） */
@@ -52,8 +61,35 @@ function totalPicks(entry: KnowledgeEntry): number {
   return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
 }
 
-/** キーは normalizeSeed したお題 */
+/** キーは knowledgeKey（雑談は normalizeSeed したお題そのもの、ほかは「モード|お題」） */
 export type KnowledgeStore = Record<string, KnowledgeEntry>;
+
+export function entryMode(entry: Pick<KnowledgeEntry, "mode">): BoardMode {
+  return entry.mode ?? "chat";
+}
+
+/** 図鑑のキー。雑談は昔からの形（お題だけ）のまま、ほかのモードは頭にモードを付けて分ける */
+export function knowledgeKey(seed: string, mode: BoardMode = "chat"): string {
+  const key = normalizeSeed(seed);
+  if (!key) return "";
+  return mode === "chat" ? key : `${mode}|${key}`;
+}
+
+/** キーからモードを読む（Redis にはモードを別に持たず、キーの頭で見分ける） */
+export function modeFromKey(key: string): BoardMode {
+  const head = key.split("|", 1)[0];
+  return key.includes("|") && isBoardMode(head) ? head : "chat";
+}
+
+function withMode(entry: KnowledgeEntry, mode: BoardMode): KnowledgeEntry {
+  if (mode === "chat") {
+    if (!entry.mode) return entry;
+    const next = { ...entry };
+    delete next.mode;
+    return next;
+  }
+  return { ...entry, mode };
+}
 
 export const CATEGORIES: { id: CategoryId; label: string; words: string[] }[] = [
   { id: "game", label: "ゲーム", words: ["ゲーム", "RTA", "ガチャ", "ソシャゲ", "攻略", "ボス", "レベル", "プレイ", "対戦", "実況"] },
@@ -66,6 +102,8 @@ export const CATEGORIES: { id: CategoryId; label: string; words: string[] }[] = 
   { id: "shopping", label: "買い物・お金", words: ["買", "ガジェット", "100均", "節約", "お金", "値段", "高い", "安い", "欲しい", "課金", "セール"] },
   { id: "memory", label: "思い出・地元", words: ["思い出", "昔", "学生", "部活", "子ども", "子供", "初", "地元", "出身", "卒業", "懐かし", "なつかし", "方言", "イントネーション"] },
   { id: "hobby", label: "趣味", words: ["趣味", "マイブーム", "コレクション", "旅行", "スポーツ", "運動", "ペット", "ぬいぐるみ", "散歩", "キャンプ"] },
+  { id: "work", label: "仕事・学び", words: ["仕事", "会社", "職場", "上司", "転職", "就活", "働", "勉強", "学校", "資格", "試験", "バイト", "副業", "キャリア", "スキル"] },
+  { id: "people", label: "人間関係", words: ["人間関係", "友達", "友人", "家族", "親", "恋愛", "恋人", "同僚", "先輩", "後輩", "頼", "相手", "距離感"] },
   { id: "talk", label: "あるある・もしも", words: ["もし", "あるある", "ルール", "失敗", "ヒヤ", "恥ずかし", "悩み", "本音", "質問", "秘密", "ゆずれない", "事故"] },
   { id: "other", label: "その他", words: [] },
 ];
@@ -156,9 +194,11 @@ export function recordTopics(
   topics: string[],
   now = Date.now(),
   weight = 1,
+  mode: BoardMode = "chat",
 ): KnowledgeStore {
-  const key = normalizeSeed(seed);
-  const cleaned = [...new Set(topics.map((item) => item.trim()).filter((item) => item && normalizeSeed(item) !== key))];
+  const plain = normalizeSeed(seed);
+  const key = knowledgeKey(seed, mode);
+  const cleaned = [...new Set(topics.map((item) => item.trim()).filter((item) => item && normalizeSeed(item) !== plain))];
   if (!key || cleaned.length === 0) return store;
   const current = store[key];
   const merged = { ...(current?.topics ?? {}) };
@@ -167,13 +207,16 @@ export function recordTopics(
   return {
     ...store,
     [key]: withPicks(
-      {
-        seed: current?.seed ?? seed.trim(),
-        category: classifyTopic(current?.seed ?? seed, allTopics),
-        topics: trimTopics(merged, current?.picks),
-        uses: (current?.uses ?? 0) + 1,
-        updatedAt: now,
-      },
+      withMode(
+        {
+          seed: current?.seed ?? seed.trim(),
+          category: classifyTopic(current?.seed ?? seed, allTopics),
+          topics: trimTopics(merged, current?.picks),
+          uses: (current?.uses ?? 0) + 1,
+          updatedAt: now,
+        },
+        mode,
+      ),
       current?.picks,
     ),
   };
@@ -194,10 +237,11 @@ export function recordPick(
   topic: string,
   kind: PickKind,
   now = Date.now(),
+  mode: BoardMode = "chat",
 ): KnowledgeStore {
-  const key = normalizeSeed(seed);
+  const key = knowledgeKey(seed, mode);
   const label = topic.trim();
-  if (!key || !label || normalizeSeed(label) === key) return store;
+  if (!key || !label || normalizeSeed(label) === normalizeSeed(seed)) return store;
   const current = store[key];
   const topics = { ...(current?.topics ?? {}) };
   if (!(label in topics)) topics[label] = 1;
@@ -210,7 +254,7 @@ export function recordPick(
     uses: current?.uses ?? 1,
     updatedAt: now,
   };
-  return { ...store, [key]: withPicks(entry, picks) };
+  return { ...store, [key]: withPicks(withMode(entry, mode), picks) };
 }
 
 /** 複数の保存先を1つに重ねる（回数は足し合わせる） */
@@ -229,13 +273,16 @@ export function mergeStores(...stores: KnowledgeStore[]): KnowledgeStore {
       for (const [label, count] of Object.entries(entry.picks ?? {})) picks[label] = (picks[label] ?? 0) + count;
       const trimmed = trimTopics(topics, picks);
       out[key] = withPicks(
-        {
-          seed: current.seed,
-          category: current.category === "other" ? entry.category : current.category,
-          topics: trimmed,
-          uses: current.uses + entry.uses,
-          updatedAt: Math.max(current.updatedAt, entry.updatedAt),
-        },
+        withMode(
+          {
+            seed: current.seed,
+            category: current.category === "other" ? entry.category : current.category,
+            topics: trimmed,
+            uses: current.uses + entry.uses,
+            updatedAt: Math.max(current.updatedAt, entry.updatedAt),
+          },
+          entryMode(current),
+        ),
         picks,
       );
     }
@@ -246,7 +293,7 @@ export function mergeStores(...stores: KnowledgeStore[]): KnowledgeStore {
 export function entriesToStore(entries: KnowledgeEntry[]): KnowledgeStore {
   const out: KnowledgeStore = {};
   for (const entry of entries) {
-    const key = normalizeSeed(entry.seed);
+    const key = knowledgeKey(entry.seed, entryMode(entry));
     if (key) out[key] = out[key] ? mergeStores({ [key]: out[key]! }, { [key]: entry })[key]! : entry;
   }
   return out;
@@ -270,13 +317,16 @@ export function asKnowledgeEntry(value: unknown): KnowledgeEntry | null {
   }
   const trimmed = trimTopics(topics, picks);
   return withPicks(
-    {
-      seed: raw.seed.trim(),
-      category: isCategoryId(raw.category) ? raw.category : classifyTopic(raw.seed, Object.keys(topics)),
-      topics: trimmed,
-      uses: typeof raw.uses === "number" && raw.uses > 0 ? raw.uses : 1,
-      updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0,
-    },
+    withMode(
+      {
+        seed: raw.seed.trim(),
+        category: isCategoryId(raw.category) ? raw.category : classifyTopic(raw.seed, Object.keys(topics)),
+        topics: trimmed,
+        uses: typeof raw.uses === "number" && raw.uses > 0 ? raw.uses : 1,
+        updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : 0,
+      },
+      isBoardMode(raw.mode) ? raw.mode : "chat",
+    ),
     picks,
   );
 }
@@ -286,14 +336,14 @@ export const SIMILAR_THRESHOLD = 0.34;
 
 export type RelatedEntry = { entry: KnowledgeEntry; score: number; exact: boolean };
 
-/** お題そのもの（exact）と、似たお題を近い順に返す */
-export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6): RelatedEntry[] {
-  const key = normalizeSeed(seed);
+/** お題そのもの（exact）と、似たお題を近い順に返す。ほかのモードのお題は見ない */
+export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6, mode: BoardMode = "chat"): RelatedEntry[] {
+  const key = knowledgeKey(seed, mode);
   const exact = store[key];
   const category = exact?.category ?? classifyTopic(seed);
   const similar: RelatedEntry[] = [];
   for (const [entryKey, entry] of Object.entries(store)) {
-    if (entryKey === key) continue;
+    if (entryKey === key || entryMode(entry) !== mode) continue;
     const base = similarity(seed, entry.seed);
     // 同じ分類なら少しだけ近いとみなす（「その他」どうしは除く）
     const score = base + (category !== "other" && entry.category === category ? 0.12 : 0);
@@ -304,8 +354,8 @@ export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6): 
 }
 
 /** そのお題そのものについて、いくつの語がたまっているか */
-export function knowledgeDepth(store: KnowledgeStore, seed: string): number {
-  return Object.keys(store[normalizeSeed(seed)]?.topics ?? {}).length;
+export function knowledgeDepth(store: KnowledgeStore, seed: string, mode: BoardMode = "chat"): number {
+  return Object.keys(store[knowledgeKey(seed, mode)]?.topics ?? {}).length;
 }
 
 /**
@@ -318,10 +368,11 @@ export function suggestFromKnowledge(
   exclude: string[],
   count: number,
   random: () => number = Math.random,
+  mode: BoardMode = "chat",
 ): string[] {
   const banned = new Set([...exclude.map((item) => item.trim()), seed.trim()]);
   const weights = new Map<string, number>();
-  for (const { entry, score, exact } of relatedEntries(store, seed)) {
+  for (const { entry, score, exact } of relatedEntries(store, seed, 6, mode)) {
     for (const label of Object.keys(entry.topics)) {
       if (banned.has(label)) continue;
       const weight = (exact ? 3 : score) * Math.sqrt(topicScore(entry, label));
@@ -349,16 +400,18 @@ export type KnowledgeSearchHit = {
   matchedTopics: string[];
 };
 
-/** 図鑑ページの検索。お題・語の部分一致と、お題の似かたで探す。空なら人気順 */
+/** 図鑑ページの検索。お題・語の部分一致と、お題の似かたで探す。空なら人気順。mode を省くと雑談だけ */
 export function searchKnowledge(
   store: KnowledgeStore,
   query: string,
   category: CategoryId | "all" = "all",
   limit = 60,
+  mode: BoardMode | "all" = "chat",
 ): KnowledgeSearchHit[] {
   const q = normalizeSeed(query);
   const hits: KnowledgeSearchHit[] = [];
   for (const entry of Object.values(store)) {
+    if (mode !== "all" && entryMode(entry) !== mode) continue;
     if (category !== "all" && entry.category !== category) continue;
     // 使われた回数より「選ばれた」ほうを重く見る
     const popularity = Math.log2(
