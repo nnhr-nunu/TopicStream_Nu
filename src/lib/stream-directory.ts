@@ -31,6 +31,18 @@ export function canonicalStreamUrl(ref: StreamRef): string {
     : `https://www.twitch.tv/${ref.channel.toLowerCase()}`;
 }
 
+/**
+ * 一覧に出すサムネイル。API キー無しで取れる公開画像だけを使う。
+ * YouTube は動画 ID から、Twitch はライブ中だけプレビュー画像がある（終わった枠は出さない）。
+ */
+export function streamThumbnailUrl(stream: Pick<PublicStream, "url" | "live">): string | undefined {
+  const ref = parseStreamUrl(stream.url);
+  if (!ref) return undefined;
+  if (ref.kind === "youtube") return `https://i.ytimg.com/vi/${ref.videoId}/mqdefault.jpg`;
+  if (!stream.live) return undefined;
+  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${ref.channel.toLowerCase()}-320x180.jpg`;
+}
+
 export function sortPublicStreams(streams: PublicStream[]): PublicStream[] {
   return [...streams].sort((a, b) => {
     if (a.live !== b.live) return a.live ? -1 : 1;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, MapPinned, Radio } from "lucide-react";
+import { ExternalLink, MapPinned, Play, Radio } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import {
   mergePublicStreams,
   publicStreamFromLink,
   SEED_PUBLIC_STREAMS,
+  streamThumbnailUrl,
   watchMapHref,
   type PublicStream,
 } from "@/lib/stream-directory";
@@ -75,18 +76,16 @@ export function StreamDirectory({
             return (
               <li
                 key={stream.id}
-                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 px-3 py-2.5"
+                className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card/70 p-2 pr-3"
               >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-[11px] font-semibold text-primary">
-                  {stream.platform === "youtube" ? "YT" : "TW"}
-                </span>
+                <StreamThumbnail stream={stream} />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-1.5">
                     <a
                       href={stream.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate text-sm font-medium hover:underline"
+                      className="line-clamp-2 text-sm font-medium leading-snug hover:underline"
                     >
                       {stream.title}
                     </a>
@@ -131,5 +130,42 @@ export function StreamDirectory({
         </ul>
       )}
     </section>
+  );
+}
+
+/** 本配信へのリンクを兼ねたサムネイル。画像が無い・読めないときは YT / TW の札にする */
+function StreamThumbnail({ stream }: { stream: PublicStream }) {
+  const src = streamThumbnailUrl(stream);
+  const [failed, setFailed] = useState(false);
+  const platformLabel = stream.platform === "youtube" ? "YouTube" : "Twitch";
+  return (
+    <a
+      href={stream.url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${stream.title}（${platformLabel}で開く）`}
+      className="group relative flex aspect-video w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 sm:w-36"
+    >
+      {src && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 外部のサムネイル。静的エクスポート（Pages）でもそのまま出すため
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      ) : (
+        <span className="text-xs font-semibold text-primary">{stream.platform === "youtube" ? "YT" : "TW"}</span>
+      )}
+      <span className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover:bg-black/25">
+        <Play className="size-6 fill-white text-white opacity-0 drop-shadow transition-opacity group-hover:opacity-100" />
+      </span>
+      {stream.live ? (
+        <span className="absolute left-1 top-1 rounded bg-red-600 px-1 py-px text-[9px] font-bold leading-tight text-white">
+          LIVE
+        </span>
+      ) : null}
+    </a>
   );
 }

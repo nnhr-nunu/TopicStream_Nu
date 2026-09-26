@@ -4,6 +4,7 @@ import {
   mergePublicStreams,
   publicStreamFromLink,
   sortPublicStreams,
+  streamThumbnailUrl,
   type PublicStream,
 } from "@/lib/stream-directory";
 
@@ -53,5 +54,16 @@ describe("配信一覧", () => {
     });
     expect(linked?.id).toBe("linked_youtube_NUCX55gmkkM");
     expect(linked?.platform).toBe("youtube");
+  });
+
+  it("サムネイルは YouTube なら動画から、Twitch はライブ中だけ出す", () => {
+    expect(streamThumbnailUrl({ url: "https://www.youtube.com/watch?v=NUCX55gmkkM", live: false })).toBe(
+      "https://i.ytimg.com/vi/NUCX55gmkkM/mqdefault.jpg",
+    );
+    expect(streamThumbnailUrl({ url: "https://www.twitch.tv/Nunu", live: true })).toBe(
+      "https://static-cdn.jtvnw.net/previews-ttv/live_user_nunu-320x180.jpg",
+    );
+    expect(streamThumbnailUrl({ url: "https://www.twitch.tv/nunu", live: false })).toBeUndefined();
+    expect(streamThumbnailUrl({ url: "not a url", live: true })).toBeUndefined();
   });
 });
