@@ -10,6 +10,15 @@ import {
   subscribeBoardStore,
   writeBoardSnapshot,
 } from "@/lib/board-store";
+import {
+  clearAllHistory,
+  clearHistory,
+  getHistories,
+  getServerHistories,
+  historyOf,
+  subscribeHistory,
+  updateHistory,
+} from "@/lib/board-history";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
@@ -46,6 +55,11 @@ function showGenerateNotice(result: GenerateResult) {
   else toast.message(result.warning);
 }
 
+/** 新しい操作をしたら、進む履歴は捨てる */
+function pushUndo(boardId: string, entry: HistoryEntry) {
+  updateHistory(boardId, (history) => ({ undo: [...history.undo, entry], redo: [] }));
+}
+
 export function useBoardController() {
   const snapshot = useSyncExternalStore(subscribeBoardStore, getBoardSnapshot, getServerBoardSnapshot);
   const mounted = useSyncExternalStore(
@@ -53,8 +67,8 @@ export function useBoardController() {
     () => true,
     () => false,
   );
-  const [undoStack, setUndoStack] = useState<HistoryEntry[]>([]);
-  const [redoStack, setRedoStack] = useState<HistoryEntry[]>([]);
+  // 戻す／進むの履歴はボードごと。切り替えや再読み込みをしても消さない
+  const histories = useSyncExternalStore(subscribeHistory, getHistories, getServerHistories);
   const [busy, setBusy] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const expandTokens = useRef(new Map<string, number>());
@@ -105,10 +119,7 @@ export function useBoardController() {
       if (replace) {
         const cleared = ops.clearChildren(working, nodeId);
         working = cleared.board;
-        if (cleared.history) {
-          setUndoStack((stack) => [...stack, cleared.history!].slice(-40));
-          setRedoStack([]);
-        }
+        if (cleared.history) pushUndo(working.id, cleared.history);
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
       if (!parent || parent.data.expanding || parent.data.detail) return;
@@ -126,10 +137,7 @@ export function useBoardController() {
         ...current,
         boards: current.boards.map((item) => (item.id === started.board.id ? started.board : item)),
       });
-      setUndoStack((stack) =>
-        [...stack, ops.historyFromChildren(started.board, nodeId, started.childIds, started.edgeIds)].slice(-40),
-      );
-      setRedoStack([]);
+      pushUndo(started.board.id, ops.historyFromChildren(started.board, nodeId, started.childIds, started.edgeIds));
       setBusy(true);
 
       const existingLabels = started.board.nodes.map((node) => node.data.label);
@@ -191,8 +199,8 @@ export function useBoardController() {
         ...latest,
         boards: latest.boards.map((item) => (item.id === filled.id ? filled : item)),
       });
-      setUndoStack((stack) => {
-        const next = [...stack];
+      updateHistory(boardId, (history) => {
+        const next = [...history.undo];
         for (let i = next.length - 1; i >= 0; i -= 1) {
           const entry = next[i]!;
           if (
@@ -204,7 +212,7 @@ export function useBoardController() {
             break;
           }
         }
-        return next;
+        return { ...history, undo: next };
       });
       if (isChatMode(started.board.mode)) recordUsage(parent.data.label, "expands");
       setBusy(false);
@@ -234,8 +242,7 @@ export function useBoardController() {
           ? current.boards.map((board) => (board.id === rooted.id ? rooted : board))
           : [...current.boards, rooted],
       });
-      setUndoStack([]);
-      setRedoStack([]);
+      clearHistory(rooted.id);
       const rootId = rooted.nodes[0]?.id;
       if (rootId) await expandNode(rootId);
     },
@@ -257,44 +264,34 @@ export function useBoardController() {
   }, [startWithKeyword, updateBoard]);
 
   const undo = useCallback(() => {
-    setUndoStack((stack) => {
-      const action = stack[stack.length - 1];
-      if (!action) {
-        queueMicrotask(() => toast.message("戻せる操作がありません"));
-        return stack;
-      }
-      expandTokens.current.set(action.parentId, (expandTokens.current.get(action.parentId) ?? 0) + 1);
-      for (const id of action.childIds) {
-        expandTokens.current.set(id, (expandTokens.current.get(id) ?? 0) + 1);
-      }
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      const captured = board
-        ? ops.historyFromChildren(board, action.parentId, action.childIds, action.edgeIds)
-        : null;
-      queueMicrotask(() => {
-        if (captured) setRedoStack((redo) => [...redo, captured].slice(-40));
-        updateBoard((item) => ops.undoExpand(item, action));
-        toast.success("ひとつ戻しました");
-      });
-      return stack.slice(0, -1);
-    });
+    const current = currentSnapshot();
+    const board = current.boards.find((item) => item.id === current.activeBoardId);
+    const action = board ? historyOf(board.id).undo.at(-1) : undefined;
+    if (!board || !action) {
+      toast.message("戻せる操作がありません");
+      return;
+    }
+    expandTokens.current.set(action.parentId, (expandTokens.current.get(action.parentId) ?? 0) + 1);
+    for (const id of action.childIds) {
+      expandTokens.current.set(id, (expandTokens.current.get(id) ?? 0) + 1);
+    }
+    const captured = ops.historyFromChildren(board, action.parentId, action.childIds, action.edgeIds);
+    updateHistory(board.id, (history) => ({ undo: history.undo.slice(0, -1), redo: [...history.redo, captured] }));
+    updateBoard((item) => ops.undoExpand(item, action));
+    toast.success("ひとつ戻しました");
   }, [updateBoard]);
 
   const redo = useCallback(() => {
-    setRedoStack((stack) => {
-      const action = stack[stack.length - 1];
-      if (!action) {
-        queueMicrotask(() => toast.message("進める操作がありません"));
-        return stack;
-      }
-      queueMicrotask(() => {
-        updateBoard((item) => ops.redoExpand(item, action));
-        setUndoStack((undo) => [...undo, action].slice(-40));
-        toast.success("進みました");
-      });
-      return stack.slice(0, -1);
-    });
+    const current = currentSnapshot();
+    const boardId = current.activeBoardId;
+    const action = historyOf(boardId).redo.at(-1);
+    if (!boardId || !action) {
+      toast.message("進める操作がありません");
+      return;
+    }
+    updateHistory(boardId, (history) => ({ undo: [...history.undo, action], redo: history.redo.slice(0, -1) }));
+    updateBoard((item) => ops.redoExpand(item, action));
+    toast.success("進みました");
   }, [updateBoard]);
 
   const regenerateNode = useCallback(
@@ -303,6 +300,11 @@ export function useBoardController() {
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       const node = board?.nodes.find((item) => item.id === nodeId);
       if (!board || !node || regeneratingRef.current.has(nodeId)) return;
+      // 中心のカード（最初の語・広げたカード）を変えると周りの話題とつながらなくなるので作り直さない
+      if (node.data.parentId === null || node.data.expanded) {
+        toast.message("中心のカードは作り直せません（文を直すことはできます）");
+        return;
+      }
       const holderId = node.data.parentId;
       const parent = board.nodes.find((item) => item.id === node.data.parentId);
       const seed = parent?.data.label || node.data.label;
@@ -458,8 +460,6 @@ export function useBoardController() {
         boards: [...current.boards, board],
         activeBoardId: board.id,
       });
-      setUndoStack([]);
-      setRedoStack([]);
       toast.success(`「${board.name}」を始めます`);
     },
     [persist],
@@ -476,8 +476,6 @@ export function useBoardController() {
         boards: [...current.boards, copy],
         activeBoardId: copy.id,
       });
-      setUndoStack([]);
-      setRedoStack([]);
       toast.success(`「${copy.name}」を複製しました`);
     },
     [persist],
@@ -486,8 +484,6 @@ export function useBoardController() {
   const switchBoard = useCallback(
     (boardId: string) => {
       persist({ ...currentSnapshot(), activeBoardId: boardId });
-      setUndoStack([]);
-      setRedoStack([]);
     },
     [persist],
   );
@@ -519,16 +515,14 @@ export function useBoardController() {
         boards: remaining,
         activeBoardId: activeGone ? remaining[0]!.id : current.activeBoardId,
       });
-      if (activeGone) {
-        setUndoStack([]);
-        setRedoStack([]);
-      }
+      clearHistory(targetId);
       toast.success("ボードを削除しました");
     },
     [persist],
   );
 
   const resetActive = useCallback(() => {
+    clearHistory(currentSnapshot().activeBoardId);
     updateBoard((board) => ({
       ...board,
       nodes: [],
@@ -537,8 +531,6 @@ export function useBoardController() {
       focusedNodeId: null,
       updatedAt: Date.now(),
     }));
-    setUndoStack([]);
-    setRedoStack([]);
     toast.success("ボードを空にしました");
   }, [updateBoard]);
 
@@ -554,8 +546,6 @@ export function useBoardController() {
         boards: [...current.boards, board],
         activeBoardId: board.id,
       });
-      setUndoStack([]);
-      setRedoStack([]);
       toast.success(`「${board.name}」を取り込みました`);
     },
     [persist],
@@ -601,8 +591,7 @@ export function useBoardController() {
           geminiApiKey: parsed.settings.geminiApiKey || current.settings.geminiApiKey || "",
         },
       });
-      setUndoStack([]);
-      setRedoStack([]);
+      clearAllHistory();
       toast.success("ボードを読み込みました");
     } catch {
       toast.error("JSONを読み込めませんでした");
@@ -679,8 +668,8 @@ export function useBoardController() {
     snapshot,
     activeBoard,
     settings: snapshot.settings,
-    undoStack,
-    redoStack,
+    undoStack: (activeBoard && histories[activeBoard.id]?.undo) || [],
+    redoStack: (activeBoard && histories[activeBoard.id]?.redo) || [],
     busy,
     shareId,
     startWithKeyword,
