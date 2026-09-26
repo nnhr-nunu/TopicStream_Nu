@@ -1,4 +1,5 @@
 import {
+  DETAIL_LABEL_MAX,
   DEFAULT_MODEL,
   GEMINI_FALLBACK_MODELS,
   GEMINI_HOST,
@@ -6,6 +7,7 @@ import {
   RETIRED_GEMINI_MODELS,
 } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
+import { buildDetailPrompt } from "@/lib/detail-modes";
 import { buildModePrompt } from "@/lib/modes";
 import type { BoardMode, GeminiDebug } from "@/lib/types";
 
@@ -17,6 +19,7 @@ export function buildPrompt(
   count: number,
   context: string[] = [],
   mode: BoardMode = "chat",
+  detail = false,
 ): string {
   const banned = existing.slice(0, 24).join(" / ") || "なし";
   // 祖先は近い順で届くので、話の流れとして読めるよう遠い方から並べる
@@ -25,13 +28,18 @@ export function buildPrompt(
 このお題は「${[...context].reverse().join(" → ")} → ${seed}」という話の流れで出てきました。流れから外れない切り口にしてください。
 `
     : "";
-  return buildModePrompt(mode, seed, count, flow, banned);
+  return detail ? buildDetailPrompt(mode, seed, count, flow, banned) : buildModePrompt(mode, seed, count, flow, banned);
 }
 
-function clip(label: string): string {
+/** 語の長さの上限。「具体的にする」の答えは文なので長め */
+export function labelLimit(detail = false): number {
+  return detail ? DETAIL_LABEL_MAX : LABEL_MAX;
+}
+
+function clip(label: string, max = LABEL_MAX): string {
   const trimmed = label.trim();
-  if (trimmed.length <= LABEL_MAX) return trimmed;
-  return `${trimmed.slice(0, LABEL_MAX - 1)}…`;
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
 }
 
 function unwrapFences(raw: string): string {
@@ -56,7 +64,7 @@ function tryParseJsonArray(raw: string): string[] | null {
   return null;
 }
 
-function extractQuoted(raw: string): string[] {
+function extractQuoted(raw: string, sentences = false): string[] {
   const out: string[] = [];
   const closed = /"((?:\\.|[^"\\])*)"/g;
   let match: RegExpExecArray | null;
@@ -64,7 +72,8 @@ function extractQuoted(raw: string): string[] {
     out.push(match[1].replace(/\\"/g, '"').replace(/\\n/g, " "));
   }
   const jp = /[「『]([^」』]+)[」』]/g;
-  while ((match = jp.exec(raw))) {
+  // 文の中の「」は語の区切りではないので、答え（文）のときは拾わない
+  while (!sentences && (match = jp.exec(raw))) {
     out.push(match[1]);
   }
   if (out.length > 0) return out;
@@ -73,16 +82,16 @@ function extractQuoted(raw: string): string[] {
   return [];
 }
 
-function stripDecorations(value: string): string {
+/** 番号・記号・引用符を外す。文（sentences）のときは、文頭・文末の「」は中身の一部なので残す */
+function stripDecorations(value: string, sentences = false): string {
   let text = value.replace(/\s+/g, " ").trim();
   text = text.replace(/^[0-9]+[A-Ia-i]\s*/, "");
   text = text.replace(/^[0-9]+[\.\):、]\s*/, "");
   text = text.replace(/^[-*・\u30fb]\s*/, "");
+  const head = sentences ? /^[\s\[\]\{\}"'`]+/ : /^[\s\[\]\{\}「『"'`]+/;
+  const tail = sentences ? /[\s\[\]\{\}"'`,;]+$/ : /[\s\[\]\{\}」』"'`,;]+$/;
   for (let i = 0; i < 4; i += 1) {
-    const next = text
-      .replace(/^[\s\[\]\{\}「『"'`]+/, "")
-      .replace(/[\s\[\]\{\}」』"'`,;]+$/, "")
-      .trim();
+    const next = text.replace(head, "").replace(tail, "").trim();
     if (next === text) break;
     text = next;
   }
@@ -99,17 +108,17 @@ export function isJunkTopic(label: string): boolean {
   return letters.length === 0;
 }
 
-export function parseTopics(raw: string, seed: string, existing: string[]): string[] {
+export function parseTopics(raw: string, seed: string, existing: string[], detail = false): string[] {
   const text = unwrapFences(raw);
   const fromJson = tryParseJsonArray(text);
-  const quoted = extractQuoted(text);
+  const quoted = extractQuoted(text, detail);
   const values: unknown[] =
     fromJson && fromJson.length > 0
       ? fromJson
       : quoted.length > 0
         ? quoted
         : text
-            .split(/[\n,、]/)
+            .split(detail ? /\n/ : /[\n,、]/)
             .map((part) => part.trim())
             .filter(Boolean);
 
@@ -117,19 +126,19 @@ export function parseTopics(raw: string, seed: string, existing: string[]): stri
   const topics: string[] = [];
   for (const value of values) {
     if (typeof value !== "string") continue;
-    const label = clip(stripDecorations(value));
+    const label = clip(stripDecorations(value, detail), labelLimit(detail));
     if (!label || isJunkTopic(label) || banned.has(label) || topics.includes(label)) continue;
     topics.push(label);
   }
   return topics;
 }
 
-export function padTopics(parsed: string[], fallback: string[], count: number, seed: string): string[] {
+export function padTopics(parsed: string[], fallback: string[], count: number, seed: string, detail = false): string[] {
   const out = [...parsed];
   const banned = new Set([seed.trim(), ...out]);
   for (const item of fallback) {
     if (out.length >= count) break;
-    const label = clip(stripDecorations(item));
+    const label = clip(stripDecorations(item, detail), labelLimit(detail));
     if (!label || isJunkTopic(label) || banned.has(label)) continue;
     out.push(label);
     banned.add(label);
@@ -352,6 +361,8 @@ type GeminiOptions = {
   context?: string[];
   /** ボードの用途（雑談・お悩み相談など）。指示の中身が変わる */
   mode?: BoardMode;
+  /** 「具体的にする」: 切り口ではなく、対応策・答え・話し方の例を短い文で出してもらう */
+  detail?: boolean;
   /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
   onTopic?: (label: string) => void;
 };
@@ -464,9 +475,10 @@ export async function requestGemini(
   throw lastError ?? new GeminiRequestError("timeout", geminiDebug({ reason: "deadline", model: options.model, tried, attempts }));
 }
 
-function generationConfig(model: string): Record<string, unknown> {
+function generationConfig(model: string, detail = false): Record<string, unknown> {
   // Gemini 3 系は temperature を 1.0 未満にするとループや劣化が起きると公式に書かれているので、既定のまま送らない。
-  const base: Record<string, unknown> = { maxOutputTokens: 1024 };
+  // 答え（文）は長いので、途中で切れないよう多めに
+  const base: Record<string, unknown> = { maxOutputTokens: detail ? 2048 : 1024 };
   if (plainModels.has(model)) return base;
   const thinking = thinkingConfigFor(model);
   return {
@@ -558,8 +570,8 @@ async function generateGeminiText(
         "x-goog-api-key": options.apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode) }] }],
-        generationConfig: generationConfig(options.model),
+        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode, options.detail) }] }],
+        generationConfig: generationConfig(options.model, options.detail),
       }),
     });
     if (!response.ok) {
@@ -653,7 +665,7 @@ export function closedPart(text: string): string {
 async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
   // 届いた分をその都度パースし、新しい語は onTopic で先に知らせる。必要数そろったら打ち切る。
   const watch = (existing: string[]) => (text: string) => {
-    const topics = parseTopics(closedPart(text), options.seed, existing);
+    const topics = parseTopics(closedPart(text), options.seed, existing, options.detail);
     // 最後の1語は書きかけかもしれないので、閉じた語だけ知らせる（JSON 配列の途中は quoted で拾える）
     for (const label of topics.slice(0, options.count)) options.onTopic?.(label);
     return topics.length >= options.count;
@@ -662,6 +674,7 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
     (await generateGeminiText(options, remaining, watch(options.existing))).text,
     options.seed,
     options.existing,
+    options.detail,
   );
   if (first.length >= options.count || remaining() < 4_000) return first.slice(0, options.count);
   const seen = [...options.existing, ...first];
@@ -670,6 +683,7 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
       (await generateGeminiText({ ...options, count: options.count - first.length }, remaining, watch(seen))).text,
       options.seed,
       seen,
+      options.detail,
     );
     return mergeParsedTopics(first, retry, options.count);
   } catch {

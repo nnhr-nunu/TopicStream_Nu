@@ -8,6 +8,7 @@ import {
   padTopics,
   requestGemini,
 } from "@/lib/gemini-core";
+import { mockDetailTopics } from "@/lib/detail-modes";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
@@ -53,6 +54,8 @@ type Input = {
   /** 広げるカードの祖先（近い順） */
   context: string[];
   mode: BoardMode;
+  /** 「具体的にする」: 対応策・答えを短い文で。図鑑には記録しない */
+  detail: boolean;
   count: number;
   model: string;
   apiKey: string;
@@ -61,12 +64,13 @@ type Input = {
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
 async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
-  const { seed, existing, preferred, context, mode, count, model, apiKey } = input;
+  const { seed, existing, preferred, context, mode, detail, count, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
     if (!isArchived(seed, label)) sendTopic(label);
   };
-  const mock = () => mockRelatedTopics(seed, existing, count, preferred, { context, mode });
+  const mock = () =>
+    detail ? mockDetailTopics(seed, existing, count, mode, context) : mockRelatedTopics(seed, existing, count, preferred, { context, mode });
 
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });
@@ -75,12 +79,12 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     return { topics: mock(), source: "mock", debug };
   }
 
-  const cacheKey = guard.cacheKey(seed, existing, count, mode);
+  const cacheKey = guard.cacheKey(seed, existing, count, detail ? `${mode}:detail` : mode);
   const cached = guard.readCache(cacheKey);
   if (cached) {
     const fresh = cached.filter((label) => !isArchived(seed, label));
     for (const label of fresh) onTopic(label);
-    return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
+    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini" };
   }
 
   const slot = guard.acquire(input.clientKey);
@@ -100,14 +104,15 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
   }
 
   try {
-    const remote = await requestGemini({ seed, existing, context, mode, apiKey, model, count, onTopic });
+    const remote = await requestGemini({ seed, existing, context, mode, detail, apiKey, model, count, onTopic });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
     // お悩み相談などもモードごとに分けて記録する（公開前提。個人につながりそうな語は記録側で捨てる）
-    if (!isGenericAngle(seed)) await recordSharedKnowledge(seed, remote.topics, mode);
+    // 「具体的にする」の答えは相談ごとの文なので記録しない（図鑑は短い切り口の集まり）
+    if (!isGenericAngle(seed) && !detail) await recordSharedKnowledge(seed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
-    return { topics: padTopics(fresh, mock(), count, seed), source: "gemini" };
+    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini" };
   } catch (error) {
     const debug =
       error instanceof GeminiRequestError ? error.debug : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
@@ -130,6 +135,7 @@ export async function POST(request: Request) {
     preferred?: unknown;
     context?: unknown;
     mode?: unknown;
+    detail?: unknown;
     apiKey?: unknown;
     stream?: unknown;
   } | null;
@@ -156,6 +162,7 @@ export async function POST(request: Request) {
           .slice(0, 3)
       : [],
     mode: parseMode(body?.mode),
+    detail: body?.detail === true,
     count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
     model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
     apiKey: override || readGeminiApiKey(),
@@ -180,7 +187,10 @@ export async function POST(request: Request) {
         });
         send({ type: "done", ...final });
       } catch {
-        send({ type: "done", topics: mockRelatedTopics(seed, input.existing, input.count, input.preferred, { context: input.context, mode: input.mode }), source: "mock" });
+        const topics = input.detail
+          ? mockDetailTopics(seed, input.existing, input.count, input.mode, input.context)
+          : mockRelatedTopics(seed, input.existing, input.count, input.preferred, { context: input.context, mode: input.mode });
+        send({ type: "done", topics, source: "mock" });
       } finally {
         controller.close();
       }

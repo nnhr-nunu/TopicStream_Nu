@@ -37,6 +37,8 @@ export type TopicNodeData = {
   frameHearts?: number;
   /** この下に広げたときに AI から余分にもらった候補。「作り直す」で API を呼ばずに使う */
   spares?: string[];
+  /** 「具体的にする」で出した答え（対応策・話し方の例などの短い文）。これ以上は広げない */
+  detail?: boolean;
 };
 
 export type TNode = {

@@ -602,6 +602,13 @@ html[data-theme="stream"] [data-layout="mandala"] .topic-chip-keyword,
   width: 100%;
 }
 
+/* 「具体的にする」で出た答え: 文なので左寄せ */
+.topic-chip-detail .topic-label,
+[data-layout="mandala"] .topic-chip-detail .topic-label {
+  text-align: left;
+  font-weight: 500;
+}
+
 [data-layout="mandala"] .topic-node {
   display: block;
   width: calc(11.5rem * var(--ts-scale));

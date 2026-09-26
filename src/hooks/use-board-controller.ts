@@ -92,8 +92,12 @@ export function useBoardController() {
     [snapshot],
   );
 
+  /**
+   * カードを広げる。detail（「具体的にする」）は、切り口ではなく対応策・答え・話し方の例を短い文で出す
+   * （形はふつうの広げ方と同じ 3×3。出したカードは答えなので、それ以上は広げない）。
+   */
   const expandNode = useCallback(
-    async (nodeId: string, replace = false, overlay = false) => {
+    async (nodeId: string, replace = false, overlay = false, detail = false) => {
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       if (!board) return;
@@ -107,13 +111,14 @@ export function useBoardController() {
         }
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
-      if (!parent || parent.data.expanding) return;
+      if (!parent || parent.data.expanding || parent.data.detail) return;
       // この語を選んで広げた＝図鑑での票
       notePick(working, nodeId, "expand");
 
       const prefs = prefsFromSettings(current.settings, overlay, working.pinnedNodeId);
-      const started = ops.beginExpand(working, nodeId, 8, prefs);
-      if (!started) return;
+      const begun = ops.beginExpand(working, nodeId, 8, prefs);
+      if (!begun) return;
+      const started = detail ? { ...begun, board: ops.markDetail(begun.board, begun.childIds) } : begun;
 
       const token = (expandTokens.current.get(nodeId) ?? 0) + 1;
       expandTokens.current.set(nodeId, token);
@@ -140,12 +145,13 @@ export function useBoardController() {
         seed: parent.data.label,
         existing: existingLabels,
         count: slots + SPARE_COUNT,
-        preferred: preferredForSeed(parent.data.label),
+        preferred: detail ? [] : preferredForSeed(parent.data.label),
         // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように
         context: topicContext(started.board, nodeId),
         mode: started.board.mode,
-        // トピック図鑑に十分たまっているお題は AI を呼ばずに出す
-        recall: true,
+        // トピック図鑑に十分たまっているお題は AI を呼ばずに出す（答えは図鑑に無いので毎回作る）
+        recall: !detail,
+        detail,
         onTopic: (label) => {
           if (expandTokens.current.get(nodeId) !== token) return;
           updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
@@ -302,7 +308,8 @@ export function useBoardController() {
       const seed = parent?.data.label || node.data.label;
       let spare = holderId ? takeSpare(board, holderId) : { board, label: null };
       let recalled: string[] = [];
-      if (!spare.label) {
+      const detail = Boolean(node.data.detail);
+      if (!spare.label && !detail) {
         // 予備が尽きたら、まずトピック図鑑（自分とみんなの過去の結果・似たお題）から探す。AI は呼ばない。
         // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
         const mode = boardMode(board);
@@ -354,9 +361,10 @@ export function useBoardController() {
             seed,
             existing: board.nodes.map((item) => item.data.label),
             count: 1 + SPARE_COUNT,
-            preferred: preferredForSeed(seed),
+            preferred: detail ? [] : preferredForSeed(seed),
             context: parent ? topicContext(board, parent.id) : [],
             mode: board.mode,
+            detail,
           }),
           new Promise((resolve) => window.setTimeout(resolve, 600)),
         ]);

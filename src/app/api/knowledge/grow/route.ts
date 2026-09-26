@@ -3,7 +3,6 @@ import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import { geminiUserNotice, requestGemini } from "@/lib/gemini-core";
 import { pickGrowCandidates } from "@/lib/knowledge-grow";
 import { loadSharedKnowledge, recordSharedKnowledge } from "@/lib/knowledge-server";
-import { entryMode, type KnowledgeStore } from "@/lib/topic-knowledge";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
 /**
@@ -37,14 +36,10 @@ export async function GET(request: Request) {
   const envLimit = Number(process.env.GROW_LIMIT) || DEFAULT_LIMIT;
   const limit = Math.max(1, Math.min(60, Number(searchParams.get("limit")) || envLimit));
   const started = Date.now();
-  // 育てるのは雑談のお題だけ（お悩み相談などは雑談の指示で広げると的外れになる）
-  const shared = await loadSharedKnowledge();
-  const chatOnly: KnowledgeStore = Object.fromEntries(
-    Object.entries(shared).filter(([, entry]) => entryMode(entry) === "chat"),
-  );
-  const candidates = pickGrowCandidates(seedKnowledge(), chatOnly, limit);
+  // お悩み相談などもそのモードの指示で育てる（雑談の指示で広げると的外れになるため、モードごとに頼む）
+  const candidates = pickGrowCandidates(seedKnowledge(), await loadSharedKnowledge(), limit);
 
-  const grown: { seed: string; added: number }[] = [];
+  const grown: { seed: string; mode: string; added: number }[] = [];
   let stopped: string | null = null;
   let failures = 0;
   for (const candidate of candidates) {
@@ -59,9 +54,10 @@ export async function GET(request: Request) {
         apiKey,
         model: DEFAULT_MODEL,
         count: 12,
+        mode: candidate.mode,
       });
-      await recordSharedKnowledge(candidate.seed, result.topics);
-      grown.push({ seed: candidate.seed, added: result.topics.length });
+      await recordSharedKnowledge(candidate.seed, result.topics, candidate.mode);
+      grown.push({ seed: candidate.seed, mode: candidate.mode, added: result.topics.length });
       failures = 0;
     } catch (error) {
       const notice = geminiUserNotice(error);

@@ -237,6 +237,16 @@ describe("pickGrowCandidates", () => {
     expect(seeds).not.toContain("満タン");
     expect(seeds).toHaveLength(3);
   });
+
+  it("お悩み相談なども同じモードで育て、枠の一部を先に回す（切り口はお題にしない）", () => {
+    let shared = recordTopics({}, "仕事を辞めたい", ["本当はどうしたい？"], Date.now(), 1, "advice");
+    shared = recordPick(shared, "仕事を辞めたい", "本当はどうしたい？", "heart", Date.now(), "advice");
+    for (let index = 0; index < 10; index += 1) shared = recordTopics(shared, `雑談${index}`, ["語"]);
+    const picked = pickGrowCandidates({}, shared, 3, () => 0);
+    expect(picked.find((item) => item.seed === "仕事を辞めたい")?.mode).toBe("advice");
+    expect(picked.map((item) => item.seed)).not.toContain("本当はどうしたい？");
+    expect(picked).toHaveLength(3);
+  });
 });
 
 describe("recordSharedPicks（Redis 無し）", () => {

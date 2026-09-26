@@ -38,6 +38,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     pinNode,
     setMemo,
     setLabel,
+    detailNode,
     copyLabel,
     toggleHeart,
     overlay,
@@ -74,10 +75,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const heartBurst = useChatHearts(code);
   const family = data.familyIndex ?? 0;
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
-  const canExpand = !data.expanded && !data.expanding && !data.placeholder;
+  // 「具体的にする」で出た答えのカードは、それ以上は広げない
+  const canExpand = !data.expanded && !data.expanding && !data.placeholder && !data.detail;
+  const labelMax = data.detail ? 13 : isRoot ? 16 : 15;
   const fontSize = isMandala
-    ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 36, MANDALA_CHIP_H - 28, isRoot ? 16 : 15, 9)
-    : fitLabelFontSize(data.label, 16 * 16 - 36, 72, isRoot ? 17 : 15, 10);
+    ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 36, MANDALA_CHIP_H - 28, labelMax, 9)
+    : fitLabelFontSize(data.label, 16 * 16 - 36, 72, data.detail ? 13 : isRoot ? 17 : 15, 10);
   const hearts = totalHearts(data);
   const liked = (data.heartCount ?? 0) > 0;
   // 自分のハート1つだけのときは数字を出さない。コメントのハートがあれば累計を出す。
@@ -203,6 +206,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           data.placeholder && "topic-chip-skeleton",
           role === "source" && "topic-chip-source",
           role === "keyword" && "topic-chip-keyword",
+          data.detail && "topic-chip-detail",
           pulsing && "topic-chip-pulse",
         )}
         onPointerDown={(event) => event.stopPropagation()}
@@ -234,7 +238,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
               </span>
             ) : null}
             {/* key で語が入れ替わるたびに付け直し、ぽこっと出るアニメーションを毎回かける */}
-            <span key={data.label} className="topic-label topic-label-pop" style={{ fontSize: `calc(${fontSize}px * var(--ts-scale))` }}>
+            <span
+              key={data.label}
+              className="topic-label topic-label-pop"
+              title={data.detail ? data.label : undefined}
+              style={{ fontSize: `calc(${fontSize}px * var(--ts-scale))` }}
+            >
               {data.label}
             </span>
             {regenerating ? (
@@ -277,6 +286,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isPinned={isPinned}
           copied={copied}
           onPin={() => pinNode(id)}
+          onDetail={
+            canExpand && detailNode
+              ? () => {
+                  leaveMenu();
+                  detailNode(id);
+                }
+              : undefined
+          }
           regenSpares={menu.open ? (spareCountFor?.(id) ?? 0) : 0}
           regenReadyAt={regenReadyAt ?? 0}
           onRegenerate={() => {
