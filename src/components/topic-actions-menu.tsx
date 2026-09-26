@@ -54,7 +54,7 @@ export function TopicActionsMenu({
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
       {onDetail ? (
-        <ActionBtn label="具体的にする（対応策・答え・話し方の例を 8 つ出す）" onClick={onDetail}>
+        <ActionBtn label="具体的にする（雑談は具体的な話題、相談などは対応策を 8 つ出す）" onClick={onDetail}>
           <ListChecks />
         </ActionBtn>
       ) : null}
