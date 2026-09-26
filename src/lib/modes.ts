@@ -350,10 +350,10 @@ export function withMode<T extends Pick<Board, "mode">>(board: T, mode: BoardMod
 }
 
 /**
- * みんなのトピック図鑑・人気の話題に混ぜてよいモードか。
- * 雑談以外は個人的な内容になりやすく、雑談の図鑑の質も下がるので、端末の外へ送らない。
+ * みんなのトークテーマ・よく使う話題（利用回数）に載せてよいモードか。
+ * どちらも配信の雑談ネタの一覧なので、雑談だけにする。トピック図鑑はモードごとに分けて全モード記録する。
  */
-export function sharesKnowledge(mode: BoardMode | undefined): boolean {
+export function isChatMode(mode: BoardMode | undefined): boolean {
   return parseMode(mode) === "chat";
 }
 

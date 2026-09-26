@@ -3,6 +3,7 @@ import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import { geminiUserNotice, requestGemini } from "@/lib/gemini-core";
 import { pickGrowCandidates } from "@/lib/knowledge-grow";
 import { loadSharedKnowledge, recordSharedKnowledge } from "@/lib/knowledge-server";
+import { entryMode, type KnowledgeStore } from "@/lib/topic-knowledge";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
 /**
@@ -36,7 +37,12 @@ export async function GET(request: Request) {
   const envLimit = Number(process.env.GROW_LIMIT) || DEFAULT_LIMIT;
   const limit = Math.max(1, Math.min(60, Number(searchParams.get("limit")) || envLimit));
   const started = Date.now();
-  const candidates = pickGrowCandidates(seedKnowledge(), await loadSharedKnowledge(), limit);
+  // 育てるのは雑談のお題だけ（お悩み相談などは雑談の指示で広げると的外れになる）
+  const shared = await loadSharedKnowledge();
+  const chatOnly: KnowledgeStore = Object.fromEntries(
+    Object.entries(shared).filter(([, entry]) => entryMode(entry) === "chat"),
+  );
+  const candidates = pickGrowCandidates(seedKnowledge(), chatOnly, limit);
 
   const grown: { seed: string; added: number }[] = [];
   let stopped: string | null = null;

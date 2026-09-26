@@ -1,5 +1,5 @@
 import { boardUsage, isWellUsed } from "@/lib/community-boards";
-import { sharesKnowledge } from "@/lib/modes";
+import { isChatMode } from "@/lib/modes";
 import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 
@@ -33,7 +33,7 @@ function post(path: string, body: unknown) {
 /** もう一歩広げたボードだけ、使われ具合が変わったときに送る（呼ぶ側で操作が落ち着くまで待つ） */
 export function shareBoardUsage(board: Board) {
   // 雑談以外のボード（お悩み相談など）は、みんなのトークテーマにも載せない
-  if (!sharesKnowledge(board.mode) || !isWellUsed(board)) return;
+  if (!isChatMode(board.mode) || !isWellUsed(board)) return;
   const usage = JSON.stringify(boardUsage(board));
   if (sentBoards.get(board.id) === usage) return;
   sentBoards.set(board.id, usage);

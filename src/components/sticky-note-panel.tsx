@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,28 @@ export function StickyNotePanel({
     if (open) setDraft(value);
   }
 
+  function commit() {
+    onCommit(draft);
+    onOpenChange(false);
+  }
+
+  /** Enter で完了。Shift+Enter・Ctrl+Enter で改行（日本語の変換中の Enter は確定に使わない） */
+  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing || event.keyCode === 229) return;
+    if (event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (!event.ctrlKey && !event.metaKey) {
+      commit();
+      return;
+    }
+    const target = event.currentTarget;
+    const { selectionStart, selectionEnd } = target;
+    const next = `${draft.slice(0, selectionStart)}\n${draft.slice(selectionEnd)}`;
+    if (next.length > MEMO_MAX) return;
+    setDraft(next);
+    requestAnimationFrame(() => target.setSelectionRange(selectionStart + 1, selectionStart + 1));
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 閉じたときにカードのメニューへフォーカスを戻さない（メニューが開いたまま残るため） */}
@@ -43,7 +65,9 @@ export function StickyNotePanel({
         <DialogHeader>
           <DialogTitle>📝 {title || "付箋"}</DialogTitle>
           <DialogDescription>
-            {readOnly ? "配信メモです。マスの大きさは変わりません。" : "書き終わるまで確定しません。完了で残します。"}
+            {readOnly
+              ? "配信メモです。マスの大きさは変わりません。"
+              : "自分用のメモです（トピック図鑑・みんなのトークテーマには送りません）。Enter で完了、Shift+Enter で改行。"}
           </DialogDescription>
         </DialogHeader>
         {readOnly ? (
@@ -55,6 +79,7 @@ export function StickyNotePanel({
             placeholder="エピソード、オチ、リスナーの反応…"
             className="min-h-28"
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={onKeyDown}
           />
         )}
         <DialogFooter>
@@ -67,13 +92,7 @@ export function StickyNotePanel({
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 やめる
               </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  onCommit(draft);
-                  onOpenChange(false);
-                }}
-              >
+              <Button type="button" onClick={commit}>
                 完了
               </Button>
             </>
