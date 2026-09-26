@@ -21,12 +21,17 @@ describe("具体的にする", () => {
   });
 
   it("モードごとの指示とオフラインの答えを出す", () => {
-    expect(buildPrompt("一番つらい瞬間", [], 8, ["仕事を辞めたい"], "advice", true)).toContain("体言止めにしない");
+    expect(buildPrompt("一番つらい瞬間", [], 8, ["仕事を辞めたい"], "advice", true)).toContain("〜してみる");
+    expect(buildPrompt("一番つらい瞬間", [], 8, [], "advice", true)).toContain("読点");
+    expect(buildPrompt("夜食", [], 8, [], "chat", true)).toContain("体言止め");
     const offline = mockDetailTopics("一番つらい瞬間", [], 8, "advice", ["仕事を辞めたい"], () => 0);
     expect(offline).toHaveLength(8);
     expect(offline[0]).toContain("仕事を辞めたい");
+    expect(offline.some((text) => /しよう|どう？/.test(text))).toBe(false);
     expect(offline.every((text) => text.length <= DETAIL_LABEL_MAX)).toBe(true);
-    expect(mockDetailTopics("夜食", [], 8, "chat")).toHaveLength(8);
+    const chat = mockDetailTopics("夜食", [], 8, "chat");
+    expect(chat).toHaveLength(8);
+    expect(chat).toContain("夜食の失敗談");
   });
 
   it("空のカードにだけ答えの印を付ける（中央の写しには付けない）", () => {
