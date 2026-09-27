@@ -80,7 +80,11 @@ export type Settings = {
   showComments: boolean;
   /** コメント欄の文字の倍率（配信画面に映す人向け） */
   commentScale: number;
+  /** カードをタップしたときの動き（抽象展開＝切り口を広げる / 具体的＝「具体的にする」） */
+  expandMode: ExpandMode;
 };
+
+export type ExpandMode = "abstract" | "detail";
 
 export type AppSnapshot = {
   version: 1 | 2;

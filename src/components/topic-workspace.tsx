@@ -91,6 +91,7 @@ export function TopicWorkspace() {
         regenReadyAt: controller.regenReadyAt,
         spareCountFor: (id) => spareCount(board, board.nodes.find((node) => node.id === id)?.data.parentId),
         generationLayout: settings.generationLayout,
+        expandMode: settings.expandMode,
       }}
     >
       <div

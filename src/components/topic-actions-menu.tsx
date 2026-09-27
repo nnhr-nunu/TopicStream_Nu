@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown } from "lucide-react";
+import { Check, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +16,7 @@ export function TopicActionsMenu({
   isPinned,
   copied,
   onPin,
+  onExpand,
   onDetail,
   detailRedo = false,
   onRegenerate,
@@ -33,6 +34,8 @@ export function TopicActionsMenu({
   isPinned: boolean;
   copied: boolean;
   onPin: () => void;
+  /** 「具体的」モードのとき: タップの代わりにメニューから抽象展開（ふつうの広げ方）をする */
+  onExpand?: () => void;
   /** 「具体的にする」 */
   onDetail?: () => void;
   /** 広げ済みのカード: 周りの 8 枚を具体的な内容に作り直す */
@@ -60,6 +63,11 @@ export function TopicActionsMenu({
       <ActionBtn label={isPinned ? "ピンを外す" : "いま話している"} onClick={onPin}>
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
+      {onExpand ? (
+        <ActionBtn label="抽象展開（切り口を 8 つ出して広げる）" onClick={onExpand}>
+          <Grid3x3 />
+        </ActionBtn>
+      ) : null}
       {onDetail ? (
         <ActionBtn
           label={

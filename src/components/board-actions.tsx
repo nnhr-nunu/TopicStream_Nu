@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 
-import type { GenerationLayout } from "@/lib/types";
+import type { ExpandMode, GenerationLayout } from "@/lib/types";
 
 type BoardActions = {
   expandNode: (id: string) => void;
@@ -28,6 +28,8 @@ type BoardActions = {
   /** そのカードの作り直しに使える予備の数（あれば API を呼ばず即座に出せる） */
   spareCountFor?: (id: string) => number;
   generationLayout?: GenerationLayout;
+  /** 「具体的」のときはカードのタップで「具体的にする」、メニューに「抽象展開」を出す */
+  expandMode?: ExpandMode;
 };
 
 const BoardActionsContext = createContext<BoardActions | null>(null);

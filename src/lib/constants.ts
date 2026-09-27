@@ -50,6 +50,7 @@ export const DEFAULT_SETTINGS = {
   youtubeApiKey: "",
   showComments: false,
   commentScale: 1,
+  expandMode: "abstract" as const,
 };
 
 export const RADIUS = {
