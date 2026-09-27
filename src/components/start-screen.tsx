@@ -146,9 +146,6 @@ export function StartScreen({
               </Button>
             </form>
 
-            {isChat ? null : (
-              <p className="mt-2 w-full max-w-2xl text-xs text-muted-foreground">{preset.description}</p>
-            )}
             {isChat ? (
               <div className="mt-4 w-full max-w-2xl">
                 <p className="mb-2 text-xs text-muted-foreground">人気のお題から始める</p>

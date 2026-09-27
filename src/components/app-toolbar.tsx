@@ -40,10 +40,8 @@ export function AppToolbar({
   hasNodes,
   onHome,
   onSwitch,
-  onCreate,
   onRename,
   onDelete,
-  onDuplicate,
   onExport,
   onImport,
   onUndo,
@@ -62,10 +60,8 @@ export function AppToolbar({
   hasNodes: boolean;
   onHome: () => void;
   onSwitch: (id: string) => void;
-  onCreate: () => void;
   onRename: (name: string, id: string) => void;
   onDelete: (id: string) => void;
-  onDuplicate: (id: string) => void;
   onExport: () => void;
   onImport: (text: string) => void;
   onUndo: () => void;
@@ -92,9 +88,7 @@ export function AppToolbar({
           activeBoard={activeBoard}
           atHome={atHome}
           onOpen={onSwitch}
-          onCreate={onCreate}
           onRename={onRename}
-          onDuplicate={onDuplicate}
           onDelete={onDelete}
           onExport={onExport}
           onImport={onImport}
