@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Copy, Download, LayoutGrid, Pencil, Plus, Share2, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Download, LayoutGrid, Pencil, Share2, Trash2, Upload, X } from "lucide-react";
 
 import { ModeBadge } from "@/components/mode-picker";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,6 @@ function BoardRow({
   canDelete,
   onOpen,
   onRename,
-  onDuplicate,
   onDelete,
   onShare,
 }: {
@@ -41,7 +40,6 @@ function BoardRow({
   canDelete: boolean;
   onOpen: () => void;
   onRename: (name: string) => void;
-  onDuplicate: () => void;
   onDelete: () => void;
   onShare: () => void;
 }) {
@@ -163,16 +161,6 @@ function BoardRow({
           type="button"
           size="icon-sm"
           variant="ghost"
-          aria-label={`「${board.name}」を複製`}
-          title="複製"
-          onClick={onDuplicate}
-        >
-          <Copy />
-        </Button>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
           aria-label={`「${board.name}」を削除`}
           title={canDelete ? "削除" : "最後の1つは削除できません"}
           disabled={!canDelete}
@@ -191,9 +179,7 @@ export function BoardPanel({
   activeBoard,
   atHome = false,
   onOpen,
-  onCreate,
   onRename,
-  onDuplicate,
   onDelete,
   onExport,
   onImport,
@@ -204,9 +190,7 @@ export function BoardPanel({
   /** ホームでは「ボード一覧」ボタンとして出す（まだどのボードも開いていない見た目） */
   atHome?: boolean;
   onOpen: (id: string) => void;
-  onCreate: () => void;
   onRename: (name: string, id: string) => void;
-  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   onExport: () => void;
   onImport: (text: string) => void;
@@ -244,20 +228,6 @@ export function BoardPanel({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="px-4 pb-3">
-          <Button
-            type="button"
-            className="h-10 w-full rounded-xl"
-            onClick={() => {
-              onCreate();
-              setOpen(false);
-            }}
-          >
-            <Plus />
-            新しいボードを始める
-          </Button>
-        </div>
-
         <ul className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 pb-3">
           {sorted.map((board) => (
             <BoardRow
@@ -270,10 +240,6 @@ export function BoardPanel({
                 setOpen(false);
               }}
               onRename={(name) => onRename(name, board.id)}
-              onDuplicate={() => {
-                onDuplicate(board.id);
-                setOpen(false);
-              }}
               onDelete={() => onDelete(board.id)}
               onShare={() => {
                 onShare(board.id);
