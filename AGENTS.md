@@ -10,6 +10,7 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | ボード（トピック盤面）の状態操作 | [`board-ops.ts`](./src/lib/board-ops.ts) + [`board-store.ts`](./src/lib/board-store.ts) → 画面は [`board-canvas.tsx`](./src/components/board-canvas.tsx) / [`topic-workspace.tsx`](./src/components/topic-workspace.tsx) |
 | ノード配置・レイアウト計算 | [`layout.ts`](./src/lib/layout.ts) / [`radial-layout.ts`](./src/lib/radial-layout.ts) / [`node-box.ts`](./src/lib/node-box.ts) |
 | Gemini 連携（トピック生成） | [`gemini-core.ts`](./src/lib/gemini-core.ts)（サーバー専用ロジック）→ [`gemini.ts`](./src/lib/gemini.ts)（クライアント呼び出し）→ [`app/api/gemini/`](./src/app/api/gemini/) |
+| トピック図鑑（集合知・AI の結果の再利用） | [`topic-knowledge.ts`](./src/lib/topic-knowledge.ts)（純粋な計算）→ [`knowledge-client.ts`](./src/lib/knowledge-client.ts) / [`knowledge-server.ts`](./src/lib/knowledge-server.ts) → [`topic-database.tsx`](./src/components/topic-database.tsx) / [`app/topics/`](./src/app/topics/) |
 | キー無し時のオフライン生成 | [`mock-topics.ts`](./src/lib/mock-topics.ts) / [`starters.ts`](./src/lib/starters.ts) |
 | ライブチャット連動（YouTube/Twitch） | [`live-chat-dock.tsx`](./src/components/live-chat-dock.tsx) + [`live-store.ts`](./src/lib/live-store.ts) / [`live-pulse.ts`](./src/lib/live-pulse.ts) + [`chat-parse.ts`](./src/lib/chat-parse.ts) |
 | 配信ディレクトリ（community 一覧） | [`stream-directory.ts`](./src/lib/stream-directory.ts) → [`community-catalog.tsx`](./src/components/community-catalog.tsx) / [`app/community/`](./src/app/community/) |
@@ -37,6 +38,15 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 
 - `next.config.ts` は `STATIC_EXPORT=1` の有無で `output: "export"` を切り替える。ここを直接いじらず、両ビルドで `npm test` → 該当ビルドコマンドを通す
 - API route を追加したら、静的エクスポートでも壊れないか（`build:pages` が退避対象に含めているか）を確認する
+
+## コマンド
+
+| 用途 | コマンド |
+| ---- | -------- |
+| 開発サーバー | `npm run dev`（127.0.0.1:43173） |
+| テスト / Lint / 型 | `npm test` / `npm run lint` / `npm run typecheck` |
+| 通常ビルド（Vercel） | `npm run build` |
+| 静的ビルド（GitHub Pages） | `npm run build:pages` |
 
 ## 制約
 
