@@ -71,4 +71,14 @@ describe("モードごとの生成", () => {
     expect(advice).not.toContain("VTuber");
     expect(buildPrompt("登録者1万人", [], 8, [], "goal")).toContain("具体的な行動");
   });
+
+  it("雑談では、分け方のあるお題は種類で広げ、絞れたら中身を出すよう例ごと伝える", () => {
+    const prompt = buildPrompt("地方の方言", [], 8);
+    expect(prompt).toContain("その分け方の一つ一つを切り口の中心にする");
+    // 例は複数並ぶ（最初の例も残る）
+    expect(prompt).toContain("お題「最近買ってよかったもの」なら");
+    expect(prompt).toContain('"関西弁"');
+    expect(prompt).toContain('"なんでやねん"');
+    expect(buildPrompt("恐竜", [], 8, [], "learn")).toContain("主な種類・分け方");
+  });
 });
