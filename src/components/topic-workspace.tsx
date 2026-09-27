@@ -129,8 +129,17 @@ export function TopicWorkspace() {
             setAtHome(false);
             controller.switchBoard(id);
           }}
+          onCreate={() => {
+            notifyPrivacy();
+            setAtHome(true);
+            controller.createBoard();
+          }}
           onRename={controller.renameBoard}
           onDelete={controller.deleteBoard}
+          onDuplicate={(id) => {
+            setAtHome(false);
+            controller.duplicateBoard(id);
+          }}
           onExport={controller.exportJson}
           onImport={(text) => {
             setAtHome(false);
