@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 const SHOWN = 6;
 /** ホームで出す分類（多すぎると選びにくいので主なものだけ） */
-const HOME_CATEGORIES: CategoryId[] = ["life", "food", "shopping", "game", "oshi", "memory", "talk"];
+const HOME_CATEGORIES: CategoryId[] = ["consult", "life", "food", "people", "work", "shopping", "game", "oshi", "memory", "hobby", "talk"];
 
 function picksOf(entry: KnowledgeEntry): number {
   return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
