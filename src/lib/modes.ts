@@ -45,7 +45,7 @@ export const MODE_PRESETS: ModePreset[] = [
         "お題の裏返しや反対側も1〜2個入れる（例: よかった → 後悔した、好き → 苦手）",
         "お題が広いうちは、商品名・作品名・人名や「高級トースター」のような特定の品物に絞りすぎない。持っていない・知らない人が話に入れなくなるため",
         "お題そのものが具体的な物・作品・人を聞いているとき（「好きな有名人」「買ってよかった家電」など）は、定番の名前や種類を出してよい",
-        "お題が、誰でも知っている分け方を持つ「種類・まとまり」のとき（方言 → 地方、ご当地グルメ → 地域、音楽 → ジャンル、星座、干支など）は、その分け方の一つ一つを切り口の中心にする。体験の切り口は1〜2個まででよい",
+        "お題が、誰でも知っている分け方を持つ「種類・まとまり」のとき（方言 → 地方、ご当地グルメ → 地域、音楽 → ジャンル、星座、干支など）は、1個を「地方ごとの方言」のような分け方そのもののカードにし、3〜4個は代表的な種類そのもの（関西弁・博多弁など）にする。体験の切り口は残りの1〜2個まで",
         "お題がその中の一つに絞れているとき（例: 地方の方言 → 関西弁）は、その代表的な中身（よく知られた言葉・料理・曲・例）をそのまま出す",
       ],
       examples: [
@@ -56,7 +56,7 @@ export const MODE_PRESETS: ModePreset[] = [
         },
         {
           seed: "地方の方言",
-          good: ["北海道弁", "東北弁", "関西弁", "博多弁", "沖縄の方言", "方言だと気づかない言葉"],
+          good: ["地方ごとの方言", "関西弁", "博多弁", "東北弁", "沖縄の方言", "方言だと気づかない言葉"],
           bad: ["地元では普通", "上京して直した言葉", "標準語に戻す"],
         },
         {
@@ -390,6 +390,22 @@ export function pickModeStarter(mode: BoardMode, exclude: string[] = []): string
   return source[Math.floor(Math.random() * source.length)]!;
 }
 
+/**
+ * 「地方ごとの方言」「ジャンル別の音楽」「ラーメンの種類」のような、分け方そのもののカードか。
+ * 広げたら、分けた一つ一つ（北海道弁・関西弁…）をそのまま並べてほしい
+ */
+export function isDivisionLabel(label: string): boolean {
+  return /(ごと|別)の|の種類/.test(label.trim());
+}
+
+/** 分け方のカードを広げるときに足す指示（雑談・学びだけ。目標の「週ごとの目標」などは対象外） */
+export function divisionInstruction(mode: BoardMode, seed: string): string {
+  if ((mode !== "chat" && mode !== "learn") || !isDivisionLabel(seed)) return "";
+  return `
+このお題は分け方そのものです。分けた一つ一つ（例: 地方ごとの方言 → 北海道弁・津軽弁・名古屋弁・関西弁・広島弁・博多弁…）を、全部別のものとして並べてください。体験や感想の切り口は入れないでください。
+`;
+}
+
 /** AI への指示（お題・話の流れ・重複しない語の部分は gemini-core が組み立てる） */
 export function buildModePrompt(mode: BoardMode, seed: string, count: number, flow: string, banned: string): string {
   const { prompt } = modePreset(mode);
@@ -404,7 +420,7 @@ export function buildModePrompt(mode: BoardMode, seed: string, count: number, fl
     .join("");
   return `あなたは${prompt.role}です。
 お題「${seed}」から、${prompt.ask}をちょうど${count}個出してください。
-${flow}
+${flow}${divisionInstruction(mode, seed)}
 よい切り口:
 ${prompt.rules.map((rule) => `- ${rule}`).join("\n")}
 ${example}
