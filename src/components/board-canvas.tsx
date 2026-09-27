@@ -10,6 +10,7 @@ import {
   applyNodeChanges,
   useNodesInitialized,
   useReactFlow,
+  useStore,
   type Edge,
   type NodeChange,
   type OnNodeDrag,
@@ -432,6 +433,7 @@ function CanvasInner({
             size={1.1}
             color="color-mix(in oklab, var(--foreground) 14%, transparent)"
           />
+          <ZoomVar />
           {children}
           {pickFrom ? <CombinePickBanner label={pickLabel} onCancel={() => setPickFrom(null)} /> : null}
         </>
@@ -467,4 +469,14 @@ export function BoardCanvas(props: {
       </ReactFlowProvider>
     </div>
   );
+}
+
+/** 引いた（縮小した）ときにカードのメニューが小さくなりすぎないよう、倍率を CSS に渡す（globals.css の --rf-zoom） */
+function ZoomVar() {
+  const zoom = useStore((state) => state.transform[2]);
+  const domNode = useStore((state) => state.domNode);
+  useEffect(() => {
+    domNode?.style.setProperty("--rf-zoom", String(zoom));
+  }, [domNode, zoom]);
+  return null;
 }

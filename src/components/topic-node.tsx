@@ -2,11 +2,11 @@
 
 import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { toast } from "sonner";
 
 import { useBoardActions } from "@/components/board-actions";
 import { useCombine } from "@/components/combine-drag";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
-import { ExplainPanel } from "@/components/explain-panel";
 import { StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
@@ -54,7 +54,10 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const [copied, setCopied] = useState(false);
   const [editor, setEditor] = useState<"label" | null>(null);
   const [memoOpen, setMemoOpen] = useState(false);
-  const [explainOpen, setExplainOpen] = useState(false);
+  const memoRef = useRef(data.memo);
+  useEffect(() => {
+    memoRef.current = data.memo;
+  }, [data.memo]);
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
   const combine = useCombine();
@@ -71,6 +74,25 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const leaveMenu = () => {
     menu.hideNow();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  };
+  // 解説: ダイアログは出さず、そのまま付箋に貼る（届くまでの間はトーストで知らせる）
+  const explainToMemo = () => {
+    if (!explainNode) return;
+    const label = data.label;
+    const toastId = toast.loading(`「${label}」の解説を取得中…`);
+    void explainNode(id, label).then((result) => {
+      if (result.text) {
+        setMemo(id, appendToMemo(memoRef.current, result.text));
+        toast.success("解説を付箋に貼りました", { id: toastId, description: result.warning });
+        return;
+      }
+      const url = `https://www.google.com/search?q=${encodeURIComponent(result.query)}`;
+      toast.message("解説を取得できませんでした", {
+        id: toastId,
+        description: result.warning ?? "AI が使えない環境です。",
+        action: { label: "検索", onClick: () => window.open(url, "_blank", "noopener,noreferrer") },
+      });
+    });
   };
   const isFocused = focusedNodeId === id || selected;
   const isRoot = data.parentId === null;
@@ -426,16 +448,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         onCommit={(next) => setMemo(id, next)}
       />
 
-      {overlay || !explainNode ? null : (
-        <ExplainPanel
-          open={explainOpen}
-          label={data.label}
-          onOpenChange={setExplainOpen}
-          explain={() => explainNode(id, data.label)}
-          onAttach={(text) => setMemo(id, appendToMemo(data.memo, text))}
-        />
-      )}
-
       {overlay ? null : (
         <TopicActionsMenu
           open={(menu.open || (!coarse && editor === "label")) && !dragging}
@@ -452,7 +464,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
             explainNode && !data.placeholder
               ? () => {
                   leaveMenu();
-                  setExplainOpen(true);
+                  explainToMemo();
                 }
               : undefined
           }

@@ -10,7 +10,7 @@ import {
   parseExplanation,
 } from "@/lib/explain";
 
-describe("これって何？", () => {
+describe("解説", () => {
   it("話の流れを大きいお題から順に渡し、「言葉：意味」のカードは語だけを聞く", () => {
     const prompt = buildExplainPrompt("ぶち：すごく", ["広島弁", "地方の方言"]);
     expect(prompt).toContain("カードの言葉: ぶち\n");

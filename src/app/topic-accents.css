@@ -87,6 +87,18 @@
   z-index: 13 !important;
 }
 
+/* 付箋を読んでいる間は操作メニューを引っ込める（全文と重なって読めないので） */
+.topic-node:has(.topic-memo-tag:hover) .topic-actions {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 付箋の全文も、引いたときに小さくなりすぎないようにする */
+.topic-memo-tag-full {
+  scale: var(--menu-scale, 1);
+  transform-origin: top center;
+}
+
 /* 文を作り直している最中: 光が流れ、「作り直し中…」を出す */
 .topic-chip-regen {
   position: relative;

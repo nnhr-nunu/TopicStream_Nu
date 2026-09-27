@@ -9,7 +9,7 @@ export type ExplainResult = Explanation & { warning?: string };
 const memory = new Map<string, ExplainResult>();
 
 /**
- * 「これって何？」の解説をサーバーに頼む。サーバーの無い公開版（404）や失敗時は、
+ * カードの言葉の解説をサーバーに頼む。サーバーの無い公開版（404）や失敗時は、
  * 手元で言えること（「言葉：意味」のカードの意味）と検索語だけ返す。
  */
 export async function fetchExplanation(options: {

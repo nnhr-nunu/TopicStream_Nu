@@ -15,7 +15,7 @@ const EXPLAIN_TIMEOUT_MS = 10_000;
 const EXPLAIN_DEADLINE_MS = 20_000;
 
 /**
- * 「これって何？」の解説をサーバーから Gemini に頼む（サーバー専用。キーは外に出さない）。
+ * カードの言葉の解説をサーバーから Gemini に頼む（サーバー専用。キーは外に出さない）。
  * 文は短いのでストリームせず 1 回で受け取り、混んでいれば次のモデルへ回す。
  */
 export async function requestExplanation(options: {
