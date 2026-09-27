@@ -138,6 +138,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
       typeof settings.commentScale === "number" && Number.isFinite(settings.commentScale)
         ? Math.min(COMMENT_SCALE_MAX, Math.max(COMMENT_SCALE_MIN, settings.commentScale))
         : 1,
+    expandMode: settings.expandMode === "detail" ? "detail" : "abstract",
   };
 }
 

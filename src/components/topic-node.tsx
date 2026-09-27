@@ -50,6 +50,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     regenReadyAt,
     spareCountFor,
     generationLayout,
+    expandMode,
   } = useBoardActions();
   const [copied, setCopied] = useState(false);
   const [editor, setEditor] = useState<"label" | null>(null);
@@ -78,6 +79,8 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   // 「具体的にする」で出た答えのカードも、ふつうのカードと同じように広げられる
   const canExpand = !data.expanded && !data.expanding && !data.placeholder;
+  // 「具体的」モード: タップで「具体的にする」、メニューには逆の「抽象展開」を出す
+  const tapDetail = expandMode === "detail" && Boolean(detailNode);
   // 文のカード（「具体的にする」の答え・図鑑から取り込んだ長い文）は小さめの文字で左寄せ
   const sentence = isSentenceCard(data);
   const labelMax = sentence ? 13 : isRoot ? 16 : 15;
@@ -231,7 +234,9 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
             suppressClick.current = false;
             return;
           }
-          if (canExpand) expandNode(id);
+          if (!canExpand) return;
+          if (tapDetail) detailNode?.(id);
+          else expandNode(id);
         }}
       >
         {data.placeholder ? (
@@ -301,8 +306,16 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           copied={copied}
           onPin={() => pinNode(id)}
           detailRedo={Boolean(data.expanded)}
+          onExpand={
+            tapDetail && canExpand
+              ? () => {
+                  leaveMenu();
+                  expandNode(id);
+                }
+              : undefined
+          }
           onDetail={
-            (canExpand || (data.expanded && !data.expanding)) && detailNode
+            ((canExpand && !tapDetail) || (data.expanded && !data.expanding)) && detailNode
               ? () => {
                   leaveMenu();
                   detailNode(id);
