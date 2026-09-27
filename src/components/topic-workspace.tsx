@@ -6,6 +6,7 @@ import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
 import { LiveChatDock } from "@/components/live-chat-dock";
+import { ModeDock } from "@/components/mode-dock";
 import { PinBanner } from "@/components/pin-banner";
 import { PrivacyNotice } from "@/components/privacy-notice";
 import { SharePostDialog } from "@/components/share-post-dialog";
@@ -192,8 +193,14 @@ export function TopicWorkspace() {
                 board={board}
                 layout={settings.generationLayout}
                 onFocus={controller.focusNode}
-                onPositions={controller.syncPositions}
-              />
+                onCombine={controller.combineNodes}
+              >
+                <ModeDock
+                  mode={settings.expandMode}
+                  onChange={(expandMode) => controller.patchSettings({ expandMode })}
+                  expanded={board.nodes.length > 1}
+                />
+              </BoardCanvas>
             </LiveChatDock>
           </>
         )}

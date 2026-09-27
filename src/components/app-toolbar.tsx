@@ -116,27 +116,6 @@ export function AppToolbar({
           </>
         ) : (
           <>
-            <div role="radiogroup" aria-label="カードをタップしたときの広げ方" className="expand-mode-toggle">
-              {(
-                [
-                  ["abstract", "抽象展開", "タップで切り口を 8 つ出して広げる"],
-                  ["detail", "具体的", "タップで「具体的にする」（具体的な話題・対応策などを 8 つ出す）"],
-                ] as const
-              ).map(([value, label, tip]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={settings.expandMode === value}
-                  title={tip}
-                  className="expand-mode-option"
-                  onClick={() => onPatchSettings({ expandMode: value })}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <span className="app-bar-divider" aria-hidden />
             <Tip label="1つ戻る (Z)">
               <Button size="icon-sm" variant="ghost" aria-label="1つ戻る" onClick={onUndo} disabled={!canUndo}>
                 <Undo2 />

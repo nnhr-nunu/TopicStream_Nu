@@ -39,6 +39,8 @@ export type TopicNodeData = {
   spares?: string[];
   /** 「具体的にする」で出した答え（対応策・具体的な話題などの短い文）。作り直しも「具体的にする」の指示で行う */
   detail?: boolean;
+  /** 掛け合わせで作ったカード: 重ねて持ってきた側のカード（親 parentId は重ねた先） */
+  mixedFromId?: string;
 };
 
 export type TNode = {

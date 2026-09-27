@@ -90,7 +90,6 @@ export function OverlayWorkspace() {
           overlay
           layout={settings.generationLayout}
           onFocus={controller.focusNode}
-          onPositions={controller.syncPositions}
         />
       </div>
     </BoardActionsProvider>

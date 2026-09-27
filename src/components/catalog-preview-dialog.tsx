@@ -94,7 +94,6 @@ export function CatalogPreviewDialog({
                   overlay
                   layout={preview.layout}
                   onFocus={() => undefined}
-                  onPositions={() => undefined}
                 />
               </div>
             </BoardActionsProvider>

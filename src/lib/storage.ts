@@ -58,6 +58,7 @@ function asNode(value: unknown): TNode | null {
           : undefined,
       role: node.data.role === "source" || node.data.role === "keyword" ? node.data.role : undefined,
       copiedFromId: typeof node.data.copiedFromId === "string" ? node.data.copiedFromId : undefined,
+      mixedFromId: typeof node.data.mixedFromId === "string" ? node.data.mixedFromId : undefined,
       hostsGroupId:
         typeof node.data.hostsGroupId === "number" && node.data.hostsGroupId > 0
           ? node.data.hostsGroupId

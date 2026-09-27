@@ -448,7 +448,10 @@ export function undoExpand(board: Board, action: HistoryEntry): Board {
   return touch(board, {
     nodes: remaining.map((node) => {
       if (node.id !== action.parentId) return node;
-      const stillHasKids = remaining.some((child) => child.data.parentId === action.parentId);
+      // 掛け合わせで付いたカードは「広げた」ことにならない
+      const stillHasKids = remaining.some(
+        (child) => child.data.parentId === action.parentId && !child.data.mixedFromId,
+      );
       const homeFamily =
         typeof node.data.groupId === "number" ? familyIndexForGroup(node.data.groupId) : node.data.familyIndex;
       return {
@@ -501,9 +504,12 @@ export function historyFromChildren(board: Board, parentId: string, childIds: st
 
 export function redoExpand(board: Board, entry: HistoryEntry): Board {
   const existing = new Set(board.nodes.map((node) => node.id));
+  const opens = entry.nodes.some((node) => node.data.parentId === entry.parentId && !node.data.mixedFromId);
   const nodes = [
     ...board.nodes.map((node) =>
-      node.id === entry.parentId ? { ...node, data: { ...node.data, expanded: true, expanding: false } } : node,
+      node.id === entry.parentId
+        ? { ...node, data: { ...node.data, expanded: opens || node.data.expanded, expanding: false } }
+        : node,
     ),
     ...entry.nodes.filter((node) => !existing.has(node.id)).map(cloneNode),
   ];
@@ -516,7 +522,10 @@ export function redoExpand(board: Board, entry: HistoryEntry): Board {
 }
 
 export function clearChildren(board: Board, parentId: string): { board: Board; history: HistoryEntry | null } {
-  const childIds = board.nodes.filter((node) => node.data.parentId === parentId).map((node) => node.id);
+  // 掛け合わせで付いたカードは残す（作り直すのは広げた 8 枚だけ）
+  const childIds = board.nodes
+    .filter((node) => node.data.parentId === parentId && !node.data.mixedFromId)
+    .map((node) => node.id);
   if (childIds.length === 0) return { board, history: null };
   const edgeIds = board.edges.filter((edge) => edge.source === parentId && childIds.includes(edge.target)).map((edge) => edge.id);
   const history = historyFromChildren(board, parentId, childIds, edgeIds);

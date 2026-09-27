@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, Combine, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,15 +11,27 @@ import { cn } from "@/lib/utils";
 
 const LEAVE_MS = 480;
 
+type MenuItem = {
+  key: string;
+  /** PC のメニューのツールチップ（読み上げ）用の説明 */
+  label: string;
+  /** スマホのメニューに出す短い名前 */
+  short: string;
+  icon: ReactNode;
+  onClick: () => void;
+};
+
 export function TopicActionsMenu({
   open,
   onOpenChange,
+  sheetTitle,
   isPinned,
   copied,
   onPin,
   onExpand,
   onDetail,
   detailRedo = false,
+  onCombine,
   onRegenerate,
   onReject,
   regenSpares = 0,
@@ -31,6 +44,8 @@ export function TopicActionsMenu({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** あればスマホ向けに、画面の下から出るメニューにする（見出しはカードの文） */
+  sheetTitle?: string;
   isPinned: boolean;
   copied: boolean;
   onPin: () => void;
@@ -40,6 +55,8 @@ export function TopicActionsMenu({
   onDetail?: () => void;
   /** 広げ済みのカード: 周りの 8 枚を具体的な内容に作り直す */
   detailRedo?: boolean;
+  /** 掛け合わせる相手をタップで選ぶ */
+  onCombine?: () => void;
   /** 無いときは作り直しを出さない（中心のカードは周りの話題とつながらなくなるので） */
   onRegenerate?: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
@@ -54,56 +71,200 @@ export function TopicActionsMenu({
   onPointerEnter: () => void;
   onPointerLeave: () => void;
 }) {
+  const items: MenuItem[] = [
+    {
+      key: "pin",
+      label: isPinned ? "ピンを外す" : "いま話している",
+      short: isPinned ? "ピンを外す" : "いま話している",
+      icon: <Pin className={cn(isPinned && "fill-current")} />,
+      onClick: onPin,
+    },
+  ];
+  if (onExpand) {
+    items.push({
+      key: "expand",
+      label: "抽象展開（切り口を 8 つ出して広げる）",
+      short: "抽象展開",
+      icon: <Grid3x3 />,
+      onClick: onExpand,
+    });
+  }
+  if (onDetail) {
+    items.push({
+      key: "detail",
+      label: detailRedo
+        ? "具体的にする（周りの 8 枚を、具体的な話題・対応策・企画案などに作り直す）"
+        : "具体的にする（具体的な話題・対応策・企画案などを 8 つ出す）",
+      short: "具体的にする",
+      icon: <ListChecks />,
+      onClick: onDetail,
+    });
+  }
+  if (onCombine) {
+    items.push({
+      key: "combine",
+      label: sheetTitle
+        ? "掛け合わせる（相手のカードをタップ。長押ししたまま動かして重ねてもできます）"
+        : "掛け合わせる（相手のカードを選ぶ。カードをドラッグして重ねてもできます）",
+      short: "掛け合わせる",
+      icon: <Combine />,
+      onClick: onCombine,
+    });
+  }
+  const tail: MenuItem[] = [];
+  if (onReject) {
+    tail.push({
+      key: "reject",
+      label: "ずれている（お題に合わない・間違いとして記録し、作り直す）",
+      short: "ずれている",
+      icon: <ThumbsDown />,
+      onClick: onReject,
+    });
+  }
+  tail.push(
+    { key: "label", label: "文を直す", short: "文を直す", icon: <Pencil />, onClick: onEditLabel },
+    {
+      key: "memo",
+      label: "付箋を書く",
+      short: "付箋",
+      icon: (
+        <span className="text-base leading-none" aria-hidden>
+          📝
+        </span>
+      ),
+      onClick: onEditMemo,
+    },
+    {
+      key: "copy",
+      label: "ラベルをコピー",
+      short: copied ? "コピーしました" : "コピー",
+      icon: copied ? <Check /> : <Copy />,
+      onClick: onCopy,
+    },
+  );
+
+  if (sheetTitle !== undefined) {
+    return open ? (
+      <TopicActionsSheet
+        title={sheetTitle}
+        items={items}
+        tail={tail}
+        regenerate={
+          onRegenerate ? { spares: regenSpares, readyAt: regenReadyAt, onClick: onRegenerate } : undefined
+        }
+        onClose={() => onOpenChange(false)}
+      />
+    ) : null;
+  }
+
   return (
     <div
       className={cn("topic-actions", open && "topic-actions-open")}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
     >
-      <ActionBtn label={isPinned ? "ピンを外す" : "いま話している"} onClick={onPin}>
-        <Pin className={cn(isPinned && "fill-current")} />
-      </ActionBtn>
-      {onExpand ? (
-        <ActionBtn label="抽象展開（切り口を 8 つ出して広げる）" onClick={onExpand}>
-          <Grid3x3 />
+      {items.map((item) => (
+        <ActionBtn key={item.key} label={item.label} onClick={item.onClick}>
+          {item.icon}
         </ActionBtn>
-      ) : null}
-      {onDetail ? (
-        <ActionBtn
-          label={
-            detailRedo
-              ? "具体的にする（周りの 8 枚を、具体的な話題・対応策・企画案などに作り直す）"
-              : "具体的にする（具体的な話題・対応策・企画案などを 8 つ出す）"
-          }
-          onClick={onDetail}
-        >
-          <ListChecks />
-        </ActionBtn>
-      ) : null}
+      ))}
       {onRegenerate ? (
         <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
       ) : null}
-      {onReject ? (
-        <ActionBtn label="ずれている（お題に合わない・間違いとして記録し、作り直す）" onClick={onReject}>
-          <ThumbsDown />
+      {tail.map((item) => (
+        <ActionBtn key={item.key} label={item.label} onClick={item.onClick}>
+          {item.icon}
         </ActionBtn>
-      ) : null}
-      <ActionBtn label="文を直す" onClick={onEditLabel}>
-        <Pencil />
-      </ActionBtn>
-      <ActionBtn label="付箋を書く" onClick={onEditMemo}>
-        <span className="text-base leading-none" aria-hidden>
-          📝
-        </span>
-      </ActionBtn>
-      <ActionBtn label="ラベルをコピー" onClick={onCopy}>
-        {copied ? <Check /> : <Copy />}
-      </ActionBtn>
+      ))}
       <span className="sr-only">{open ? "操作メニュー" : ""}</span>
       <button type="button" className="sr-only" onClick={() => onOpenChange(false)}>
         閉じる
       </button>
     </div>
+  );
+}
+
+/**
+ * スマホのメニュー: 画面の下から出す（カードの下に出すと画面の外にはみ出したり、指で隠れたりするので）。
+ * 盤面の外（body）に出すので、React Flow のドラッグ・カードの長押しには伝えない。
+ */
+function TopicActionsSheet({
+  title,
+  items,
+  tail,
+  regenerate,
+  onClose,
+}: {
+  title: string;
+  items: MenuItem[];
+  tail: MenuItem[];
+  regenerate?: { spares: number; readyAt: number; onClick: () => void };
+  onClose: () => void;
+}) {
+  const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
+  const render = (item: MenuItem) => (
+    <button
+      key={item.key}
+      type="button"
+      className="topic-sheet-btn"
+      aria-label={item.label}
+      onClick={() => item.onClick()}
+    >
+      <span className="topic-sheet-icon">{item.icon}</span>
+      <span>{item.short}</span>
+    </button>
+  );
+  return createPortal(
+    <div
+      className="topic-sheet-backdrop"
+      onPointerDown={stop}
+      onPointerMove={stop}
+      onPointerUp={stop}
+      onClick={(event) => {
+        stop(event);
+        onClose();
+      }}
+    >
+      <div className="topic-sheet" role="dialog" aria-label="カードの操作" onClick={stop}>
+        <div className="topic-sheet-head">
+          <p className="topic-sheet-title">{title}</p>
+          <button type="button" className="topic-sheet-close" aria-label="閉じる" onClick={onClose}>
+            <X className="size-5" />
+          </button>
+        </div>
+        <div className="topic-sheet-grid">
+          {items.map(render)}
+          {regenerate ? <SheetRegenerate {...regenerate} /> : null}
+          {tail.map(render)}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function SheetRegenerate({ spares, readyAt, onClick }: { spares: number; readyAt: number; onClick: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  const cooling = spares === 0 && readyAt > now;
+  useEffect(() => {
+    if (spares > 0 || readyAt <= Date.now()) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(timer);
+  }, [spares, readyAt]);
+  const seconds = Math.max(1, Math.ceil((readyAt - now) / 1000));
+  return (
+    <button
+      type="button"
+      className="topic-sheet-btn"
+      disabled={cooling}
+      aria-label={cooling ? `AI の作り直しは、あと ${seconds} 秒で使えます` : "このマスの文だけ作り直す"}
+      onClick={onClick}
+    >
+      <span className="topic-sheet-icon">
+        <RefreshCw />
+      </span>
+      <span>{cooling ? `あと${seconds}秒` : spares > 0 ? `作り直す（${spares}）` : "作り直す"}</span>
+    </button>
   );
 }
 

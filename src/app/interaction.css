@@ -1,0 +1,450 @@
+/* 盤面の操作まわり: 左下の広げ方の切り替え・スマホのメニュー（下から出る）・掛け合わせ・使い方の画像 */
+
+/* ---- 左下: 抽象展開 / 具体的 と 使い方 ---- */
+.mode-dock {
+  pointer-events: none;
+  position: absolute;
+  left: 0.75rem;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  max-width: calc(100% - 1.5rem);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.mode-dock > * {
+  pointer-events: auto;
+}
+.mode-dock-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.mode-dock-toggle {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  padding: 4px;
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 12%, transparent);
+  backdrop-filter: blur(10px);
+}
+.mode-dock-option {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 0.95rem;
+  white-space: nowrap;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.mode-dock-option:hover {
+  color: var(--foreground);
+}
+.mode-dock-option[aria-checked="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 2px 6px color-mix(in oklab, var(--primary) 35%, transparent);
+}
+.mode-dock-help {
+  display: inline-flex;
+  width: 2.9rem;
+  height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  color: var(--muted-foreground);
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 12%, transparent);
+  backdrop-filter: blur(10px);
+}
+.mode-dock-help:hover {
+  color: var(--foreground);
+}
+.mode-dock-hint {
+  position: relative;
+  display: flex;
+  max-width: min(20rem, calc(100vw - 1.5rem));
+  align-items: flex-end;
+  gap: 0.6rem;
+  border-radius: 1rem;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 0.7rem 0.75rem 0.7rem 0.9rem;
+  box-shadow: 0 12px 28px color-mix(in oklab, black 22%, transparent);
+  animation: mode-dock-hint-in 260ms ease-out;
+}
+.mode-dock-hint::after {
+  content: "";
+  position: absolute;
+  left: 1.6rem;
+  top: 100%;
+  border: 7px solid transparent;
+  border-top-color: var(--foreground);
+}
+.mode-dock-hint b {
+  color: color-mix(in oklab, var(--primary) 55%, var(--background));
+}
+.mode-dock-hint-close {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+}
+@keyframes mode-dock-hint-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mode-dock-option {
+    padding: 0 0.7rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* ---- スマホのメニュー（画面の下から出す） ---- */
+.topic-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: color-mix(in oklab, black 28%, transparent);
+  animation: topic-sheet-fade 160ms ease-out;
+}
+.topic-sheet {
+  width: min(100%, 34rem);
+  border-radius: 1.25rem 1.25rem 0 0;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  padding: 0.7rem 0.8rem calc(0.9rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -12px 32px color-mix(in oklab, black 18%, transparent);
+  animation: topic-sheet-up 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.topic-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.2rem 0.55rem;
+}
+.topic-sheet-title {
+  display: -webkit-box;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.topic-sheet-close {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+}
+.topic-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+.topic-sheet-btn {
+  display: flex;
+  min-height: 4.2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border-radius: 0.9rem;
+  background: color-mix(in oklab, var(--muted) 70%, transparent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 0.45rem 0.2rem;
+  text-align: center;
+}
+.topic-sheet-btn:active {
+  background: color-mix(in oklab, var(--primary) 18%, var(--muted));
+}
+.topic-sheet-btn:disabled {
+  opacity: 0.5;
+}
+.topic-sheet-icon {
+  display: inline-flex;
+  height: 1.3rem;
+  align-items: center;
+  color: var(--primary);
+}
+.topic-sheet-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+@keyframes topic-sheet-up {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes topic-sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- 長押しで持ち上げたカード（スマホ） ---- */
+.topic-node-lifted .topic-chip {
+  transform: scale(1.07);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--primary) 70%, transparent),
+    0 16px 30px color-mix(in oklab, black 22%, transparent);
+  transition: transform 160ms ease;
+}
+.topic-lift-hint {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 9;
+  translate: -50% 0;
+  border-radius: 0.7rem;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 0.35rem 0.6rem;
+  text-align: center;
+  white-space: nowrap;
+  animation: mode-dock-hint-in 180ms ease-out;
+}
+.react-flow__node:has(.topic-node-lifted) {
+  z-index: 20 !important;
+}
+
+/* ---- 掛け合わせ ---- */
+/* PC: ドラッグ中のカード */
+.react-flow__node.dragging {
+  z-index: 30 !important;
+}
+.react-flow__node.dragging .topic-chip {
+  cursor: grabbing;
+  opacity: 0.88;
+  box-shadow: 0 18px 36px color-mix(in oklab, black 24%, transparent);
+}
+/* 重ねている相手 */
+.react-flow__node.combine-target {
+  z-index: 25 !important;
+}
+.react-flow__node.combine-target .topic-chip {
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 4px var(--primary),
+    0 0 0 12px color-mix(in oklab, var(--primary) 22%, transparent);
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+.react-flow__node.combine-target::before {
+  content: "× 掛け合わせる";
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 3;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.25rem 0.7rem;
+  white-space: nowrap;
+}
+/* どこにも重ならずに離したら、すっと元の位置へ */
+.react-flow__node.combine-return {
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* 持ってきた側（メニューから選んでいる途中・スマホで持ち上げ中） */
+.react-flow__node.combine-source .topic-chip {
+  outline: 3px dashed var(--primary);
+  outline-offset: 4px;
+}
+/* メニューの「掛け合わせる」: 選べる相手 */
+.react-flow__node.combine-candidate .topic-chip {
+  animation: combine-candidate 1.4s ease-in-out infinite;
+}
+@keyframes combine-candidate {
+  50% {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 40%, transparent);
+  }
+}
+
+/* 掛け合わせでできたカードと、持ってきた側から引いた線 */
+.topic-chip-mix {
+  outline: 2px dashed color-mix(in oklab, var(--primary) 65%, transparent);
+  outline-offset: 4px;
+}
+.react-flow__edge.mix-edge path {
+  stroke-dasharray: 8 7;
+}
+
+/* スマホ: 指の少し上に出す、持ち上げたカードの写し */
+.combine-ghost {
+  pointer-events: none;
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  max-width: 14rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  translate: -50% calc(-100% - 36px);
+}
+.combine-ghost-label {
+  display: -webkit-box;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  border: 2px solid var(--primary);
+  background: var(--popover);
+  color: var(--foreground);
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 0.5rem 0.75rem;
+  box-shadow: 0 14px 30px color-mix(in oklab, black 25%, transparent);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.combine-ghost-hint {
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+
+.combine-pick-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 5.4rem;
+  z-index: 30;
+  display: flex;
+  max-width: min(32rem, calc(100% - 1.5rem));
+  align-items: center;
+  gap: 0.6rem;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.85rem;
+  padding: 0.45rem 0.45rem 0.45rem 1rem;
+  box-shadow: 0 12px 28px color-mix(in oklab, black 22%, transparent);
+}
+.combine-pick-banner b {
+  color: color-mix(in oklab, var(--primary) 55%, var(--background));
+}
+.combine-pick-cancel {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.4rem 0.75rem;
+}
+
+/* ---- 使い方の画像（横にスワイプ） ---- */
+.usage-gallery {
+  display: flex;
+  gap: 0.9rem;
+  margin: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0 0 0.6rem;
+  list-style: none;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.usage-gallery-item {
+  flex: 0 0 min(82%, 21rem);
+  scroll-snap-align: start;
+}
+.usage-gallery-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  object-fit: cover;
+  object-position: center;
+}
+.usage-gallery-title {
+  margin-top: 0.55rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+.usage-gallery-body {
+  margin-top: 0.2rem;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-sheet,
+  .topic-sheet-backdrop,
+  .mode-dock-hint,
+  .topic-lift-hint,
+  .react-flow__node.combine-candidate .topic-chip {
+    animation: none;
+  }
+  .react-flow__node.combine-return {
+    transition: none;
+  }
+}
+
+/* 図鑑: 掛け合わせのお題は、それぞれの語から探せる */
+.topic-db-mix-part {
+  border-radius: 0.3rem;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--primary) 45%, transparent);
+  text-underline-offset: 3px;
+}
+.topic-db-mix-part:hover {
+  color: var(--primary);
+}
