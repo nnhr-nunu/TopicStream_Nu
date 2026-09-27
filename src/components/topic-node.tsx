@@ -6,11 +6,13 @@ import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { useBoardActions } from "@/components/board-actions";
 import { useCombine } from "@/components/combine-drag";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
+import { ExplainPanel } from "@/components/explain-panel";
 import { StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { usePulseCodes } from "@/hooks/use-pulse-codes";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
+import { appendToMemo } from "@/lib/explain";
 import { fitLabelFontSize } from "@/lib/fit-label";
 import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
@@ -36,6 +38,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     setLabel,
     detailNode,
     rejectNode,
+    explainNode,
     copyLabel,
     toggleHeart,
     overlay,
@@ -51,6 +54,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const [copied, setCopied] = useState(false);
   const [editor, setEditor] = useState<"label" | null>(null);
   const [memoOpen, setMemoOpen] = useState(false);
+  const [explainOpen, setExplainOpen] = useState(false);
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
   const combine = useCombine();
@@ -422,6 +426,16 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         onCommit={(next) => setMemo(id, next)}
       />
 
+      {overlay || !explainNode ? null : (
+        <ExplainPanel
+          open={explainOpen}
+          label={data.label}
+          onOpenChange={setExplainOpen}
+          explain={() => explainNode(id, data.label)}
+          onAttach={(text) => setMemo(id, appendToMemo(data.memo, text))}
+        />
+      )}
+
       {overlay ? null : (
         <TopicActionsMenu
           open={(menu.open || (!coarse && editor === "label")) && !dragging}
@@ -431,6 +445,14 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
               ? () => {
                   leaveMenu();
                   combine.startPick(id);
+                }
+              : undefined
+          }
+          onExplain={
+            explainNode && !data.placeholder
+              ? () => {
+                  leaveMenu();
+                  setExplainOpen(true);
                 }
               : undefined
           }

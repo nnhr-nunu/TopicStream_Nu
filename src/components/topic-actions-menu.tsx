@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, Combine, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown, X } from "lucide-react";
+import { Check, CircleHelp, Combine, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,7 @@ export function TopicActionsMenu({
   onDetail,
   detailRedo = false,
   onCombine,
+  onExplain,
   onRegenerate,
   onReject,
   regenSpares = 0,
@@ -57,6 +58,8 @@ export function TopicActionsMenu({
   detailRedo?: boolean;
   /** 掛け合わせる相手をタップで選ぶ */
   onCombine?: () => void;
+  /** 「これって何？」: 言葉の短い解説を出す */
+  onExplain?: () => void;
   /** 無いときは作り直しを出さない（中心のカードは周りの話題とつながらなくなるので） */
   onRegenerate?: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
@@ -109,6 +112,15 @@ export function TopicActionsMenu({
       short: "掛け合わせる",
       icon: <Combine />,
       onClick: onCombine,
+    });
+  }
+  if (onExplain) {
+    items.push({
+      key: "explain",
+      label: "これって何？（話の流れを踏まえて、短く解説する）",
+      short: "これって何？",
+      icon: <CircleHelp />,
+      onClick: onExplain,
     });
   }
   const tail: MenuItem[] = [];
