@@ -2,15 +2,14 @@
 
 完了の詳細は `git log`。制約はエージェント用の [`AGENTS.md`](./AGENTS.md)。
 
-## 次にやる: スマホ操作・ドラッグ・具体的モード切替（2026-09-27）
+## 残り: 掛け合わせ・スマホ操作（2026-09-27）
 
-済: カード本体（`topic-chip`）が pointerdown を止めていて長押しメニューが実質動いていなかった → チップからも長押し判定を呼ぶよう修正（[`topic-node.tsx`](./src/components/topic-node.tsx) `startHold`）、長押し時の OS メニュー・文字選択も抑止。
+済: 掛け合わせ（[`combine.ts`](./src/lib/combine.ts) / [`board-combine.ts`](./src/lib/board-combine.ts) / [`combine-drag.tsx`](./src/components/combine-drag.tsx)）、スマホの下から出るメニュー、左下の抽象展開/具体的 + 使い方（[`mode-dock.tsx`](./src/components/mode-dock.tsx)）、使い方ギャラリー（画像は `node scripts/capture-guide.mjs` で撮り直し）。「…」ボタン案はやめ、長押し中の吹き出し・初回ヒント・? ボタンで代える。
 
-決定済み・未着手（この順で実装）:
-1. **スマホのメニュー**: 1タップ=広げる / 長押し=メニューを維持。最後に触ったカードの右上に常時「…」ボタンを出し、メニューはスマホでは画面下のボトムシートで表示。初回だけ「長押しでメニュー」のヒント。ダブルタップは React Flow のズームと衝突するので使わない
-2. **ドラッグ=掛け合わせ**: カードを別カードに重ねてドロップ→「2つを組み合わせた話題」を生成（重なり中は相手カードを強調）。Gemini あり: gemini-core に掛け合わせ用プロンプト追加 / キー無し: mock-topics で「A×B」系の定型文を作るフォールバック必須。生成先はドロップ先カードの子（または新しい 3×3）。重ならずに離したら元の位置へ戻す。ドラッグ処理は [`board-canvas.tsx`](./src/components/board-canvas.tsx)（`draggable` は 75 行目付近）の onNodeDragStop で交差判定
-
-済: 展開モード切替（上部の「抽象展開 / 具体的」。`settings.expandMode` に保存。「具体的」ではタップ＝具体的にする、メニューに「抽象展開」）。スマホ幅では左のボード名が押し出されてロゴだけになる — 気になるならトグルを短縮表示にする
+- 実キーで掛け合わせの AI 出力を確認していない（`combineInstruction` の効き目）。片方だけの話に寄るなら指示を強める
+- X 投稿の話題の軌跡画像（[`trail-image.ts`](./src/lib/trail-image.ts)）では、掛け合わせのカードは重ねた先の子としてだけ描かれる（持ってきた側からの線は無い。文に「A × B」が入るので読めはする）。流れの図に 2 本目の線を描くなら `topic-trail.ts` に mixedFromId を渡す
+- 実機のスマホでの長押し→ドラッグは未確認（ブラウザで PointerEvent を合成して確認しただけ）。盤面のスクロールを止める処理は React Flow が touchmove で動かす前提（[`topic-node.tsx`](./src/components/topic-node.tsx) の touchmove 停止）
+- AGENTS.md の入口表に「掛け合わせ」の行を足す（未コミットの手元の変更があったので触っていない）
 
 ## 検討中: 分類型のお題の広げ方（2026-09-27）
 
