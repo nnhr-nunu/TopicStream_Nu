@@ -14,6 +14,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "ボードが空です" }, { status: 400 });
   }
   const id = body?.id && /^[a-zA-Z0-9_-]{6,40}$/.test(body.id) ? body.id : createId("watch").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 24);
-  saveShare(id, board, (body?.nickname ?? "").slice(0, 24));
+  await saveShare(id, board, (body?.nickname ?? "").slice(0, 24));
   return Response.json({ id });
 }

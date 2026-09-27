@@ -52,7 +52,7 @@ export function WatchView({ shareId }: { shareId: string }) {
       }
       const response = await fetch(`/api/share/${shareId}`, { cache: "no-store" });
       if (!response.ok) {
-        if (!cancelled) setError("この共有リンクは見つかりません。配信者がまだ公開していないか、サーバーが再起動した可能性があります。");
+        if (!cancelled) setError("この共有リンクは見つかりません。配信者がまだ公開していないか、リンクが間違っている可能性があります。");
         return;
       }
       const json = (await response.json()) as { board: Board; nickname: string };
