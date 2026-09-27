@@ -265,12 +265,13 @@ function CanvasInner({
       }
       if (event.key === "0" || event.key.toLowerCase() === "f") {
         event.preventDefault();
-        void fitView({ padding: 0.22, duration: 260, maxZoom: 1.15 });
+        // 上のピン留めの帯・左下の切り替えにカードが隠れないよう、自動で合わせるときと同じ余白にする
+        void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 260, ...canvasFitZoom(overlay) });
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fitView, overlay, zoomIn, zoomOut]);
+  }, [fitView, overlay, pinned, zoomIn, zoomOut]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<TopicFlowNode>[]) => {
