@@ -459,9 +459,16 @@ html.overlay-mode .topic-chip {
   font-variant-numeric: tabular-nums;
 }
 
+/* 盤面を引いても操作メニューは画面上でほぼ同じ大きさに保つ（拡大時は縮めない。上限 2.5 倍） */
+.react-flow {
+  --menu-scale: clamp(1, calc(1 / var(--rf-zoom, 1)), 2.5);
+}
+
 /* カードの真下に出す（カーソルから近く、位置がブレない） */
 .topic-actions {
   position: absolute;
+  scale: var(--menu-scale);
+  transform-origin: top center;
   left: 50%;
   top: calc(100% + 8px);
   bottom: auto;
@@ -513,7 +520,9 @@ html.overlay-mode .topic-chip {
 .topic-editor {
   position: absolute;
   left: 50%;
-  top: calc(100% + 70px);
+  top: calc(100% + 16px + 54px * var(--menu-scale));
+  scale: var(--menu-scale);
+  transform-origin: top center;
   bottom: auto;
   z-index: 9;
   width: min(18rem, 78vw);

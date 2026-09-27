@@ -58,7 +58,7 @@ export function TopicActionsMenu({
   detailRedo?: boolean;
   /** 掛け合わせる相手をタップで選ぶ */
   onCombine?: () => void;
-  /** 「これって何？」: 言葉の短い解説を出す */
+  /** 解説: 言葉の短い解説を付箋に貼る */
   onExplain?: () => void;
   /** 無いときは作り直しを出さない（中心のカードは周りの話題とつながらなくなるので） */
   onRegenerate?: () => void;
@@ -86,7 +86,7 @@ export function TopicActionsMenu({
   if (onExpand) {
     items.push({
       key: "expand",
-      label: "抽象展開（切り口を 8 つ出して広げる）",
+      label: "抽象展開：切り口を8つ出す",
       short: "抽象展開",
       icon: <Grid3x3 />,
       onClick: onExpand,
@@ -96,9 +96,9 @@ export function TopicActionsMenu({
     items.push({
       key: "detail",
       label: detailRedo
-        ? "具体的にする（周りの 8 枚を、具体的な話題・対応策・企画案などに作り直す）"
-        : "具体的にする（具体的な話題・対応策・企画案などを 8 つ出す）",
-      short: "具体的にする",
+        ? "具体化：周りの8枚を具体案に作り直す"
+        : "具体化：具体案を8つ出す",
+      short: "具体化",
       icon: <ListChecks />,
       onClick: onDetail,
     });
@@ -107,9 +107,9 @@ export function TopicActionsMenu({
     items.push({
       key: "combine",
       label: sheetTitle
-        ? "掛け合わせる（相手のカードをタップ。長押ししたまま動かして重ねてもできます）"
-        : "掛け合わせる（相手のカードを選ぶ。カードをドラッグして重ねてもできます）",
-      short: "掛け合わせる",
+        ? "掛け合わせ：相手をタップ（長押しで重ねても可）"
+        : "掛け合わせ：相手を選ぶ（ドラッグで重ねても可）",
+      short: "掛け合わせ",
       icon: <Combine />,
       onClick: onCombine,
     });
@@ -117,8 +117,8 @@ export function TopicActionsMenu({
   if (onExplain) {
     items.push({
       key: "explain",
-      label: "これって何？（話の流れを踏まえて、短く解説する）",
-      short: "これって何？",
+      label: "解説を付箋に貼る",
+      short: "解説",
       icon: <CircleHelp />,
       onClick: onExplain,
     });
@@ -127,7 +127,7 @@ export function TopicActionsMenu({
   if (onReject) {
     tail.push({
       key: "reject",
-      label: "ずれている（お題に合わない・間違いとして記録し、作り直す）",
+      label: "ずれている：記録して作り直す",
       short: "ずれている",
       icon: <ThumbsDown />,
       onClick: onReject,
@@ -148,7 +148,7 @@ export function TopicActionsMenu({
     },
     {
       key: "copy",
-      label: "ラベルをコピー",
+      label: "コピー",
       short: copied ? "コピーしました" : "コピー",
       icon: copied ? <Check /> : <Copy />,
       onClick: onCopy,
@@ -269,7 +269,7 @@ function SheetRegenerate({ spares, readyAt, onClick }: { spares: number; readyAt
       type="button"
       className="topic-sheet-btn"
       disabled={cooling}
-      aria-label={cooling ? `AI の作り直しは、あと ${seconds} 秒で使えます` : "このマスの文だけ作り直す"}
+      aria-label={cooling ? `あと ${seconds} 秒で作り直せます` : "作り直す"}
       onClick={onClick}
     >
       <span className="topic-sheet-icon">
@@ -301,10 +301,10 @@ function RegenerateButton({
   }, [open, spares, readyAt]);
   const seconds = Math.max(1, Math.ceil((readyAt - now) / 1000));
   const label = cooling
-    ? `AI の作り直しは、あと ${seconds} 秒で使えます`
+    ? `あと ${seconds} 秒で作り直せます`
     : spares > 0
-      ? `このマスの文だけ作り直す（すぐ出せる候補あと ${spares} 件）`
-      : "このマスの文だけ作り直す（トピック図鑑か AI から探します）";
+      ? `作り直す（候補あと ${spares}）`
+      : "作り直す";
   return (
     <ActionBtn label={label} onClick={onClick} disabled={cooling}>
       {cooling ? <span className="topic-regen-countdown">{seconds}</span> : <RefreshCw />}
