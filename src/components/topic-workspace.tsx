@@ -16,7 +16,9 @@ import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { spareCount } from "@/lib/board-spares";
 import { clearOpenActiveBoardRequest, isOpenActiveBoardRequested } from "@/lib/board-store";
+import { fetchExplanation } from "@/lib/explain-client";
 import { cellCode } from "@/lib/mandala-ids";
+import { topicContext } from "@/lib/topic-context";
 
 export function TopicWorkspace() {
   const controller = useBoardController();
@@ -81,6 +83,14 @@ export function TopicWorkspace() {
         regenerateNode: (id) => void controller.regenerateNode(id),
         detailNode: controller.detailNode,
         rejectNode: controller.rejectNode,
+        explainNode: (id, label) =>
+          fetchExplanation({
+            label,
+            context: topicContext(board, id),
+            mode: board.mode,
+            apiKey: settings.geminiApiKey,
+            model: settings.geminiModel,
+          }),
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
         setLabel: controller.setLabel,
@@ -119,17 +129,8 @@ export function TopicWorkspace() {
             setAtHome(false);
             controller.switchBoard(id);
           }}
-          onCreate={() => {
-            notifyPrivacy();
-            setAtHome(true);
-            controller.createBoard();
-          }}
           onRename={controller.renameBoard}
           onDelete={controller.deleteBoard}
-          onDuplicate={(id) => {
-            setAtHome(false);
-            controller.duplicateBoard(id);
-          }}
           onExport={controller.exportJson}
           onImport={(text) => {
             setAtHome(false);

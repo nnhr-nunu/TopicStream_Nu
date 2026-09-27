@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 
+import type { ExplainResult } from "@/lib/explain-client";
 import type { ExpandMode, GenerationLayout } from "@/lib/types";
 
 type BoardActions = {
@@ -11,6 +12,8 @@ type BoardActions = {
   detailNode?: (id: string) => void;
   /** 「ずれている」の印: 図鑑に伝えて、そのカードを作り直す */
   rejectNode?: (id: string) => void;
+  /** 「これって何？」: 話の流れを踏まえた短い解説（盤面は変えない） */
+  explainNode?: (id: string, label: string) => Promise<ExplainResult>;
   pinNode: (id: string | null) => void;
   setMemo: (id: string, memo: string) => void;
   setLabel?: (id: string, label: string) => void;
