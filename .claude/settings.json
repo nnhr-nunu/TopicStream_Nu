@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$s = (git status --porcelain) -join \"`n\"; if ($s) { $o = @{systemMessage = ([string]::Format(\"コミットされていない変更が残っています:`n{0}`n`n再発防止のため、区切りが良ければコミット・pushしておくことをおすすめします。\", $s))}; $o | ConvertTo-Json -Compress } else { \"{}\" }",
+            "shell": "powershell"
+          }
+        ]
+      }
+    ]
+  }
+}

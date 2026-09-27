@@ -60,6 +60,8 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 
 Windows の既定ターミナルは PowerShell（[`.vscode/settings.json`](./.vscode/settings.json)）。bash 形式の heredoc は使わず、1行メッセージか PowerShell here-string（`@'...'@`）/ `git commit -F` を使う。
 
+セッションをまたいで未コミットの変更が放置されるのを防ぐため、[`.claude/settings.json`](./.claude/settings.json) に Stop フックを設定済み（セッション終了時に `git status --porcelain` を確認し、残っていれば警告を出す）。警告が出たら区切りの良いところでコミット・push する。
+
 ## ドキュメント
 
 - 完了タスク → `task.md` から削除（履歴は `git log`）
