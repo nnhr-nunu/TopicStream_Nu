@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { SEED_CATALOG, SEED_TOPIC_SCORES, searchCatalog, type CatalogBoard, type PopularTopic } from "@/lib/catalog-data";
+import { redisCommand, redisConfig } from "@/lib/redis";
 import type { Board } from "@/lib/types";
 
 type LiveState = {
@@ -77,12 +78,34 @@ export function popularTopics(limit = 12): PopularTopic[] {
     .slice(0, limit);
 }
 
-export function saveShare(id: string, board: Board, nickname: string) {
+/** 共有ボードは期限なしで残す。Redis があればサーバーを再起動しても消えない */
+const shareKey = (id: string) => `ts:share:${id}`;
+
+type Share = { board: Board; nickname: string; updatedAt: number };
+
+export async function saveShare(id: string, board: Board, nickname: string) {
+  const share: Share = { board, nickname, updatedAt: Date.now() };
   const live = load();
-  live.shares[id] = { board, nickname, updatedAt: Date.now() };
+  live.shares[id] = share;
   persist();
+  const config = redisConfig();
+  if (!config) return;
+  try {
+    await redisCommand(config, ["SET", shareKey(id), JSON.stringify(share)]);
+  } catch {
+    /* Redis に書けなくてもメモリには残っている */
+  }
 }
 
-export function getShare(id: string) {
-  return load().shares[id] ?? null;
+export async function getShare(id: string): Promise<Share | null> {
+  const local = load().shares[id];
+  const config = redisConfig();
+  if (!config) return local ?? null;
+  try {
+    const raw = await redisCommand(config, ["GET", shareKey(id)]);
+    if (typeof raw === "string") return JSON.parse(raw) as Share;
+  } catch {
+    /* Redis が読めないときは手元の分で返す */
+  }
+  return local ?? null;
 }
