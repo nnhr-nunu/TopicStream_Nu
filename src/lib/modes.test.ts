@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { LABEL_MAX } from "@/lib/constants";
 import { buildPrompt } from "@/lib/gemini-core";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
-import { MODE_PRESETS, modePreset, parseMode, isChatMode, withMode } from "@/lib/modes";
+import { MODE_PRESETS, isDivisionLabel, modePreset, parseMode, isChatMode, withMode } from "@/lib/modes";
 import { parseSnapshot } from "@/lib/storage";
 
 describe("ボードの用途（モード）", () => {
@@ -74,11 +74,25 @@ describe("モードごとの生成", () => {
 
   it("雑談では、分け方のあるお題は種類で広げ、絞れたら中身を出すよう例ごと伝える", () => {
     const prompt = buildPrompt("地方の方言", [], 8);
-    expect(prompt).toContain("その分け方の一つ一つを切り口の中心にする");
+    expect(prompt).toContain("1個を「地方ごとの方言」のような分け方そのもののカードにし");
     // 例は複数並ぶ（最初の例も残る）
     expect(prompt).toContain("お題「最近買ってよかったもの」なら");
-    expect(prompt).toContain('"関西弁"');
+    expect(prompt).toContain('"地方ごとの方言"');
     expect(prompt).toContain('"なんでやねん"');
     expect(buildPrompt("恐竜", [], 8, [], "learn")).toContain("主な種類・分け方");
+  });
+
+  it("「地方ごとの方言」のような分け方のカードを広げると、分けた一つ一つを並べるよう伝える", () => {
+    expect(isDivisionLabel("地方ごとの方言")).toBe(true);
+    expect(isDivisionLabel("ジャンル別の音楽")).toBe(true);
+    expect(isDivisionLabel("ラーメンの種類")).toBe(true);
+    expect(isDivisionLabel("地方の方言")).toBe(false);
+
+    const marker = "このお題は分け方そのものです";
+    expect(buildPrompt("地方ごとの方言", [], 8, ["地方の方言"])).toContain(marker);
+    expect(buildPrompt("地方ごとの方言", [], 8, ["地方の方言"], "chat", true)).toContain(marker);
+    expect(buildPrompt("地方の方言", [], 8)).not.toContain(marker);
+    // 目標の「週ごとの目標」のようなものには足さない
+    expect(buildPrompt("週ごとの目標", [], 8, [], "goal")).not.toContain(marker);
   });
 });

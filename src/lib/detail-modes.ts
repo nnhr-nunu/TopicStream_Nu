@@ -1,5 +1,6 @@
 import { DETAIL_LABEL_MAX } from "@/lib/constants";
 import { isGenericAngle, topicAnchor } from "@/lib/mock-topics";
+import { divisionInstruction } from "@/lib/modes";
 import type { BoardMode } from "@/lib/types";
 
 /**
@@ -24,6 +25,7 @@ export const DETAIL_PRESETS: Record<BoardMode, DetailPreset> = {
     rules: [
       "体言止めの短い語句にする（例: お題「夜食」なら「深夜のカップ麺アレンジ」「コンビニの新作ホットスナック」）",
       "カテゴリの名前だけでなく、聞いた人が自分の体験をすぐ思い出せる具体的なもの・場面にする",
+      "お題が分け方を持つまとまり（例: 地方の方言、ご当地グルメ）なら、分けた一つ一つ（北海道弁、関西弁、博多弁…）をそのまま出す",
       "お題が種類の中の一つ（例: 関西弁、博多ラーメン、90年代J-POP）なら、その代表的な中身（よく知られた言葉・品目・曲など）をそのまま出す",
       "定番の話題と、ちょっと意外な話題を半分ずつ混ぜる",
       "文や問いかけにしない",
@@ -159,8 +161,10 @@ export const DETAIL_PRESETS: Record<BoardMode, DetailPreset> = {
 export function buildDetailPrompt(mode: BoardMode, seed: string, count: number, flow: string, banned: string): string {
   const preset = DETAIL_PRESETS[mode] ?? DETAIL_PRESETS.chat;
   const [min, max] = preset.length ?? [12, DETAIL_LABEL_MAX];
+  // 答えが文になるモードでは「並べる」指示が合わないので、雑談だけ
+  const division = mode === "chat" ? divisionInstruction(mode, seed) : "";
   return `お題「${seed}」について、${preset.ask}をちょうど${count}個出してください。
-${flow}
+${flow}${division}
 よい答え:
 ${preset.rules.map((rule) => `- ${rule}`).join("\n")}
 - ${count}個が同じ方向に偏らず、それぞれ別の具体策・例になっている
