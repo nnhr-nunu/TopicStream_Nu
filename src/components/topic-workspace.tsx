@@ -78,7 +78,8 @@ export function TopicWorkspace() {
       value={{
         expandNode: (id) => void controller.expandNode(id),
         regenerateNode: (id) => void controller.regenerateNode(id),
-        detailNode: (id) => void controller.expandNode(id, false, false, true),
+        detailNode: controller.detailNode,
+        rejectNode: controller.rejectNode,
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
         setLabel: controller.setLabel,

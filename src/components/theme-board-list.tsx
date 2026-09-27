@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Heart, Search, Share2, Users } from "lucide-react";
+import { Eye, Heart, Search, Share2, Users } from "lucide-react";
 
+import { CatalogPreviewDialog } from "@/components/catalog-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,9 @@ export function ThemeBoardList({
   const [boards, setBoards] = useState<CatalogBoard[]>(initialBoards ?? []);
   const [favorites, setFavorites] = useState<string[]>(() => loadFavoriteBoardIds());
   const [searching, setSearching] = useState(false);
+  // 取り込む前に見るだけの画面で開いているボード（♡ の数が変わっても追えるよう id で持つ）
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const previewing = boards.find((board) => board.id === previewId) ?? null;
   const [loaded, setLoaded] = useState(Boolean(initialBoards));
   // 検索前の件数。0 件なら検索欄を隠し、「これから増えます」の案内だけ出す
   const [total, setTotal] = useState(initialBoards?.length ?? 0);
@@ -142,16 +146,21 @@ export function ThemeBoardList({
                     ))}
                   </CardContent>
                   <CardFooter className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => setPreviewId(board.id)}>
+                      <Eye />
+                      見てみる
+                    </Button>
                     <Button
                       size="sm"
                       variant={liked ? "secondary" : "outline"}
                       onClick={() => void favorite(board)}
                       disabled={busy}
+                      aria-label={liked ? "ハートを外す" : "ハートを付ける"}
                     >
                       <Heart className={liked ? "fill-current" : undefined} />
                       {board.favorites}
                     </Button>
-                    <Button size="sm" onClick={() => onImport(board)} disabled={busy}>
+                    <Button size="sm" variant="outline" onClick={() => onImport(board)} disabled={busy}>
                       <Share2 />
                       取り込む
                     </Button>
@@ -166,6 +175,19 @@ export function ThemeBoardList({
           })}
         </ul>
       )}
+      <CatalogPreviewDialog
+        board={previewing}
+        liked={previewing ? favorites.includes(previewing.id) : false}
+        busy={busy}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(null);
+        }}
+        onFavorite={(board) => void favorite(board)}
+        onImport={(board) => {
+          setPreviewId(null);
+          onImport(board);
+        }}
+      />
     </section>
   );
 }

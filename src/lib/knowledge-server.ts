@@ -21,6 +21,7 @@ import {
   recordTopics,
   type KnowledgeStore,
   type PickKind,
+  withoutRejected,
 } from "@/lib/topic-knowledge";
 
 /**
@@ -74,6 +75,7 @@ return 1
 /**
  * 選ばれた語の票をまとめて入れる。ARGV[1]=時刻、そのあと (お題のキー, 表示用のお題, 語, 重み) の4つ組が続く。
  * 図鑑にまだ無いお題・語は、その場で1回出たものとして加える（盛り上がった話題を取りこぼさない）。
+ * 「ずれている」の印（重みがマイナス）は語を加えず、票だけ引く（読むときに強さ 0 以下の語を外す）。
  */
 const PICK_SCRIPT = `
 local now = ARGV[1]
@@ -85,7 +87,7 @@ for i = 2, #ARGV - 3, 4 do
   redis.call('ZADD', 'tsk:uses', 'NX', 1, key)
   redis.call('HSETNX', 'tsk:seed', key, ARGV[i + 1])
   redis.call('HSET', 'tsk:updated', key, now)
-  if redis.call('HEXISTS', 'tsk:t:' .. key, topic) == 0 then
+  if weight > 0 and redis.call('HEXISTS', 'tsk:t:' .. key, topic) == 0 then
     redis.call('HSET', 'tsk:t:' .. key, topic, 1)
   end
   redis.call('HINCRBY', 'tsk:p:' .. key, topic, weight)
@@ -116,11 +118,14 @@ if not score then return {} end
 return { { k, redis.call('HGET', 'tsk:seed', k) or k, score, redis.call('HGET', 'tsk:updated', k) or '0', redis.call('HGETALL', 'tsk:t:' .. k), redis.call('HGETALL', 'tsk:p:' .. k) } }
 `;
 
-function hashToCounts(flat: unknown[]): Record<string, number> {
+/** negative: 票（「ずれている」の印はマイナス）のときはマイナスも残す */
+function hashToCounts(flat: unknown[], negative = false): Record<string, number> {
   const out: Record<string, number> = {};
   for (let i = 0; i + 1 < flat.length; i += 2) {
     const count = Number(flat[i + 1]);
-    if (typeof flat[i] === "string" && count > 0) out[flat[i] as string] = count;
+    if (typeof flat[i] === "string" && Number.isFinite(count) && (count > 0 || (negative && count < 0))) {
+      out[flat[i] as string] = count;
+    }
   }
   return out;
 }
@@ -132,9 +137,9 @@ function parseSnapshot(raw: unknown): KnowledgeStore {
     if (!Array.isArray(row) || row.length < 5) continue;
     const [key, seed, uses, updated, flat, flatPicks] = row as [string, string, string, string, unknown, unknown];
     if (typeof key !== "string" || !Array.isArray(flat)) continue;
-    const topics = hashToCounts(flat);
+    const picks = Array.isArray(flatPicks) ? hashToCounts(flatPicks, true) : {};
+    const topics = withoutRejected(hashToCounts(flat), picks);
     if (Object.keys(topics).length === 0) continue;
-    const picks = Array.isArray(flatPicks) ? hashToCounts(flatPicks) : {};
     // モードは別に持たず、キーの頭（advice|… など）で見分ける
     const mode = modeFromKey(key);
     store[key] = {

@@ -166,16 +166,16 @@ let listening = false;
 
 /**
  * カードの語が選ばれた（♡・クリックで広げた・ピン・コピー・書き直し・コメントのハート）ことを図鑑に伝える。
- * お題はそのカードの親の語。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
+ * お題はそのカードの親の語（seedOverride があればそちら）。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
  */
-export function notePick(board: Board, nodeId: string, kind: PickKind) {
+export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverride?: string) {
   if (typeof window === "undefined") return;
   // お悩み相談などもモードごとに分けて記録する（雑談の図鑑には混ぜない）
   const mode = boardMode(board);
   const node = board.nodes.find((item) => item.id === nodeId);
   const parent = node?.data.parentId ? board.nodes.find((item) => item.id === node.data.parentId) : undefined;
   const topic = node?.data.label.trim();
-  const seed = parent?.data.label.trim();
+  const seed = (seedOverride ?? parent?.data.label)?.trim();
   // 最初のお題（親が無い）と、マンダラートの中央（親の写し）は「選ばれた語」ではない
   if (!topic || !seed || node?.data.placeholder || normalizeSeed(topic) === normalizeSeed(seed)) return;
 

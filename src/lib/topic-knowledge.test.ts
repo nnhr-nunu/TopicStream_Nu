@@ -298,3 +298,24 @@ describe("モードごとの図鑑", () => {
     expect(asKnowledgeEntry(JSON.parse(JSON.stringify(picked["advice|仕事"])))?.mode).toBe("advice");
   });
 });
+
+describe("「ずれている」の印", () => {
+  it("出た回数を打ち消すと候補から消え、AI がまた出しても戻らない", () => {
+    const base = recordTopics({}, "朝", ["二度寝", "朝ごはん"]);
+    const rejected = recordPick(base, "朝", "二度寝", "wrong");
+    expect(rejected["朝"]?.topics["二度寝"]).toBeUndefined();
+    expect(rejected["朝"]?.topics["朝ごはん"]).toBe(1);
+    expect(suggestFromKnowledge(rejected, "朝", [], 5)).not.toContain("二度寝");
+    const again = recordTopics(rejected, "朝", ["二度寝"]);
+    expect(again["朝"]?.topics["二度寝"]).toBeUndefined();
+    // 保存し直しても（localStorage 経由）マイナスの票は残る
+    expect(asKnowledgeEntry(JSON.parse(JSON.stringify(again["朝"])))?.picks?.["二度寝"]).toBe(-4);
+  });
+
+  it("よく選ばれた語は1回の印では消えない。図鑑に無い語は加えない", () => {
+    // 2回出て ♡ も付いた語（強さ 5）は、印1つ（-4）では残る
+    const base = recordPick(recordTopics(recordTopics({}, "朝", ["二度寝"]), "朝", ["二度寝"]), "朝", "二度寝", "heart");
+    expect(recordPick(base, "朝", "二度寝", "wrong")["朝"]?.topics["二度寝"]).toBe(2);
+    expect(recordPick(base, "朝", "寝坊", "wrong")["朝"]?.topics["寝坊"]).toBeUndefined();
+  });
+});

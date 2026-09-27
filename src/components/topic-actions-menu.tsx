@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Check, Copy, ListChecks, Pencil, Pin, RefreshCw } from "lucide-react";
+import { Check, Copy, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,7 +17,9 @@ export function TopicActionsMenu({
   copied,
   onPin,
   onDetail,
+  detailRedo = false,
   onRegenerate,
+  onReject,
   regenSpares = 0,
   regenReadyAt = 0,
   onCopy,
@@ -31,12 +33,16 @@ export function TopicActionsMenu({
   isPinned: boolean;
   copied: boolean;
   onPin: () => void;
-  /** 「具体的にする」（まだ広げていないカードだけ） */
+  /** 「具体的にする」 */
   onDetail?: () => void;
+  /** 広げ済みのカード: 周りの 8 枚を具体的な内容に作り直す */
+  detailRedo?: boolean;
   /** 無いときは作り直しを出さない（中心のカードは周りの話題とつながらなくなるので） */
   onRegenerate?: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
   regenSpares?: number;
+  /** 「ずれている」の印を付けて作り直す（作り直せるカードだけ） */
+  onReject?: () => void;
   /** 予備が無いとき、AI の作り直しが使えるようになる時刻 */
   regenReadyAt?: number;
   onCopy: () => void;
@@ -55,12 +61,24 @@ export function TopicActionsMenu({
         <Pin className={cn(isPinned && "fill-current")} />
       </ActionBtn>
       {onDetail ? (
-        <ActionBtn label="具体的にする（具体的な話題・対応策・企画案などを 8 つ出す）" onClick={onDetail}>
+        <ActionBtn
+          label={
+            detailRedo
+              ? "具体的にする（周りの 8 枚を、具体的な話題・対応策・企画案などに作り直す）"
+              : "具体的にする（具体的な話題・対応策・企画案などを 8 つ出す）"
+          }
+          onClick={onDetail}
+        >
           <ListChecks />
         </ActionBtn>
       ) : null}
       {onRegenerate ? (
         <RegenerateButton open={open} spares={regenSpares} readyAt={regenReadyAt} onClick={onRegenerate} />
+      ) : null}
+      {onReject ? (
+        <ActionBtn label="ずれている（お題に合わない・間違いとして記録し、作り直す）" onClick={onReject}>
+          <ThumbsDown />
+        </ActionBtn>
       ) : null}
       <ActionBtn label="文を直す" onClick={onEditLabel}>
         <Pencil />
