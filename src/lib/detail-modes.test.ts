@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { markDetail } from "@/lib/board-ops";
 import { DETAIL_LABEL_MAX, LABEL_MAX } from "@/lib/constants";
-import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
+import { detailRecordSeed, isWordTopic, mockDetailTopics } from "@/lib/detail-modes";
 import { buildPrompt, padTopics, parseTopics } from "@/lib/gemini-core";
 import { cleanForRecord } from "@/lib/knowledge-server";
+import { splitGloss } from "@/lib/node-box";
 import { knowledgeDepth, recordTopics, suggestFromKnowledge } from "@/lib/topic-knowledge";
 import type { Board } from "@/lib/types";
 
@@ -34,6 +35,33 @@ describe("具体的にする", () => {
     const chat = mockDetailTopics("夜食", [], 8, "chat");
     expect(chat).toHaveLength(8);
     expect(chat).toContain("夜食の失敗談");
+  });
+
+  it("方言・用語のような言葉のお題は「言葉：意味」で出してもらう", () => {
+    expect(isWordTopic("広島弁")).toBe(true);
+    expect(isWordTopic("業界用語")).toBe(true);
+    expect(isWordTopic("語尾", ["広島弁"])).toBe(true);
+    // 方言のまとまりは種類で広げる（言葉にしない）
+    expect(isWordTopic("地方の方言")).toBe(false);
+    expect(isWordTopic("地方ごとの方言")).toBe(false);
+    expect(isWordTopic("夜食")).toBe(false);
+    const prompt = buildPrompt("広島弁", [], 8, ["地方の方言"], "chat", true);
+    expect(prompt).toContain("ぶち：すごく");
+    expect(prompt).toContain("4〜22文字");
+    expect(buildPrompt("夜食", [], 8, [], "chat", true)).not.toContain("このお題の中身は「言葉」");
+    // 相談などの文のモードには足さない
+    expect(buildPrompt("広島弁", [], 8, [], "advice", true)).not.toContain("このお題の中身は「言葉」");
+    const offline = mockDetailTopics("広島弁", [], 8, "chat");
+    expect(offline).toContain("広島弁の語尾");
+    expect(offline).not.toContain("広島弁の失敗談");
+  });
+
+  it("「言葉：意味」のカードは語と意味に分ける", () => {
+    expect(splitGloss("ぶち：すごく")).toEqual({ term: "ぶち", meaning: "すごく" });
+    expect(splitGloss("じゃけん: 〜だから")).toEqual({ term: "じゃけん", meaning: "〜だから" });
+    expect(splitGloss("深夜のカップ麺アレンジ")).toBeNull();
+    expect(splitGloss("12:00の鐘")).toBeNull();
+    expect(splitGloss("次に試す：朝いちばんに重い作業をやる")).toBeNull();
   });
 
   it("空のカードにだけ答えの印を付ける（中央の写しには付けない）", () => {

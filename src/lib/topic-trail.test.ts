@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { addMixNode } from "@/lib/board-combine";
 import * as ops from "@/lib/board-ops";
 import { normalizePrefs } from "@/lib/node-box";
 import { emptyBoard } from "@/lib/storage";
@@ -52,6 +53,18 @@ describe("話題の軌跡", () => {
     expect(fireworks!.hearts).toBe(1);
     expect(homework!.pinned).toBe(true);
     expect(trail.size).toBe(3);
+  });
+
+  it("掛け合わせた話題は土台の子になり、持ってきたカードも残して指す", () => {
+    let board = ops.createRootBoard(emptyBoard("t"), "夏休み", mandala);
+    board = expand(board, board.nodes[0]!.id, EIGHT);
+    const mixed = addMixNode(board, idOf(board, "A"), idOf(board, "B"), mandala)!;
+    board = expand(mixed.board, mixed.mixId, ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8"]);
+
+    const trail = buildTopicTrail(board);
+    expect(trail.roots.map(outline)).toEqual(["夏休み#1(B#2(B × A#3),A)"]);
+    const mix = trail.roots[0]!.children[0]!.children[0]!;
+    expect(mix.mixedFrom).toBe(idOf(board, "A"));
   });
 
   it("まだ何も広げていなければ中心だけ", () => {

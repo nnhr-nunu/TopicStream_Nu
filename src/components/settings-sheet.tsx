@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Palette, PlugZap, Settings, Users } from "lucide-react";
+import type { ReactNode } from "react";
+import { Palette, Settings, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
@@ -80,132 +79,6 @@ function Section({
   );
 }
 
-function SwitchRow({
-  id,
-  label,
-  checked,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {label}
-      </Label>
-      <Switch id={id} checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
-type KeyCheck = {
-  ok: boolean;
-  source?: "browser" | "server" | "none";
-  httpStatus?: number;
-  googleStatus?: string;
-  googleMessage?: string;
-  models: string[];
-  generation?: {
-    model: string;
-    ok: boolean;
-    reason?: string;
-    googleStatus?: string;
-    googleMessage?: string;
-    topics?: string[];
-    firstChunkMs?: number;
-    totalMs?: number;
-    thoughtsTokens?: number;
-  };
-};
-
-function seconds(ms?: number): string {
-  return typeof ms === "number" ? `${(ms / 1000).toFixed(1)}秒` : "—";
-}
-
-function describeKeyCheck(result: KeyCheck): { tone: "ok" | "warn" | "error"; text: string } {
-  const where = "AI";
-  if (result.source === "none") {
-    return { tone: "error", text: "この公開版では AI を使いません（オフラインの候補で動きます）。" };
-  }
-  if (!result.ok) {
-    const code = [result.httpStatus, result.googleStatus].filter(Boolean).join(" ");
-    const message = result.googleMessage ? `「${result.googleMessage}」` : "";
-    return { tone: "error", text: `${where}が使えません（${code || "通信エラー"}）${message}` };
-  }
-  const gen = result.generation;
-  if (!gen) return { tone: "ok", text: `${where}は有効です。` };
-  const timing = `最初の応答 ${seconds(gen.firstChunkMs)}・合計 ${seconds(gen.totalMs)}`;
-  if (gen.ok) {
-    const slow = (gen.totalMs ?? 0) > 6_000;
-    return {
-      tone: slow ? "warn" : "ok",
-      text: `${where}で ${gen.model} が生成できました（${timing}）。例: ${gen.topics?.join("、") ?? ""}${slow ? "。応答が遅めです。" : ""}`,
-    };
-  }
-  const google = [gen.reason, gen.googleStatus].filter(Boolean).join(" ");
-  const message = gen.googleMessage ? `「${gen.googleMessage}」` : "";
-  const hint =
-    gen.reason === "timeout"
-      ? "Google 側の応答が遅れています。別のモデルを選ぶか、時間をおいて試してください。"
-      : gen.googleStatus === "RESOURCE_EXHAUSTED"
-        ? "このキーの利用枠を使い切っているか、枠がありません。AI Studio の使用量と上限を確認してください。"
-        : "";
-  return {
-    tone: "error",
-    text: `AI に接続できましたが、${gen.model} で生成できませんでした（${google}・${seconds(gen.totalMs)}）${message}。${hint}`,
-  };
-}
-
-function GeminiKeyCheck() {
-  const [state, setState] = useState<"idle" | "busy" | KeyCheck>("idle");
-  const result = typeof state === "object" ? describeKeyCheck(state) : null;
-  return (
-    <div className="space-y-1.5">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-full"
-        disabled={state === "busy"}
-        onClick={async () => {
-          setState("busy");
-          try {
-            const response = await fetch("/api/gemini/check", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({}),
-            });
-            if (!response.ok) throw new Error(String(response.status));
-            setState((await response.json()) as KeyCheck);
-          } catch {
-            setState({ ok: false, googleMessage: "この公開版では AI を使いません（オフラインの候補で動きます）", models: [] });
-          }
-        }}
-      >
-        <PlugZap />
-        {state === "busy" ? "生成して確認中…" : "AI を試す"}
-      </Button>
-      {result ? (
-        <p
-          role="status"
-          className={
-            result.tone === "ok"
-              ? "rounded-md bg-primary/10 px-2 py-1.5 text-[11px] leading-4 text-foreground"
-              : result.tone === "warn"
-                ? "rounded-md bg-amber-500/15 px-2 py-1.5 text-[11px] leading-4 text-foreground"
-                : "rounded-md bg-destructive/10 px-2 py-1.5 text-[11px] leading-4 text-destructive"
-          }
-        >
-          {result.text}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
 export function SettingsSheet({
   settings,
   onPatch,
@@ -226,7 +99,7 @@ export function SettingsSheet({
 
         <div className="flex flex-col gap-3 px-4 pb-8">
           <Section icon={<Palette />} title="マップの見た目">
-            <Row label="広げかた" hint="マンダラートは3×3のマス、放射（マインドマップ）は中心から枝分かれして広がります。">
+            <Row label="広げかた">
               <Select
                 items={LAYOUT_ITEMS}
                 value={settings.generationLayout}
@@ -266,16 +139,10 @@ export function SettingsSheet({
                 </span>
               </div>
             </Row>
-            <SwitchRow
-              id="density"
-              label="カードの間隔を詰める"
-              checked={settings.density === "compact"}
-              onChange={(checked) => onPatch({ density: checked ? "compact" : "comfortable" })}
-            />
           </Section>
 
           <Section icon={<Users />} title="配信" description="配信URLは画面下の「配信と連携」から設定します。">
-            <Row label="コメントの文字" hint="コメント欄を配信に映すときは大きめが見やすいです。欄の A−/A＋ でも変えられます。">
+            <Row label="コメントの文字">
               <div className="flex items-center gap-2">
                 <Slider
                   min={COMMENT_SCALE_MIN}
@@ -299,17 +166,6 @@ export function SettingsSheet({
             自分のボードが映らず、ウィンドウキャプチャか「いっしょに見るリンク」で足りるため。
             既に OBS に設定している人のために /overlay のページ自体は残してある。
           */}
-          <details className="rounded-xl border border-border/70 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
-              AI の話題づくりがうまくいかないとき
-            </summary>
-            <div className="mt-3 space-y-2">
-              <p className="text-[11px] leading-4 text-muted-foreground">
-                AI が使えないときも、オフラインの候補で話題は広がります。うまく出ないときは、ここで実際に生成して確かめられます。
-              </p>
-              <GeminiKeyCheck />
-            </div>
-          </details>
         </div>
       </SheetContent>
     </Sheet>
