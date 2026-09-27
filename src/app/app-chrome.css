@@ -603,37 +603,6 @@
   background: color-mix(in oklab, var(--mode-color) 14%, transparent);
 }
 
-/* ホーム: 使い方の3ステップ */
-.home-steps {
-  display: grid;
-  gap: 0.6rem;
-}
-@media (min-width: 640px) {
-  .home-steps {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-.home-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.7rem;
-  border-radius: 1rem;
-  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
-  background: color-mix(in oklab, var(--card) 70%, transparent);
-  padding: 0.85rem 0.9rem;
-}
-.home-step-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.7rem;
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
-  color: var(--primary);
-}
-
 /* ホーム: トピック図鑑の見本 */
 .home-showcase {
   border-radius: 1.5rem;

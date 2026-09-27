@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { AdScript } from "@/components/ad-script";
 import { AdSlot } from "@/components/ad-slot";
 import { SiteLinks } from "@/components/site-links";
+import { UsageGallery } from "@/components/usage-gallery";
 
 export const metadata: Metadata = {
   title: "使い方 | TopicStream(ぬ)",
@@ -114,6 +115,12 @@ export default function GuidePage() {
       </div>
 
       <Card>
+        <Heading>画面で見る流れ</Heading>
+        <p className="text-muted-foreground">横にスワイプすると続きが見られます。</p>
+        <UsageGallery />
+      </Card>
+
+      <Card>
         <Heading>基本は3ステップ</Heading>
         <ol className="list-decimal space-y-2 pl-5">
           <li>
@@ -125,12 +132,18 @@ export default function GuidePage() {
           </li>
         </ol>
         <p className="text-muted-foreground">
-          カードにカーソルを合わせると、♡（お気に入り）や 📝（付箋）などのメニューが出ます。
+          カードにカーソルを合わせると（スマホは長押しすると）、ピンや 📝（付箋）などのメニューが出ます。
           「で、どうすればいい？」と思ったら、メニューの <Term>具体的にする</Term>{" "}
           で、具体的な話題（雑談）・対応策（お悩み相談）・企画案（アイデア出し）・行動（目標）などを 8 つ出せます。出たカードも、ふつうのカードと同じように広げられます。
-          中心のお題で使うと、周りの 8 枚を具体的な内容に作り直します。上部の切り替えを <Term>具体的</Term>{" "}
+          中心のお題で使うと、周りの 8 枚を具体的な内容に作り直します。左下の切り替えを <Term>具体的</Term>{" "}
           にすると、カードをタップするだけで「具体的にする」が動きます（ふつうの広げ方はメニューの <Term>抽象展開</Term>）。お題に合わない・間違ったカードは{" "}
           <Term>ずれている</Term>（👎）を押すと作り直し、トピック図鑑でもその語が出にくくなります。
+        </p>
+        <p className="text-muted-foreground">
+          カードを別のカードに重ねて離すと <Term>掛け合わせ</Term>{" "}
+          になり、2つを組み合わせた話題（例「ゲーム × 料理」）が新しい 3×3 で出ます。PC はドラッグ、スマホは長押ししたまま動かします（ふつうに指でなぞると盤面が動くだけなので、うっかり掛け合わさることはありません）。メニューの{" "}
+          <Term>掛け合わせる</Term> から相手のカードをタップしても同じです。どこにも重ねずに離せば元の位置に戻り、やめたいときは{" "}
+          <Term>1つ戻る</Term>。
         </p>
       </Card>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Dices, History, MousePointerClick, Radio, ShieldAlert, Type, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Dices, History, ShieldAlert } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
@@ -10,6 +11,7 @@ import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { TopicShowcase } from "@/components/topic-showcase";
+import { UsageGallery } from "@/components/usage-gallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CatalogBoard } from "@/lib/catalog-data";
@@ -30,12 +32,6 @@ function formatUpdated(ms: number): string {
 function rootLabel(board: Board): string {
   return board.nodes.find((node) => node.data.parentId === null)?.data.label ?? "";
 }
-
-const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
-  { icon: Type, title: "お題を入れる", text: "思いついた言葉でも、おまかせのサイコロでも。" },
-  { icon: MousePointerClick, title: "気になる話題を押す", text: "押した話題から、さらに 8 つの話題が広がります。" },
-  { icon: Radio, title: "配信でそのまま使う", text: "ピン留めで画面に大きく表示。コメントとも連動します。" },
-];
 
 function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
@@ -235,21 +231,19 @@ export function StartScreen({
             </section>
           ) : null}
 
-          <section className="mt-12" aria-label="使い方">
-            <ol className="home-steps">
-              {STEPS.map((step, index) => (
-                <li key={step.title} className="home-step">
-                  <span className="home-step-icon">
-                    <step.icon className="size-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[11px] font-semibold text-primary">STEP {index + 1}</span>
-                    <span className="block text-sm font-semibold">{step.title}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{step.text}</span>
-                  </span>
-                </li>
-              ))}
-            </ol>
+          <section className="mt-12" aria-labelledby="home-usage">
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 id="home-usage" className="text-sm font-semibold tracking-wide">
+                  使い方
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">横にスワイプすると続きが見られます</p>
+              </div>
+              <Link href="/guide/" className="shrink-0 text-xs text-primary underline underline-offset-4">
+                くわしい使い方
+              </Link>
+            </div>
+            <UsageGallery />
           </section>
 
           <TopicShowcase onStart={(label) => onStart(label, DEFAULT_MODE)} busy={busy} />
