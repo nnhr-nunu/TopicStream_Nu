@@ -237,6 +237,9 @@ html.overlay-mode .react-flow__attribution {
 }
 
 .topic-chip {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   position: relative;
   z-index: 4;
   display: inline-flex;

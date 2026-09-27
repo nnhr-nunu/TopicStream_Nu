@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 import { useBoardActions } from "@/components/board-actions";
@@ -108,6 +108,16 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     }
   };
 
+  // スマホ: カードを長押しでメニューを開く（カード本体のボタンは pointerdown を止めるので、そこからも呼ぶ）
+  const startHold = (event: ReactPointerEvent) => {
+    if (overlay || !coarse || event.pointerType !== "touch") return;
+    clearHold();
+    holdTimer.current = window.setTimeout(() => {
+      suppressClick.current = true;
+      menu.show();
+    }, 480);
+  };
+
   return (
     <div
       className={cn("topic-node relative", overlay && !viewer && "topic-node-overlay", menu.open && "topic-node-menu")}
@@ -120,14 +130,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
       onPointerLeave={() => {
         if (!overlay) menu.hideSoon();
       }}
-      onPointerDown={(event) => {
-        if (overlay || !coarse || event.pointerType !== "touch") return;
-        clearHold();
-        holdTimer.current = window.setTimeout(() => {
-          suppressClick.current = true;
-          menu.show();
-        }, 480);
-      }}
+      onPointerDown={startHold}
       onPointerUp={clearHold}
       onPointerCancel={clearHold}
       style={{
@@ -212,7 +215,15 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           sentence && "topic-chip-detail",
           pulsing && "topic-chip-pulse",
         )}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          startHold(event);
+        }}
+        onPointerUp={clearHold}
+        onPointerCancel={clearHold}
+        onContextMenu={(event) => {
+          if (coarse) event.preventDefault();
+        }}
         onClick={(event) => {
           event.stopPropagation();
           if (data.placeholder || data.expanding || regenerating) return;
