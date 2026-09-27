@@ -43,11 +43,22 @@ export type KnowledgeEntry = {
   mode?: BoardMode;
 };
 
-/** edit = 利用者が自分で書き直した語（人が考えた話題なので、そのまま図鑑に入れる） */
-export type PickKind = "heart" | "chat" | "pin" | "expand" | "copy" | "edit";
+/**
+ * edit = 利用者が自分で書き直した語（人が考えた話題なので、そのまま図鑑に入れる）。
+ * wrong = 「ずれている」の印（お題に合わない・間違った生成）。重みがマイナスで、出た回数を打ち消すと候補から消える
+ */
+export type PickKind = "heart" | "chat" | "pin" | "expand" | "copy" | "edit" | "wrong";
 
 /** 選ばれ方ごとの重み */
-export const PICK_WEIGHTS: Record<PickKind, number> = { heart: 3, chat: 3, pin: 3, expand: 2, copy: 2, edit: 2 };
+export const PICK_WEIGHTS: Record<PickKind, number> = {
+  heart: 3,
+  chat: 3,
+  pin: 3,
+  expand: 2,
+  copy: 2,
+  edit: 2,
+  wrong: -4,
+};
 
 export function isPickKind(value: unknown): value is PickKind {
   return typeof value === "string" && value in PICK_WEIGHTS;
@@ -59,7 +70,19 @@ export function topicScore(entry: KnowledgeEntry, label: string): number {
 }
 
 function totalPicks(entry: KnowledgeEntry): number {
-  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
+  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + Math.max(0, value), 0);
+}
+
+/**
+ * 「ずれている」の印で強さ（出た回数 + 選ばれた重み）が 0 以下になった語を外す。
+ * マイナスの票は語が消えても残し、AI が同じ語をまた出しても候補に戻らないようにする
+ */
+export function withoutRejected(
+  topics: Record<string, number>,
+  picks: Record<string, number> | undefined,
+): Record<string, number> {
+  if (!picks) return topics;
+  return Object.fromEntries(Object.entries(topics).filter(([label, count]) => count + (picks[label] ?? 0) > 0));
 }
 
 /** キーは knowledgeKey（雑談は normalizeSeed したお題そのもの、ほかは「モード|お題」） */
@@ -172,7 +195,7 @@ export const TOPICS_PER_SEED = 40;
 
 function keepPicks(picks: Record<string, number> | undefined, topics: Record<string, number>) {
   if (!picks) return undefined;
-  const kept = Object.entries(picks).filter(([label, value]) => label in topics && value > 0);
+  const kept = Object.entries(picks).filter(([label, value]) => (label in topics && value > 0) || value < 0);
   return kept.length ? Object.fromEntries(kept) : undefined;
 }
 
@@ -224,8 +247,9 @@ export function recordTopics(
 }
 
 function withPicks(entry: KnowledgeEntry, picks: Record<string, number> | undefined): KnowledgeEntry {
-  const kept = keepPicks(picks, entry.topics);
-  return kept ? { ...entry, picks: kept } : entry;
+  const topics = withoutRejected(entry.topics, picks);
+  const kept = keepPicks(picks, topics);
+  return kept ? { ...entry, topics, picks: kept } : { ...entry, topics };
 }
 
 /**
@@ -245,7 +269,8 @@ export function recordPick(
   if (!key || !label || normalizeSeed(label) === normalizeSeed(seed)) return store;
   const current = store[key];
   const topics = { ...(current?.topics ?? {}) };
-  if (!(label in topics)) topics[label] = 1;
+  // 「ずれている」の印では語を加えない（票だけ残し、あとで AI が出しても候補に戻さない）
+  if (!(label in topics) && PICK_WEIGHTS[kind] > 0) topics[label] = 1;
   const picks = { ...(current?.picks ?? {}) };
   picks[label] = (picks[label] ?? 0) + PICK_WEIGHTS[kind];
   const entry: KnowledgeEntry = {
@@ -313,7 +338,7 @@ export function asKnowledgeEntry(value: unknown): KnowledgeEntry | null {
   const picks: Record<string, number> = {};
   if (raw.picks && typeof raw.picks === "object") {
     for (const [label, count] of Object.entries(raw.picks)) {
-      if (typeof count === "number" && Number.isFinite(count) && count > 0) picks[label] = count;
+      if (typeof count === "number" && Number.isFinite(count) && count !== 0) picks[label] = count;
     }
   }
   const trimmed = trimTopics(topics, picks);

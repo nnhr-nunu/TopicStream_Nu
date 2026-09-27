@@ -7,8 +7,10 @@ import type { GenerationLayout } from "@/lib/types";
 type BoardActions = {
   expandNode: (id: string) => void;
   regenerateNode?: (id: string) => void;
-  /** 「具体的にする」: 具体的な話題・対応策・企画案・行動などを 8 つ出す */
+  /** 「具体的にする」: 具体的な話題・対応策・企画案・行動などを 8 つ出す（広げ済みのカードは周りの 8 枚を作り直す） */
   detailNode?: (id: string) => void;
+  /** 「ずれている」の印: 図鑑に伝えて、そのカードを作り直す */
+  rejectNode?: (id: string) => void;
   pinNode: (id: string | null) => void;
   setMemo: (id: string, memo: string) => void;
   setLabel?: (id: string, label: string) => void;

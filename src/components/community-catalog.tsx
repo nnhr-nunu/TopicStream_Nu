@@ -30,7 +30,7 @@ export function CommunityCatalog() {
       <header className="mb-6">
         <BrandMark onHome={() => router.push("/")} />
         <h1 className="mt-4 text-2xl font-semibold">みんなのトークテーマ</h1>
-        <p className="mt-1 text-sm text-muted-foreground">最近ちゃんと使われた話題マップが、よく使われた順に並びます。取り込むと自分のボードに追加されます。</p>
+        <p className="mt-1 text-sm text-muted-foreground">最近ちゃんと使われた話題マップが、よく使われた順に並びます。「見てみる」で中身を確かめてから、取り込むと自分のボードに追加されます。</p>
       </header>
       <ThemeBoardList onImport={importBoard} />
       <div className="mt-10">

@@ -23,6 +23,7 @@ import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
 import { topicContext } from "@/lib/topic-context";
+import { detailRecordSeed } from "@/lib/detail-modes";
 import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
 import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
@@ -75,6 +76,8 @@ export function useBoardController() {
   const regeneratingRef = useRef(new Set<string>());
   const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
   const [regenReadyAt, setRegenReadyAt] = useState(0);
+  /** 「ずれている」の印を付けた語。盤面から消えても、このあと AI・図鑑から出し直さない */
+  const rejectedRef = useRef(new Set<string>());
 
   const persist = useCallback((next: AppSnapshot) => {
     writeBoardSnapshot(next);
@@ -118,7 +121,13 @@ export function useBoardController() {
       let working = board;
       if (replace) {
         const cleared = ops.clearChildren(working, nodeId);
-        working = cleared.board;
+        // 前に広げたときの予備は捨てる（「具体的にする」で作り直した後に、元の切り口の語が混ざらないように）
+        working = {
+          ...cleared.board,
+          nodes: cleared.board.nodes.map((node) =>
+            node.id === nodeId ? { ...node, data: { ...node.data, spares: undefined } } : node,
+          ),
+        };
         if (cleared.history) pushUndo(working.id, cleared.history);
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
@@ -140,7 +149,7 @@ export function useBoardController() {
       pushUndo(started.board.id, ops.historyFromChildren(started.board, nodeId, started.childIds, started.edgeIds));
       setBusy(true);
 
-      const existingLabels = started.board.nodes.map((node) => node.data.label);
+      const existingLabels = [...started.board.nodes.map((node) => node.data.label), ...rejectedRef.current];
       const boardId = started.board.id;
       const slots = started.board.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
       const fillPrefs = () => {
@@ -219,6 +228,35 @@ export function useBoardController() {
       showGenerateNotice(result);
     },
     [persist, updateBoardById],
+  );
+
+  /**
+   * 「具体的にする」。まだ広げていないカードは答えを 8 つ出す。広げ済みのカード（中心のお題・3×3 の中央）は、
+   * 周りの 8 枚を答えで作り直す（その先に広げたカードも消える。「1つ戻る」で元に戻せる）
+   */
+  const detailNode = useCallback(
+    (nodeId: string) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      const node = board?.nodes.find((item) => item.id === nodeId);
+      if (!board || !node || node.data.placeholder || node.data.expanding) return;
+      if (!node.data.expanded) {
+        void expandNode(nodeId, false, false, true);
+        return;
+      }
+      // マンダラートの中央は写しなので、元のマスから広げ直す（新しい 3×3 ごと作り直す）
+      const original = node.data.copiedFromId
+        ? board.nodes.find((item) => item.id === node.data.copiedFromId)
+        : undefined;
+      const target = original ?? node;
+      const busyChild = board.nodes.some(
+        (item) => item.data.parentId === target.id && (item.data.placeholder || item.data.expanding),
+      );
+      if (target.data.expanding || busyChild) return;
+      toast.message("周りの 8 枚を具体的な内容に作り直します", { description: "元に戻すときは「1つ戻る」" });
+      void expandNode(target.id, true, false, true);
+    },
+    [expandNode],
   );
 
   const startWithKeyword = useCallback(
@@ -316,7 +354,12 @@ export function useBoardController() {
         // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
         const mode = boardMode(board);
         void fetchSharedRelated(seed, mode);
-        recalled = recallTopicsNow(seed, board.nodes.map((item) => item.data.label), 1 + SPARE_COUNT, mode).topics;
+        recalled = recallTopicsNow(
+          seed,
+          [...board.nodes.map((item) => item.data.label), ...rejectedRef.current],
+          1 + SPARE_COUNT,
+          mode,
+        ).topics;
         if (recalled[0]) spare = { board, label: recalled[0] };
       }
       // 予備も図鑑の候補も無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
@@ -361,7 +404,7 @@ export function useBoardController() {
         const [result] = await Promise.all([
           generateRelatedTopics({
             seed,
-            existing: board.nodes.map((item) => item.data.label),
+            existing: [...board.nodes.map((item) => item.data.label), ...rejectedRef.current],
             count: 1 + SPARE_COUNT,
             preferred: detail ? [] : preferredForSeed(seed),
             context: parent ? topicContext(board, parent.id) : [],
@@ -384,6 +427,27 @@ export function useBoardController() {
       }
     },
     [regenReadyAt, updateBoard, updateBoardById],
+  );
+
+  /**
+   * 「ずれている」の印: お題に合わない・間違った生成を図鑑に伝え（マイナスの票）、そのカードを作り直す。
+   * 「具体的にする」の答えは、答えを記録したお題（汎用の切り口なら元のお題）の下で減らす
+   */
+  const rejectNode = useCallback(
+    (nodeId: string) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      const node = board?.nodes.find((item) => item.id === nodeId);
+      if (!board || !node || node.data.placeholder || node.data.parentId === null) return;
+      const parent = board.nodes.find((item) => item.id === node.data.parentId);
+      const seed =
+        node.data.detail && parent ? detailRecordSeed(parent.data.label, topicContext(board, parent.id)) : undefined;
+      notePick(board, nodeId, "wrong", seed);
+      rejectedRef.current.add(node.data.label.trim());
+      toast.success("「ずれている」と記録しました。作り直します", { description: "図鑑でもこの語は出にくくなります" });
+      void regenerateNode(nodeId);
+    },
+    [regenerateNode],
   );
 
   const setMemo = useCallback(
@@ -676,6 +740,8 @@ export function useBoardController() {
     startRandom,
     expandNode,
     regenerateNode,
+    rejectNode,
+    detailNode,
     undo,
     redo,
     setMemo,

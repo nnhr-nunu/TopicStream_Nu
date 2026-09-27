@@ -39,6 +39,7 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     setMemo,
     setLabel,
     detailNode,
+    rejectNode,
     copyLabel,
     toggleHeart,
     overlay,
@@ -288,8 +289,9 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           isPinned={isPinned}
           copied={copied}
           onPin={() => pinNode(id)}
+          detailRedo={Boolean(data.expanded)}
           onDetail={
-            canExpand && detailNode
+            (canExpand || (data.expanded && !data.expanding)) && detailNode
               ? () => {
                   leaveMenu();
                   detailNode(id);
@@ -304,6 +306,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
               : () => {
                   leaveMenu();
                   regenerateNode?.(id);
+                }
+          }
+          onReject={
+            isRoot || data.expanded || !rejectNode
+              ? undefined
+              : () => {
+                  leaveMenu();
+                  rejectNode(id);
                 }
           }
           onCopy={async () => {
