@@ -1,0 +1,30 @@
+# ビルド成果物・キャッシュ
+.next/
+out/
+build/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# 依存
+node_modules/
+.pnp
+.pnp.*
+.yarn/
+
+# ロックファイル（巨大で情報が少ない）
+package-lock.json
+
+# ログ
+*.log
+npm-debug.log*
+
+# OS・鍵
+.DS_Store
+*.pem
+
+# バイナリ・画像（public 配下）
+public/**/*.{png,jpg,jpeg,gif,webp,ico,woff,woff2}
+
+# 注意: .env.example / .env* は設定理解のため意図的に除外していない
