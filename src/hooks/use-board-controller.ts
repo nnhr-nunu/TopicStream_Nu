@@ -751,6 +751,17 @@ export function useBoardController() {
     }
   }, [shareId]);
 
+  // 再読み込みしても共有を続ける（下の自動送信でサーバー側が消えていても載せ直す）
+  useEffect(() => {
+    try {
+      const saved = window.sessionStorage.getItem(SHARE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage はマウント後にしか読めない
+      if (saved) setShareId(saved);
+    } catch {
+      /* 読めなければ共有し直してもらう */
+    }
+  }, []);
+
   useEffect(() => {
     if (!shareId || !activeBoard || activeBoard.nodes.length === 0) return;
     const timer = window.setTimeout(() => {

@@ -1,11 +1,13 @@
 import { STORAGE_KEY } from "@/lib/constants";
 import { defaultSnapshot, loadSnapshot, parseSnapshot, saveSnapshot } from "@/lib/storage";
 import type { AppSnapshot } from "@/lib/types";
+import { toast } from "sonner";
 
 const SERVER_SNAPSHOT = defaultSnapshot();
 let snapshot: AppSnapshot = SERVER_SNAPSHOT;
 let hydrated = false;
 const listeners = new Set<() => void>();
+let storageFullNoticed = false;
 
 function emit() {
   for (const listener of listeners) listener();
@@ -50,7 +52,18 @@ export function getServerBoardSnapshot() {
 export function writeBoardSnapshot(next: AppSnapshot) {
   snapshot = next;
   hydrated = true;
-  saveSnapshot(next);
+  try {
+    saveSnapshot(next);
+  } catch {
+    // ブラウザの保存容量がいっぱい。盤面は開いている間は使えるので、気づけるように一度だけ知らせる
+    if (!storageFullNoticed) {
+      storageFullNoticed = true;
+      toast.warning("ボードを保存できませんでした", {
+        description: "ブラウザの保存容量がいっぱいです。使わないボードを削除するか、「書き出す」で控えを取ってください。",
+        duration: 10_000,
+      });
+    }
+  }
   emit();
 }
 
