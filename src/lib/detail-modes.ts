@@ -1,3 +1,4 @@
+import { combineInstruction } from "@/lib/combine";
 import { DETAIL_LABEL_MAX } from "@/lib/constants";
 import { isGenericAngle, topicAnchor } from "@/lib/mock-topics";
 import { divisionInstruction } from "@/lib/modes";
@@ -164,7 +165,7 @@ export function buildDetailPrompt(mode: BoardMode, seed: string, count: number, 
   // 答えが文になるモードでは「並べる」指示が合わないので、雑談だけ
   const division = mode === "chat" ? divisionInstruction(mode, seed) : "";
   return `お題「${seed}」について、${preset.ask}をちょうど${count}個出してください。
-${flow}${division}
+${flow}${division}${combineInstruction(seed)}
 よい答え:
 ${preset.rules.map((rule) => `- ${rule}`).join("\n")}
 - ${count}個が同じ方向に偏らず、それぞれ別の具体策・例になっている

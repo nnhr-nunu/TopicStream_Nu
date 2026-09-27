@@ -1,3 +1,4 @@
+import { mockMixTopics, splitMix } from "@/lib/combine";
 import { CHILD_COUNT, LABEL_MAX } from "@/lib/constants";
 import { DEFAULT_MODE, MODE_PRESETS, modePreset, type AngleGroup } from "@/lib/modes";
 import { STARTER_TOPICS } from "@/lib/starters";
@@ -280,6 +281,13 @@ export function mockRelatedTopics(
   preferred: string[] = [],
   { context = [], related = [], mode = DEFAULT_MODE }: { context?: string[]; related?: string[]; mode?: BoardMode } = {},
 ): string[] {
+  // 掛け合わせ（「A × B」）は両方の語を使った定型の話題を先に出し、足りない分をふつうの候補で埋める
+  const mixed = mockMixTopics(seed, existing, count);
+  if (mixed) {
+    if (mixed.length >= count) return mixed;
+    const rest = mockRelatedTopics(splitMix(seed)?.[0] ?? seed, [...existing, ...mixed], count - mixed.length, preferred, { context, related, mode });
+    return [...mixed, ...rest];
+  }
   if (mode !== DEFAULT_MODE) return modeRelatedTopics(seed, existing, count, context, modePreset(mode).angleGroups);
 
   const banned = new Set(existing.map((item) => item.trim()).filter(Boolean));

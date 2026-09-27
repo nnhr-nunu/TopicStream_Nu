@@ -30,6 +30,7 @@ import {
 } from "@/lib/topic-knowledge";
 import type { BoardMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { splitMix } from "@/lib/combine";
 
 type Scope = "all" | "mine";
 
@@ -229,13 +230,36 @@ export function TopicDatabase() {
           {hits.map((hit) => {
             const topics = rankedTopics(hit.entry, 14);
             const q = normalizeSeed(query);
+            // 掛け合わせ（「A × B」）のお題は、それぞれの語から探せるようにする
+            const mix = splitMix(hit.entry.seed);
             return (
               <li key={`${mode}|${hit.entry.seed}`}>
                 <article className="home-topic-card">
                   <div className="flex items-start justify-between gap-2">
-                    <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">{hit.entry.seed}</h2>
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                      {categoryLabel(hit.entry.category)}
+                    <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">
+                      {mix ? (
+                        <>
+                          <button type="button" className="topic-db-mix-part" onClick={() => setQuery(mix[0])}>
+                            {mix[0]}
+                          </button>
+                          <span className="mx-1 text-primary" aria-label="と">
+                            ×
+                          </span>
+                          <button type="button" className="topic-db-mix-part" onClick={() => setQuery(mix[1])}>
+                            {mix[1]}
+                          </button>
+                        </>
+                      ) : (
+                        hit.entry.seed
+                      )}
+                    </h2>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px]",
+                        mix ? "bg-primary/15 font-semibold text-primary" : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {mix ? "掛け合わせ" : categoryLabel(hit.entry.category)}
                     </span>
                   </div>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">

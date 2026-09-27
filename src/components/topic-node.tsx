@@ -4,9 +4,11 @@ import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEve
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 
 import { useBoardActions } from "@/components/board-actions";
+import { useCombine } from "@/components/combine-drag";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
 import { StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { usePulseCodes } from "@/hooks/use-pulse-codes";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { fitLabelFontSize } from "@/lib/fit-label";
@@ -19,19 +21,13 @@ import type { TopicNodeData } from "@/lib/types";
 /** openedCode: マンダラートで開いた先の中央コード（画面表示用。保存しない） */
 export type TopicFlowNode = Node<TopicNodeData & { openedCode?: string }, "topic">;
 
-function useCoarsePointer() {
-  const [coarse, setCoarse] = useState(false);
-  useEffect(() => {
-    const media = window.matchMedia("(pointer: coarse)");
-    const update = () => setCoarse(media.matches);
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
-  }, []);
-  return coarse;
-}
+/** 長押しと見なすまでの時間と、それまでに動いてよい距離（超えたら盤面のスクロール） */
+const HOLD_MS = 450;
+const HOLD_SLOP = 10;
+/** 持ち上げたあと、これ以上動かしたら掛け合わせのドラッグ */
+const LIFT_DRAG = 12;
 
-function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
+function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlowNode>) {
   const {
     expandNode,
     regenerateNode,
@@ -57,9 +53,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const [memoOpen, setMemoOpen] = useState(false);
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
+  const combine = useCombine();
   const pulses = usePulseCodes();
   const suppressClick = useRef(false);
   const holdTimer = useRef<number | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /** スマホ: 触り始め → 長押しで持ち上げ（lifted）→ 動かすと掛け合わせのドラッグ（drag） */
+  const touch = useRef<{ pointerId: number; x: number; y: number; phase: "down" | "lifted" | "drag" } | null>(null);
+  const [lifted, setLifted] = useState(false);
   const isPinned = pinnedNodeId === id;
   const regenerating = Boolean(regeneratingIds?.includes(id));
   // メニューから別の画面（付箋・作り直し）へ進んだら、メニューは閉じてフォーカスも外す
@@ -94,6 +95,12 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
   const pulsing = Boolean(code && pulses.includes(code));
 
   const openLabel = () => {
+    // スマホのメニューは下から出る別の画面なので、閉じてからカードの下に入力欄を出す
+    if (coarse) {
+      leaveMenu();
+      setEditor("label");
+      return;
+    }
     menu.setLocked(true);
     menu.show();
     setEditor("label");
@@ -111,31 +118,119 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
     }
   };
 
-  // スマホ: カードを長押しでメニューを開く（カード本体のボタンは pointerdown を止めるので、そこからも呼ぶ）
-  const startHold = (event: ReactPointerEvent) => {
-    if (overlay || !coarse || event.pointerType !== "touch") return;
+  const endTouch = () => {
     clearHold();
-    holdTimer.current = window.setTimeout(() => {
-      suppressClick.current = true;
-      menu.show();
-    }, 480);
+    touch.current = null;
+    setLifted(false);
   };
+
+  // スマホ: 長押しでカードを持ち上げる。そのまま離すとメニュー、動かして別のカードに重ねると掛け合わせ。
+  // 長押しの前に動いたら盤面のスクロールとして扱う（触っただけでカードが動いたり掛け合わさったりしないように）
+  // カード本体のボタンは pointerdown を止めるので、そこからも呼ぶ
+  const startHold = (event: ReactPointerEvent) => {
+    if (overlay || !coarse || event.pointerType !== "touch" || data.placeholder) return;
+    if (touch.current) {
+      // 2 本目の指（ピンチ）なら長押しをやめる
+      if (touch.current.phase === "drag") combine?.touchCancel();
+      endTouch();
+      return;
+    }
+    clearHold();
+    touch.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, phase: "down" };
+    holdTimer.current = window.setTimeout(() => {
+      holdTimer.current = null;
+      if (!touch.current) return;
+      touch.current.phase = "lifted";
+      suppressClick.current = true;
+      setLifted(true);
+      navigator.vibrate?.(12);
+    }, HOLD_MS);
+  };
+
+  const moveTouch = (event: ReactPointerEvent) => {
+    const state = touch.current;
+    if (!state || state.pointerId !== event.pointerId) return;
+    const moved = Math.hypot(event.clientX - state.x, event.clientY - state.y);
+    if (state.phase === "down") {
+      if (moved > HOLD_SLOP) endTouch();
+      return;
+    }
+    if (state.phase === "lifted") {
+      if (moved <= LIFT_DRAG || !combine) return;
+      state.phase = "drag";
+      combine.touchStart(id, data.label, event.clientX, event.clientY);
+      return;
+    }
+    combine?.touchMove(event.clientX, event.clientY);
+  };
+
+  const releaseTouch = (event: ReactPointerEvent) => {
+    const state = touch.current;
+    if (!state || state.pointerId !== event.pointerId) {
+      clearHold();
+      return;
+    }
+    if (state.phase === "drag") combine?.touchEnd(event.clientX, event.clientY);
+    else if (state.phase === "lifted") menu.show();
+    endTouch();
+  };
+
+  const cancelTouch = () => {
+    if (touch.current?.phase === "drag") combine?.touchCancel();
+    endTouch();
+  };
+
+  // 持ち上げている間は、指の動きで盤面がスクロールしないようにする（React Flow は touchmove で動かす）
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element || !coarse || overlay) return;
+    const stop = (event: TouchEvent) => {
+      const phase = touch.current?.phase;
+      if (phase === "lifted" || phase === "drag") {
+        event.stopPropagation();
+        if (event.cancelable) event.preventDefault();
+      }
+    };
+    element.addEventListener("touchmove", stop, { passive: false });
+    return () => element.removeEventListener("touchmove", stop);
+  }, [coarse, overlay]);
+
+  useEffect(
+    () => () => {
+      if (holdTimer.current) window.clearTimeout(holdTimer.current);
+    },
+    [],
+  );
+
+  // PC: ドラッグし始めたらメニューを閉じる（離したあとカードが元の位置へ戻っても開いたまま残らないように）
+  const setMenuOpen = menu.setOpen;
+  useEffect(() => {
+    if (dragging) setMenuOpen(false);
+  }, [dragging, setMenuOpen]);
 
   return (
     <div
-      className={cn("topic-node relative", overlay && !viewer && "topic-node-overlay", menu.open && "topic-node-menu")}
+      ref={rootRef}
+      className={cn(
+        "topic-node relative",
+        overlay && !viewer && "topic-node-overlay",
+        menu.open && "topic-node-menu",
+        lifted && "topic-node-lifted",
+      )}
       data-family={family}
       data-role={role}
       data-cell={data.cellIndex}
       onPointerEnter={() => {
-        if (!overlay && !coarse) menu.show();
+        if (!overlay && !coarse && !dragging) menu.show();
       }}
       onPointerLeave={() => {
-        if (!overlay) menu.hideSoon();
+        // スマホは指を離すと pointerleave が来るので、メニュー（下から出る）は閉じるボタンか外側のタップで閉じる
+        if (!overlay && !coarse) menu.hideSoon();
       }}
       onPointerDown={startHold}
-      onPointerUp={clearHold}
-      onPointerCancel={clearHold}
+      onPointerMove={moveTouch}
+      onPointerUp={releaseTouch}
+      onPointerCancel={cancelTouch}
       style={{
         animationDelay: `${data.appearIndex * 58}ms`,
         ["--sprout-x" as string]: `${Math.max(-72, Math.min(72, (data.sproutX ?? 0) * 0.28))}px`,
@@ -179,6 +274,14 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
         </button>
       )}
 
+      {lifted ? (
+        <span className="topic-lift-hint" aria-hidden>
+          離すとメニュー
+          <br />
+          動かして重ねると掛け合わせ
+        </span>
+      ) : null}
+
       {isPinned && !data.placeholder ? (
         <span className="topic-now-ribbon" aria-hidden>
           NOW
@@ -216,24 +319,28 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
           role === "source" && "topic-chip-source",
           role === "keyword" && "topic-chip-keyword",
           sentence && "topic-chip-detail",
+          data.mixedFromId && "topic-chip-mix",
           pulsing && "topic-chip-pulse",
         )}
         onPointerDown={(event) => {
           event.stopPropagation();
           startHold(event);
         }}
-        onPointerUp={clearHold}
-        onPointerCancel={clearHold}
         onContextMenu={(event) => {
           if (coarse) event.preventDefault();
         }}
         onClick={(event) => {
           event.stopPropagation();
-          if (data.placeholder || data.expanding || regenerating) return;
           if (suppressClick.current) {
             suppressClick.current = false;
             return;
           }
+          // ドラッグして元の場所で離したときは、タップ（広げる）にしない
+          if (combine?.justDropped()) return;
+          if (data.placeholder) return;
+          // メニューの「掛け合わせる」で相手を選んでいる途中
+          if (combine?.pickTarget(id)) return;
+          if (data.expanding || regenerating) return;
           if (!canExpand) return;
           if (tapDetail) detailNode?.(id);
           else expandNode(id);
@@ -300,7 +407,16 @@ function TopicNodeComponent({ id, data, selected }: NodeProps<TopicFlowNode>) {
 
       {overlay ? null : (
         <TopicActionsMenu
-          open={menu.open || editor === "label"}
+          open={(menu.open || (!coarse && editor === "label")) && !dragging}
+          sheetTitle={coarse ? data.label : undefined}
+          onCombine={
+            combine && !data.placeholder
+              ? () => {
+                  leaveMenu();
+                  combine.startPick(id);
+                }
+              : undefined
+          }
           onOpenChange={menu.setOpen}
           isPinned={isPinned}
           copied={copied}

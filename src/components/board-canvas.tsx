@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import {
   Background,
   BackgroundVariant,
@@ -11,12 +12,14 @@ import {
   useReactFlow,
   type Edge,
   type NodeChange,
+  type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { CombineGhost, CombinePickBanner, CombineProvider, nodeIdAt, type CombineApi } from "@/components/combine-drag";
 import { FlowEdge } from "@/components/flow-edge";
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
-import { ZoomDock } from "@/components/zoom-dock";
+import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -64,7 +67,8 @@ function openedCodes(board: Board): Map<string, string> {
   return map;
 }
 
-function toFlowNodes(board: Board, overlay: boolean): TopicFlowNode[] {
+/** draggable: PC で掛け合わせができるとき（スマホは長押ししてから動かすので、React Flow のドラッグは使わない） */
+function toFlowNodes(board: Board, draggable: boolean): TopicFlowNode[] {
   const opened = openedCodes(board);
   return board.nodes.map((node) => ({
     id: node.id,
@@ -72,8 +76,21 @@ function toFlowNodes(board: Board, overlay: boolean): TopicFlowNode[] {
     position: node.position,
     data: opened.has(node.id) ? { ...node.data, openedCode: opened.get(node.id) } : node.data,
     selected: board.focusedNodeId === node.id,
-    draggable: !overlay,
+    draggable: draggable && !node.data.placeholder,
   }));
+}
+
+/** ドラッグ中の指・カーソルの位置 */
+function pointOf(event: MouseEvent | TouchEvent): { x: number; y: number } | null {
+  if ("clientX" in event) return { x: event.clientX, y: event.clientY };
+  const touch = event.changedTouches[0] ?? event.touches[0];
+  return touch ? { x: touch.clientX, y: touch.clientY } : null;
+}
+
+/** 掛け合わせでできたカードへの、持ってきた側からの線（点線で区別する） */
+function isMixEdge(board: Board, edge: Board["edges"][number]): boolean {
+  const target = board.nodes.find((node) => node.id === edge.target);
+  return Boolean(target?.data.mixedFromId && target.data.mixedFromId === edge.source);
 }
 
 function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
@@ -89,6 +106,7 @@ function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
       target: edge.target,
       selectable: false,
       ...(layout === "mandala" ? { type: "flow", style: FLOW_EDGE_STYLE } : {}),
+      ...(isMixEdge(board, edge) ? { className: "mix-edge" } : {}),
     }));
 }
 
@@ -97,15 +115,20 @@ function CanvasInner({
   overlay,
   layout,
   onFocus,
-  onPositions,
+  onCombine,
+  children,
 }: {
   board: Board;
   overlay: boolean;
   layout: GenerationLayout;
   onFocus: (id: string | null) => void;
-  onPositions: (positions: Record<string, { x: number; y: number }>) => void;
+  onCombine?: (sourceId: string, targetId: string) => void;
+  children?: ReactNode;
 }) {
   const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const coarse = useCoarsePointer();
+  const combining = !overlay && Boolean(onCombine);
+  const mouseDrag = combining && !coarse;
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
   const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => {
@@ -114,7 +137,7 @@ function CanvasInner({
       return `${node.id}:${d.label}:${d.memo}:${d.heartCount ?? 0}:${d.frameHearts ?? 0}:${d.expanding ? 1 : 0}:${d.expanded ? 1 : 0}:${d.placeholder ? 1 : 0}:${d.role ?? ""}:${d.groupId ?? ""}:${d.cellIndex ?? ""}:${d.familyIndex ?? ""}:${node.position.x}:${node.position.y}`;
     })
     .join("|")}`;
-  const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, overlay));
+  const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, mouseDrag));
   const [seenSignature, setSeenSignature] = useState(signature);
   const prevIds = useRef<Set<string> | null>(null);
   const boardIdRef = useRef(board.id);
@@ -122,9 +145,11 @@ function CanvasInner({
   const clusterUntil = useRef(0);
   const edges = useMemo(() => toFlowEdges(board, layout), [board, layout]);
   const pinned = Boolean(board.pinnedNodeId);
-  if (signature !== seenSignature) {
+  const [seenDrag, setSeenDrag] = useState(mouseDrag);
+  if (signature !== seenSignature || seenDrag !== mouseDrag) {
     setSeenSignature(signature);
-    setNodes(toFlowNodes(board, overlay));
+    setSeenDrag(mouseDrag);
+    setNodes(toFlowNodes(board, mouseDrag));
   }
 
   const fitCluster = useCallback(
@@ -249,28 +274,131 @@ function CanvasInner({
 
   const onNodesChange = useCallback(
     (changes: NodeChange<TopicFlowNode>[]) => {
-      setNodes((current) => {
-        const next = applyNodeChanges(changes, current).filter((node) => liveIds.has(node.id));
-        if (changes.some((change) => change.type === "position" && change.dragging === false)) {
-          const positions: Record<string, { x: number; y: number }> = {};
-          for (const node of next) positions[node.id] = node.position;
-          onPositions(positions);
-        }
-        return next;
-      });
+      setNodes((current) => applyNodeChanges(changes, current).filter((node) => liveIds.has(node.id)));
     },
-    [liveIds, onPositions],
+    [liveIds],
   );
 
+  // ---- 掛け合わせ（カードを別のカードに重ねる） ----
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [returningId, setReturningId] = useState<string | null>(null);
+  const [pickFrom, setPickFrom] = useState<string | null>(null);
+  const [touchDrag, setTouchDrag] = useState<{ id: string; label: string; x: number; y: number } | null>(null);
+  const dropTargetRef = useRef<string | null>(null);
+  const touchIdRef = useRef<string | null>(null);
+  const droppedAt = useRef(0);
+  const onCombineRef = useRef(onCombine);
+  useEffect(() => {
+    onCombineRef.current = onCombine;
+  }, [onCombine]);
+
+  const markTarget = useCallback((id: string | null) => {
+    if (dropTargetRef.current === id) return;
+    dropTargetRef.current = id;
+    setDropTarget(id);
+  }, []);
+  const finishDrop = useCallback(
+    (sourceId: string, targetId: string | null) => {
+      markTarget(null);
+      droppedAt.current = Date.now();
+      if (targetId) onCombineRef.current?.(sourceId, targetId);
+    },
+    [markTarget],
+  );
+
+  const onNodeDrag: OnNodeDrag<TopicFlowNode> = (event, node) => {
+    const point = pointOf(event);
+    markTarget(point ? nodeIdAt(point.x, point.y, node.id) : null);
+  };
+  // どこにも重ならずに離したら元の位置へ（掛け合わせたときも、持ってきたカードは元の場所に戻す）
+  const onNodeDragStop: OnNodeDrag<TopicFlowNode> = (event, node) => {
+    const point = pointOf(event);
+    const target = point ? nodeIdAt(point.x, point.y, node.id) : null;
+    setReturningId(node.id);
+    window.setTimeout(() => setReturningId((id) => (id === node.id ? null : id)), 300);
+    setNodes(toFlowNodes(board, mouseDrag));
+    finishDrop(node.id, target);
+  };
+
+  useEffect(() => {
+    if (!pickFrom) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPickFrom(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pickFrom]);
+
+  // カードが毎回描き直されないよう、中身が変わったときだけ作り直す
+  const combineApi = useMemo<CombineApi | null>(
+    () =>
+      combining
+        ? {
+            pickFrom,
+            startPick: (id) => setPickFrom(id),
+            cancelPick: () => setPickFrom(null),
+            pickTarget: (id) => {
+              if (!pickFrom) return false;
+              setPickFrom(null);
+              if (id !== pickFrom) onCombineRef.current?.(pickFrom, id);
+              return true;
+            },
+            justDropped: () => Date.now() - droppedAt.current < 400,
+            touchStart: (id, label, x, y) => {
+              touchIdRef.current = id;
+              setTouchDrag({ id, label, x, y });
+              markTarget(nodeIdAt(x, y, id));
+            },
+            touchMove: (x, y) => {
+              const id = touchIdRef.current;
+              if (!id) return;
+              setTouchDrag((drag) => (drag ? { ...drag, x, y } : drag));
+              markTarget(nodeIdAt(x, y, id));
+            },
+            touchEnd: (x, y) => {
+              const id = touchIdRef.current;
+              if (!id) return;
+              touchIdRef.current = null;
+              setTouchDrag(null);
+              finishDrop(id, nodeIdAt(x, y, id));
+            },
+            touchCancel: () => {
+              touchIdRef.current = null;
+              setTouchDrag(null);
+              markTarget(null);
+            },
+          }
+        : null,
+    [combining, pickFrom, markTarget, finishDrop],
+  );
+
+  const liftedId = touchDrag?.id ?? null;
+  const shownNodes = useMemo(() => {
+    if (!dropTarget && !returningId && !pickFrom && !liftedId) return nodes;
+    return nodes.map((node) => {
+      const classes = [
+        node.id === dropTarget && "combine-target",
+        node.id === returningId && "combine-return",
+        (node.id === pickFrom || node.id === liftedId) && "combine-source",
+        pickFrom && node.id !== pickFrom && !node.data.placeholder && "combine-candidate",
+      ].filter(Boolean);
+      return classes.length ? { ...node, className: classes.join(" ") } : node;
+    });
+  }, [nodes, dropTarget, returningId, pickFrom, liftedId]);
+  const pickLabel = pickFrom ? (board.nodes.find((node) => node.id === pickFrom)?.data.label ?? "") : "";
+
   return (
+    <CombineProvider value={combineApi}>
     <ReactFlow
-      nodes={nodes}
+      nodes={shownNodes}
       edges={edges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
       onNodeClick={(_, node) => onFocus(node.id)}
-      onPaneClick={() => undefined}
+      onNodeDrag={mouseDrag ? onNodeDrag : undefined}
+      onNodeDragStop={mouseDrag ? onNodeDragStop : undefined}
+      onPaneClick={() => setPickFrom(null)}
       fitView={false}
       defaultViewport={{ x: 0, y: 0, zoom: 1 }}
       fitViewOptions={{ padding: overlay ? 0.16 : 0.22, maxZoom: 1.12 }}
@@ -278,7 +406,7 @@ function CanvasInner({
       maxZoom={2.2}
       nodeOrigin={[0.5, 0.5]}
       nodesConnectable={false}
-      nodesDraggable={!overlay}
+      nodesDraggable={mouseDrag}
       elementsSelectable
       panOnDrag
       panOnScroll={false}
@@ -303,10 +431,18 @@ function CanvasInner({
             size={1.1}
             color="color-mix(in oklab, var(--foreground) 14%, transparent)"
           />
-          <ZoomDock />
+          {children}
+          {pickFrom ? <CombinePickBanner label={pickLabel} onCancel={() => setPickFrom(null)} /> : null}
         </>
       )}
     </ReactFlow>
+    {touchDrag
+      ? createPortal(
+          <CombineGhost label={touchDrag.label} x={touchDrag.x} y={touchDrag.y} over={Boolean(dropTarget)} />,
+          document.body,
+        )
+      : null}
+    </CombineProvider>
   );
 }
 
@@ -315,7 +451,10 @@ export function BoardCanvas(props: {
   overlay?: boolean;
   layout?: GenerationLayout;
   onFocus: (id: string | null) => void;
-  onPositions: (positions: Record<string, { x: number; y: number }>) => void;
+  /** 渡したときだけ、カードを別のカードに重ねて掛け合わせられる */
+  onCombine?: (sourceId: string, targetId: string) => void;
+  /** キャンバスの上に重ねて出す操作（左下の切り替えなど） */
+  children?: ReactNode;
 }) {
   const layout =
     props.layout ??

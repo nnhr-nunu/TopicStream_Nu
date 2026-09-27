@@ -2,6 +2,7 @@ import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { isJunkTopic, padTopics } from "@/lib/gemini-core";
+import { splitMix } from "@/lib/combine";
 import { fetchSharedRelated, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
@@ -56,10 +57,13 @@ export async function generateRelatedTopics(options: {
     Promise.all([fetchSharedRelated(options.seed, mode), anchor ? fetchSharedRelated(anchor, mode) : null]),
     wait(RECALL_WAIT_MS),
   ]);
-  const recalled = generic ? { topics: [], depth: 0 } : recallTopicsNow(options.seed, options.existing, count, mode);
+  // 掛け合わせ（「A × B」）は似たお題の語を借りると片方だけの話になるので、図鑑からは出さない
+  const mixed = Boolean(splitMix(options.seed));
+  const recalled =
+    generic || mixed ? { topics: [], depth: 0 } : recallTopicsNow(options.seed, options.existing, count, mode);
   // このお題で図鑑が足りないときは、元のお題の語で埋める（何も無くて汎用の切り口だけになるのを避ける）
   const related =
-    anchor && recalled.topics.length < count
+    anchor && !mixed && recalled.topics.length < count
       ? recallTopicsNow(anchor, [...options.existing, ...context], count, mode).topics
       : [];
   if (options.recall && recalled.depth >= count && recalled.topics.length >= count && Math.random() >= RECALL_AI_RATE) {

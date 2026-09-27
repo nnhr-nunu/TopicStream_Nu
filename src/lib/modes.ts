@@ -1,3 +1,4 @@
+import { combineInstruction } from "@/lib/combine";
 import { LABEL_MAX } from "@/lib/constants";
 import type { Board, BoardMode } from "@/lib/types";
 
@@ -420,7 +421,7 @@ export function buildModePrompt(mode: BoardMode, seed: string, count: number, fl
     .join("");
   return `あなたは${prompt.role}です。
 お題「${seed}」から、${prompt.ask}をちょうど${count}個出してください。
-${flow}${divisionInstruction(mode, seed)}
+${flow}${divisionInstruction(mode, seed)}${combineInstruction(seed)}
 よい切り口:
 ${prompt.rules.map((rule) => `- ${rule}`).join("\n")}
 ${example}

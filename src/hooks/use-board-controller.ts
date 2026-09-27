@@ -20,6 +20,7 @@ import {
   updateHistory,
 } from "@/lib/board-history";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
+import { addMixNode, canCombine, existingMix } from "@/lib/board-combine";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
 import { topicContext } from "@/lib/topic-context";
@@ -114,7 +115,14 @@ export function useBoardController() {
    * （形はふつうの広げ方と同じ 3×3。出した答えのカードも、ふつうのカードと同じように広げられる）。
    */
   const expandNode = useCallback(
-    async (nodeId: string, replace = false, overlay = false, detail = false) => {
+    async (
+      nodeId: string,
+      replace = false,
+      overlay = false,
+      detail = false,
+      /** 掛け合わせ: 「1つ戻る」で掛け合わせのカードごと消えるよう、重ねた先を親として記録する */
+      historyRoot?: { parentId: string; childIds: string[]; edgeIds: string[] },
+    ) => {
       const current = currentSnapshot();
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       if (!board) return;
@@ -132,8 +140,8 @@ export function useBoardController() {
       }
       const parent = working.nodes.find((node) => node.id === nodeId);
       if (!parent || parent.data.expanding) return;
-      // この語を選んで広げた＝図鑑での票
-      notePick(working, nodeId, "expand");
+      // この語を選んで広げた＝図鑑での票（掛け合わせの「A × B」は選ばれた語ではないので数えない）
+      if (!parent.data.mixedFromId) notePick(working, nodeId, "expand");
 
       const prefs = prefsFromSettings(current.settings, overlay, working.pinnedNodeId);
       const begun = ops.beginExpand(working, nodeId, 8, prefs);
@@ -146,7 +154,8 @@ export function useBoardController() {
         ...current,
         boards: current.boards.map((item) => (item.id === started.board.id ? started.board : item)),
       });
-      pushUndo(started.board.id, ops.historyFromChildren(started.board, nodeId, started.childIds, started.edgeIds));
+      const hist = historyRoot ?? { parentId: nodeId, childIds: started.childIds, edgeIds: started.edgeIds };
+      pushUndo(started.board.id, ops.historyFromChildren(started.board, hist.parentId, hist.childIds, hist.edgeIds));
       setBusy(true);
 
       const existingLabels = [...started.board.nodes.map((node) => node.data.label), ...rejectedRef.current];
@@ -213,11 +222,11 @@ export function useBoardController() {
         for (let i = next.length - 1; i >= 0; i -= 1) {
           const entry = next[i]!;
           if (
-            entry.parentId === nodeId &&
-            entry.childIds.length === started.childIds.length &&
-            entry.childIds.every((id, index) => id === started.childIds[index])
+            entry.parentId === hist.parentId &&
+            entry.childIds.length === hist.childIds.length &&
+            entry.childIds.every((id, index) => id === hist.childIds[index])
           ) {
-            next[i] = ops.historyFromChildren(filled, nodeId, started.childIds, started.edgeIds);
+            next[i] = ops.historyFromChildren(filled, hist.parentId, hist.childIds, hist.edgeIds);
             break;
           }
         }
@@ -257,6 +266,38 @@ export function useBoardController() {
       void expandNode(target.id, true, false, true);
     },
     [expandNode],
+  );
+
+  /**
+   * 掛け合わせ: source を target に重ねた。target の子に「target × source」のカードを置き、
+   * 2 つを組み合わせた話題で周りを埋める（キー無しでも「A×B」の定型で埋まる）。
+   */
+  const combineNodes = useCallback(
+    (sourceId: string, targetId: string) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      if (!board) return;
+      const check = canCombine(board, sourceId, targetId);
+      if (!check.ok) {
+        const mix = existingMix(board, sourceId, targetId);
+        if (mix) persist({ ...current, boards: current.boards.map((item) => (item.id === board.id ? ops.focusNode(board, mix.id) : item)) });
+        toast.message(check.reason);
+        return;
+      }
+      const added = addMixNode(board, sourceId, targetId, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+      if (!added) return;
+      persist({ ...current, boards: current.boards.map((item) => (item.id === added.board.id ? added.board : item)) });
+      const mix = added.board.nodes.find((node) => node.id === added.mixId);
+      toast.message(`「${mix?.data.label ?? ""}」を作りました`, {
+        description: "やめるときは「1つ戻る」",
+      });
+      void expandNode(added.mixId, false, false, false, {
+        parentId: targetId,
+        childIds: [added.mixId],
+        edgeIds: added.edgeIds,
+      });
+    },
+    [expandNode, persist],
   );
 
   const startWithKeyword = useCallback(
@@ -742,6 +783,7 @@ export function useBoardController() {
     regenerateNode,
     rejectNode,
     detailNode,
+    combineNodes,
     undo,
     redo,
     setMemo,
