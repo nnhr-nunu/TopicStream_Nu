@@ -28,7 +28,7 @@ export function buildPrompt(
 このお題は「${[...context].reverse().join(" → ")} → ${seed}」という話の流れで出てきました。流れから外れない切り口にしてください。
 `
     : "";
-  return detail ? buildDetailPrompt(mode, seed, count, flow, banned) : buildModePrompt(mode, seed, count, flow, banned);
+  return detail ? buildDetailPrompt(mode, seed, count, flow, banned, context) : buildModePrompt(mode, seed, count, flow, banned);
 }
 
 /** 語の長さの上限。「具体的にする」の答えは文なので長め */

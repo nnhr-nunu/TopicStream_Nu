@@ -246,6 +246,18 @@ export function penetration(a: AbsBox, b: AbsBox, pad = GLYPH_PAD): { x: number;
 }
 
 /** 文のカード（「具体的にする」の答えや、図鑑から取り込んだ長い文）。小さめの文字で左寄せにする。中央のお題は除く */
+/**
+ * 「言葉：意味」のカード（「具体的にする」で方言・業界用語などを出したとき。例: ぶち：すごく）。
+ * 語が短く、後ろに意味が続くときだけ。カードでは語を大きく、意味を小さく 2 段で見せる
+ */
+export function splitGloss(label: string): { term: string; meaning: string } | null {
+  const match = label.trim().match(/^([^：:]{1,12}?)\s*[：:]\s*([^：:]{1,32})$/u);
+  // 「12:00」のような時刻・比率と、ふり返りの「続ける：…」（語ではなく行動が本文）は分けない
+  if (!match || /^[\d\s]+$/.test(match[1]!) || /^\d/.test(match[2]!)) return null;
+  if (/^(続ける|やめる|次に試す)$/.test(match[1]!.trim())) return null;
+  return { term: match[1]!.trim(), meaning: match[2]!.trim() };
+}
+
 export function isSentenceCard(data: Pick<TopicNodeData, "detail" | "label" | "parentId">): boolean {
   return data.parentId !== null && (Boolean(data.detail) || data.label.length > LABEL_MAX);
 }

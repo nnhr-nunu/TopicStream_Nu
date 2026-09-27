@@ -127,7 +127,8 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
         ? settings.geminiModel
         : DEFAULT_SETTINGS.geminiModel,
     fontScale: Number.isFinite(fontScale) ? Math.min(1.6, Math.max(0.85, fontScale)) : 1,
-    density: settings.density === "compact" ? "compact" : "comfortable",
+    // 「カードの間隔を詰める」は設定から外した。以前詰めていた人も標準の間隔に戻す
+    density: "comfortable",
     overlayTransparent: settings.overlayTransparent !== false,
     nickname: typeof settings.nickname === "string" ? settings.nickname.slice(0, 24) : "",
     colorTheme: asColorTheme(settings.colorTheme),

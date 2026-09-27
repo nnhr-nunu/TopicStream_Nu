@@ -1,6 +1,6 @@
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { CENTER_CELL_INDEX, cellCode } from "@/lib/mandala-ids";
-import { estimateLocalBox, MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
+import { estimateLocalBox, MANDALA_CHIP_H, MANDALA_CHIP_W, splitGloss } from "@/lib/node-box";
 import { buildTopicTrail, type TopicTrail, type TrailNode } from "@/lib/topic-trail";
 import type { Board, GenerationLayout, TNode } from "@/lib/types";
 
@@ -124,6 +124,23 @@ function drawLabel(
   weight: number,
   familyName: string,
 ) {
+  // 「言葉：意味」は画面と同じく、語を大きく・意味を小さく 2 段に
+  const gloss = splitGloss(text);
+  if (gloss) {
+    const term = fitLines(ctx, gloss.term, maxWidth, 1, maxSize, 10, 700, familyName);
+    const meaning = fitLines(ctx, gloss.meaning, maxWidth, 1, Math.round(maxSize * 0.72), 9, 500, familyName);
+    const gap = 4;
+    const top = cy - (term.size + gap + meaning.size) / 2;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.font = font(term.size, 700, familyName);
+    ctx.fillStyle = INK;
+    ctx.fillText(term.lines[0] ?? "", cx, top);
+    ctx.font = font(meaning.size, 500, familyName);
+    ctx.fillStyle = MUTED;
+    ctx.fillText(meaning.lines[0] ?? "", cx, top + term.size + gap);
+    return;
+  }
   const { size, lines } = fitLines(ctx, text, maxWidth, maxLines, maxSize, 10, weight, familyName);
   const lineHeight = size * 1.28;
   ctx.font = font(size, weight, familyName);
@@ -149,6 +166,24 @@ function drawStep(ctx: CanvasRenderingContext2D, step: number, x: number, y: num
   ctx.textBaseline = "middle";
   ctx.fillText(String(step), x, y + 0.5);
 }
+
+/** 掛け合わせの印（持ってきたカードからの点線が、掛け合わせた話題に着くところ） */
+function drawMixMark(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, familyName: string) {
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = BG;
+  ctx.stroke();
+  ctx.fillStyle = "#fff";
+  ctx.font = font(16, 700, familyName);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("×", x, y + 0.5);
+}
+
+const MIX_DASH = [7, 6];
 
 /** 右上の角に ♥ の数と NOW を並べる */
 function drawBadges(
@@ -269,6 +304,33 @@ function drawTrail(trail: TopicTrail, title: string, familyName: string): HTMLCa
     ctx.stroke();
   }
 
+  // 掛け合わせ: 持ってきたカードから、掛け合わせた話題の上（下）の辺へ点線。カードの下に描いて文字を隠さない
+  const placedById = new Map(placed.map((box) => [box.item.id, box]));
+  const mixMarks: { x: number; y: number; color: string }[] = [];
+  ctx.save();
+  ctx.setLineDash(MIX_DASH);
+  ctx.lineCap = "round";
+  for (const to of placed) {
+    const from = to.item.mixedFrom ? placedById.get(to.item.mixedFrom) : undefined;
+    if (!from) continue;
+    const down = from.y + from.h / 2 <= to.y + to.h / 2 ? 1 : -1;
+    const x1 = from.x + from.w / 2;
+    const y1 = down > 0 ? from.y + from.h : from.y;
+    const x2 = to.x + to.w / 2;
+    const y2 = down > 0 ? to.y : to.y + to.h;
+    const reach = Math.max(36, Math.abs(y2 - y1) * 0.45);
+    // 同じ列なら、あいだのカードを避けて列のすき間へふくらませる
+    const bulge = Math.abs(x2 - x1) < 1 ? CARD_W / 2 + COL_GAP : 0;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(x1 + bulge, y1 + down * reach, x2 + bulge, y2 - down * reach, x2, y2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = family(from.item.familyIndex).line;
+    ctx.stroke();
+    mixMarks.push({ x: x2, y: y2, color: family(to.item.familyIndex).line });
+  }
+  ctx.restore();
+
   for (const { item, x, y, w, h } of placed) {
     const colors = family(item.familyIndex);
     const chosen = item.step !== null || item.depth === 0;
@@ -282,6 +344,7 @@ function drawTrail(trail: TopicTrail, title: string, familyName: string): HTMLCa
     if (item.step) drawStep(ctx, item.step, x + 2, y + 2, colors.line, familyName);
     drawBadges(ctx, x + w + 4, y, item.hearts, item.pinned, familyName);
   }
+  for (const mark of mixMarks) drawMixMark(ctx, mark.x, mark.y, mark.color, familyName);
   return canvas;
 }
 
@@ -319,6 +382,7 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
       h: box.bottom - box.top,
     };
   });
+  const boxById = new Map(boxes.map((box) => [box.item.id, box]));
   const minX = Math.min(...boxes.map((box) => box.x));
   const minY = Math.min(...boxes.map((box) => box.y));
   const maxX = Math.max(...boxes.map((box) => box.x + box.w));
@@ -336,6 +400,7 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
   ctx.translate(offsetX - minX, offsetY - minY);
 
   const familyOf = (node: TNode) => node.data.familyIndex ?? node.data.depth;
+  const mixMarks: { x: number; y: number; color: string }[] = [];
   // 線: マンダラートは 3×3 の中央どうしだけ（画面と同じ）、放射はすべて
   for (const edge of laid.edges) {
     const from = byId.get(edge.source);
@@ -346,17 +411,31 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
     const dy = to.position.y - from.position.y;
     const length = Math.hypot(dx, dy) || 1;
     const bend = layout === "mandala" ? Math.min(64, length * 0.15) * 2 : 0;
+    const cx = (from.position.x + to.position.x) / 2 + (dy / length) * bend;
+    const cy = (from.position.y + to.position.y) / 2 - (dx / length) * bend;
+    // 掛け合わせで持ってきたカードからの線は点線（画面と同じ）
+    const mix = to.data.mixedFromId === from.id;
+    ctx.save();
+    if (mix) ctx.setLineDash(MIX_DASH);
     ctx.beginPath();
     ctx.moveTo(from.position.x, from.position.y);
-    ctx.quadraticCurveTo(
-      (from.position.x + to.position.x) / 2 + (dy / length) * bend,
-      (from.position.y + to.position.y) / 2 - (dx / length) * bend,
-      to.position.x,
-      to.position.y,
-    );
+    ctx.quadraticCurveTo(cx, cy, to.position.x, to.position.y);
     ctx.lineWidth = layout === "mandala" ? 3 : 2;
-    ctx.strokeStyle = family(familyOf(to)).lineSoft;
+    ctx.strokeStyle = mix ? family(familyOf(from)).line : family(familyOf(to)).lineSoft;
     ctx.stroke();
+    ctx.restore();
+    if (mix) {
+      // 印は、点線が掛け合わせた話題のカードに入るところ（カードの縁）
+      const box = boxById.get(to.id);
+      for (let t = 1; t >= 0; t -= 0.01) {
+        const x = (1 - t) ** 2 * from.position.x + 2 * (1 - t) * t * cx + t ** 2 * to.position.x;
+        const y = (1 - t) ** 2 * from.position.y + 2 * (1 - t) * t * cy + t ** 2 * to.position.y;
+        if (!box || x < box.x || x > box.x + box.w || y < box.y || y > box.y + box.h) {
+          mixMarks.push({ x, y, color: family(familyOf(to)).line });
+          break;
+        }
+      }
+    }
   }
 
   for (const { item: node, x, y, w, h } of boxes) {
@@ -402,6 +481,7 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
       familyName,
     );
   }
+  for (const mark of mixMarks) drawMixMark(ctx, mark.x, mark.y, mark.color, familyName);
   return canvas;
 }
 

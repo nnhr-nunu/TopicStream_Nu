@@ -1,7 +1,7 @@
 import { combineInstruction } from "@/lib/combine";
 import { DETAIL_LABEL_MAX } from "@/lib/constants";
 import { isGenericAngle, topicAnchor } from "@/lib/mock-topics";
-import { divisionInstruction } from "@/lib/modes";
+import { divisionInstruction, isDivisionLabel } from "@/lib/modes";
 import type { BoardMode } from "@/lib/types";
 
 /**
@@ -28,6 +28,7 @@ export const DETAIL_PRESETS: Record<BoardMode, DetailPreset> = {
       "カテゴリの名前だけでなく、聞いた人が自分の体験をすぐ思い出せる具体的なもの・場面にする",
       "お題が分け方を持つまとまり（例: 地方の方言、ご当地グルメ）なら、分けた一つ一つ（北海道弁、関西弁、博多弁…）をそのまま出す",
       "お題が種類の中の一つ（例: 関西弁、博多ラーメン、90年代J-POP）なら、その代表的な中身（よく知られた言葉・品目・曲など）をそのまま出す",
+      "名前だけでは知らない人に意味が分からないもの（方言・業界用語・若者言葉・略語・ご当地の食べ物など）は「名前：ひとこと説明」の形にする（例: お題「広島弁」なら「ぶち：すごく」「じゃけん：〜だから」、お題「広島のご当地グルメ」なら「がんす：魚のすり身のフライ」）",
       "定番の話題と、ちょっと意外な話題を半分ずつ混ぜる",
       "文や問いかけにしない",
     ],
@@ -142,6 +143,7 @@ export const DETAIL_PRESETS: Record<BoardMode, DetailPreset> = {
       "要点・身近な例・よくある誤解・次に調べるキーワードを混ぜる",
       "自信のない事実は断定せず、「〜と言われる」「〜で確かめる」の形にする",
       "専門用語を使うときは、ひと言で言い換えを添える",
+      "お題が用語・言葉のまとまり（例: 投資用語、医療の略語）なら「用語：意味」の形にする（例: 「NISA：投資の利益が非課税になる制度」）",
     ],
     offline: [
       "「{seed}」を、一言で説明してみる",
@@ -158,14 +160,47 @@ export const DETAIL_PRESETS: Record<BoardMode, DetailPreset> = {
   },
 };
 
+/**
+ * 中身が「言葉」になるお題（方言・業界用語・若者言葉・略語など）。
+ * 言葉だけ並べても意味が分からないので「言葉：意味」の形で出してもらう（カードでは 2 段で見せる）
+ */
+export function isWordTopic(seed: string, context: string[] = []): boolean {
+  const text = seed.trim();
+  // 「地方の方言」のような方言のまとまりは、言葉ではなく種類（北海道弁・関西弁…）で広げる
+  if (isDivisionLabel(text) || /^((地方|日本|全国|各地|世界|いろんな|色々な)の?)?方言$/.test(text)) return false;
+  const words =
+    /(弁|方言|なまり|訛り|(若者|ギャル|業界|ネット|赤ちゃん|幼児|お国)言葉|用語|スラング|略語|語録|ことわざ|慣用句|四字熟語|口癖|口ぐせ|ギャル語|死語|隠語|符丁|語尾)$/;
+  if (words.test(text)) return true;
+  // 「広島弁 → 語尾」のように、方言の中の切り口
+  const parent = context[0]?.trim() ?? "";
+  return /(弁|方言)$/.test(parent) && /(語尾|言い方|言い回し|表現|言葉|あいさつ|挨拶)/.test(text);
+}
+
+/** 言葉のお題で足す指示（雑談・学び） */
+export function wordInstruction(mode: BoardMode, seed: string, context: string[] = []): string {
+  if ((mode !== "chat" && mode !== "learn") || !isWordTopic(seed, context)) return "";
+  return `
+このお題の中身は「言葉」です。実際に使われている言葉を1つずつ、「言葉：意味や使う場面」の形で出してください。言葉は短く（2〜8文字）、意味はひとことで（例: お題「広島弁」→「ぶち：すごく」「じゃけん：〜だから」「たいぎい：面倒くさい」「はぶてる：すねる」）。「〜の語尾」「〜の言い回し」のような分類の名前や、体験・感想の切り口は入れないでください。確かでない言葉は出さないでください。
+`;
+}
+
 /** AI への指示（「具体的にする」用。お題・話の流れ・重複しない語は gemini-core が渡す） */
-export function buildDetailPrompt(mode: BoardMode, seed: string, count: number, flow: string, banned: string): string {
+export function buildDetailPrompt(
+  mode: BoardMode,
+  seed: string,
+  count: number,
+  flow: string,
+  banned: string,
+  context: string[] = [],
+): string {
   const preset = DETAIL_PRESETS[mode] ?? DETAIL_PRESETS.chat;
-  const [min, max] = preset.length ?? [12, DETAIL_LABEL_MAX];
+  const words = wordInstruction(mode, seed, context);
+  // 「言葉：意味」は語と説明の 2 つ分なので、少し長くてよい
+  const [min, max] = words ? [4, 22] : (preset.length ?? [12, DETAIL_LABEL_MAX]);
   // 答えが文になるモードでは「並べる」指示が合わないので、雑談だけ
   const division = mode === "chat" ? divisionInstruction(mode, seed) : "";
   return `お題「${seed}」について、${preset.ask}をちょうど${count}個出してください。
-${flow}${division}${combineInstruction(seed)}
+${flow}${division}${words}${combineInstruction(seed)}
 よい答え:
 ${preset.rules.map((rule) => `- ${rule}`).join("\n")}
 - ${count}個が同じ方向に偏らず、それぞれ別の具体策・例になっている
@@ -179,6 +214,19 @@ ${flow ? "- このカードは元のお題の中の1つの切り口。答えは�
 
 出力は JSON 配列だけ。要素はちょうど${count}個。前後に文字を付けない。`;
 }
+
+const OFFLINE_WORD_ANGLES = [
+  "{seed}の語尾",
+  "{seed}のあいさつ",
+  "{seed}でほめるとき",
+  "{seed}で怒るとき",
+  "{seed}の通じなかった言葉",
+  "{seed}のかわいい言葉",
+  "{seed}の聞き間違い",
+  "{seed}のイントネーション",
+  "{seed}と標準語の違い",
+  "{seed}の最近聞かない言葉",
+];
 
 /**
  * キー無し・AI に届かないときの答え。順番は毎回少し入れ替える。
@@ -195,7 +243,10 @@ export function mockDetailTopics(
   const root = mode === "chat" ? undefined : context[context.length - 1];
   const label = (root ?? seed).trim().replace(/[「」]/g, "") || "このお題";
   const used = new Set(existing);
-  const pool = (DETAIL_PRESETS[mode] ?? DETAIL_PRESETS.chat).offline
+  // 言葉のお題は、キー無しでは言葉そのものを出せないので、言葉を思い出す切り口にする
+  const templates =
+    mode === "chat" && isWordTopic(seed, context) ? OFFLINE_WORD_ANGLES : (DETAIL_PRESETS[mode] ?? DETAIL_PRESETS.chat).offline;
+  const pool = templates
     .map((template) => template.replaceAll("{seed}", label))
     .filter((text) => !used.has(text));
   // 先頭の数個は残しつつ軽く混ぜる（毎回まったく同じにならないように）

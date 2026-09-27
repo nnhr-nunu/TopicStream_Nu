@@ -14,7 +14,7 @@ import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { fitLabelFontSize } from "@/lib/fit-label";
 import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
-import { isSentenceCard, MANDALA_CHIP_H, MANDALA_CHIP_W } from "@/lib/node-box";
+import { isSentenceCard, MANDALA_CHIP_H, MANDALA_CHIP_W, splitGloss } from "@/lib/node-box";
 import { cn } from "@/lib/utils";
 import type { TopicNodeData } from "@/lib/types";
 
@@ -82,12 +82,19 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const canExpand = !data.expanded && !data.expanding && !data.placeholder;
   // 「具体的」モード: タップで「具体的にする」、メニューには逆の「抽象展開」を出す
   const tapDetail = expandMode === "detail" && Boolean(detailNode);
+  // 「言葉：意味」のカードは、語を大きく・意味を小さく 2 段に
+  const gloss = isRoot ? null : splitGloss(data.label);
   // 文のカード（「具体的にする」の答え・図鑑から取り込んだ長い文）は小さめの文字で左寄せ
-  const sentence = isSentenceCard(data);
+  const sentence = !gloss && isSentenceCard(data);
   const labelMax = sentence ? 13 : isRoot ? 16 : 15;
-  const fontSize = isMandala
-    ? fitLabelFontSize(data.label, MANDALA_CHIP_W - 36, MANDALA_CHIP_H - 28, labelMax, 9)
-    : fitLabelFontSize(data.label, 16 * 16 - 36, 72, sentence ? 13 : isRoot ? 17 : 15, 10);
+  const labelW = isMandala ? MANDALA_CHIP_W - 36 : 16 * 16 - 36;
+  const labelH = isMandala ? MANDALA_CHIP_H - 28 : 72;
+  const fontSize = gloss
+    ? fitLabelFontSize(gloss.term, labelW, labelH * 0.5, 16, 10)
+    : isMandala
+      ? fitLabelFontSize(data.label, labelW, labelH, labelMax, 9)
+      : fitLabelFontSize(data.label, labelW, labelH, sentence ? 13 : isRoot ? 17 : 15, 10);
+  const meaningSize = gloss ? fitLabelFontSize(gloss.meaning, labelW, labelH * 0.5, 11.5, 8) : 0;
   const hearts = totalHearts(data);
   const liked = (data.heartCount ?? 0) > 0;
   // 自分のハート1つだけのときは数字を出さない。コメントのハートがあれば累計を出す。
@@ -370,7 +377,17 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
               title={sentence ? data.label : undefined}
               style={{ fontSize: `calc(${fontSize}px * var(--ts-scale))` }}
             >
-              {data.label}
+              {gloss ? (
+                <>
+                  <span className="topic-gloss-term">{gloss.term}</span>
+                  <span className="sr-only">：</span>
+                  <span className="topic-gloss-meaning" style={{ fontSize: `calc(${meaningSize}px * var(--ts-scale))` }}>
+                    {gloss.meaning}
+                  </span>
+                </>
+              ) : (
+                data.label
+              )}
             </span>
             {regenerating ? (
               <span className="topic-regen-badge" role="status">

@@ -34,7 +34,7 @@ function markHintSeen() {
 
 /**
  * 盤面の左下: カードをタップしたときの広げ方（抽象展開 / 具体的）と、使い方。
- * 初めて広げたあとに一度だけ「長押しでメニュー・重ねると掛け合わせ」のヒントを出す。
+ * スマホでは初めて広げたあとに一度だけ「長押しでメニュー・重ねると掛け合わせ」のヒントを出す。
  */
 export function ModeDock({
   mode,
@@ -51,10 +51,11 @@ export function ModeDock({
   const [hint, setHint] = useState(false);
 
   useEffect(() => {
-    if (!expanded || hintSeen()) return;
+    // PC はカーソルを乗せればメニューが出るので案内しない（スマホの長押しは触っても気づけない）
+    if (!coarse || !expanded || hintSeen()) return;
     const timer = window.setTimeout(() => setHint(true), 1600);
     return () => window.clearTimeout(timer);
-  }, [expanded]);
+  }, [coarse, expanded]);
 
   const closeHint = () => {
     markHintSeen();
@@ -66,19 +67,9 @@ export function ModeDock({
       {hint ? (
         <div className="mode-dock-hint" role="status">
           <p>
-            {coarse ? (
-              <>
-                カードを<b>長押し</b>でメニュー。
-                <br />
-                長押ししたまま別のカードに<b>重ねる</b>と掛け合わせ。
-              </>
-            ) : (
-              <>
-                カードにカーソルを乗せるとメニュー。
-                <br />
-                ドラッグして別のカードに<b>重ねる</b>と掛け合わせ。
-              </>
-            )}
+            カードを<b>長押し</b>でメニュー。
+            <br />
+            長押ししたまま別のカードに<b>重ねる</b>と掛け合わせ。
           </p>
           <button type="button" className="mode-dock-hint-close" onClick={closeHint}>
             わかった
@@ -120,26 +111,19 @@ export function ModeDock({
         <DialogContent className="max-h-[88svh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>使い方</DialogTitle>
-            <DialogDescription>横にスワイプすると続きが見られます。</DialogDescription>
+            <DialogDescription className="sr-only">TopicStream でできること</DialogDescription>
           </DialogHeader>
           <UsageGallery />
-          <ul className="space-y-1.5 text-sm leading-relaxed">
-            <li>
-              <b>タップ / クリック</b>: そのカードから広げる（左下の切り替えで「抽象展開」か「具体的」か）
-            </li>
-            <li>
-              <b>{coarse ? "長押し" : "カーソルを乗せる"}</b>: メニュー（ピン・具体的にする・掛け合わせる・作り直す・付箋・コピー）
-            </li>
-            <li>
-              <b>{coarse ? "長押ししたまま動かして重ねる" : "ドラッグして重ねる"}</b>: 2つを掛け合わせた話題を作る。どこにも重ねずに離せば元に戻ります
-            </li>
-            <li>
-              <b>{coarse ? "指でなぞる / 2本指で広げる" : "ドラッグ / ホイール"}</b>: 盤面を動かす・拡大縮小
-            </li>
-            <li>
-              <b>1つ戻る</b>（上の ↶）: 広げた・掛け合わせたのを取り消す
-            </li>
-          </ul>
+          {coarse ? (
+            <ul className="space-y-1.5 text-sm leading-relaxed">
+              <li>
+                <b>長押し</b>: メニュー
+              </li>
+              <li>
+                <b>長押ししたまま動かして重ねる</b>: 掛け合わせ
+              </li>
+            </ul>
+          ) : null}
           <Link href="/guide/" className="text-sm text-primary underline underline-offset-4">
             くわしい使い方・よくある質問
           </Link>

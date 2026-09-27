@@ -393,20 +393,27 @@
   padding: 0.4rem 0.75rem;
 }
 
-/* ---- 使い方の画像（横にスワイプ） ---- */
-.usage-gallery {
+/* ---- 使い方の画像（◀ ▶ で 1 枚ずつ。スワイプでも切り替わる） ---- */
+.usage-gallery-frame {
+  position: relative;
+  container-type: inline-size;
+}
+.usage-gallery-track {
   display: flex;
-  gap: 0.9rem;
   margin: 0;
+  padding: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 0 0 0.6rem;
   list-style: none;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+.usage-gallery-track::-webkit-scrollbar {
+  display: none;
 }
 .usage-gallery-item {
-  flex: 0 0 min(82%, 21rem);
+  flex: 0 0 100%;
+  min-width: 0;
   scroll-snap-align: start;
 }
 .usage-gallery-img {
@@ -421,15 +428,72 @@
   object-position: center;
 }
 .usage-gallery-title {
-  margin-top: 0.55rem;
-  font-size: 0.92rem;
+  margin-top: 0.7rem;
+  font-size: 0.95rem;
   font-weight: 700;
+  text-align: center;
 }
 .usage-gallery-body {
   margin-top: 0.2rem;
   color: var(--muted-foreground);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   line-height: 1.6;
+  text-align: center;
+}
+/* 矢印は画像の縦まん中（画像は 16:10 なので幅 × 5/16） */
+.usage-gallery-arrow {
+  position: absolute;
+  top: calc(100cqw * 5 / 16);
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.18);
+  backdrop-filter: blur(6px);
+  transform: translateY(-50%);
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.usage-gallery-arrow[data-side="prev"] {
+  left: 0.5rem;
+}
+.usage-gallery-arrow[data-side="next"] {
+  right: 0.5rem;
+}
+.usage-gallery-arrow:hover:not(:disabled) {
+  background: var(--background);
+}
+.usage-gallery-arrow:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.usage-gallery-arrow svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+.usage-gallery-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+.usage-gallery-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--muted-foreground) 35%, transparent);
+  transition:
+    width 0.2s,
+    background 0.2s;
+}
+.usage-gallery-dot[aria-current="true"] {
+  width: 1.4rem;
+  background: var(--primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

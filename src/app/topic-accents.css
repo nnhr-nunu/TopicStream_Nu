@@ -307,3 +307,16 @@
     animation: none;
   }
 }
+
+/* 「言葉：意味」のカード（例: ぶち：すごく）。語を大きく、意味を小さく 2 段に */
+.topic-gloss-term {
+  display: block;
+  font-weight: 800;
+}
+.topic-gloss-meaning {
+  display: block;
+  margin-top: 0.2rem;
+  font-weight: 500;
+  line-height: 1.25;
+  color: color-mix(in oklab, var(--foreground) 68%, transparent);
+}

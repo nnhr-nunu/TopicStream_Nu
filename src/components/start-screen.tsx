@@ -42,7 +42,7 @@ function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: st
   );
 }
 
-/** ホーム: 始める（ヒーロー）→ 続きから → 使い方 → トピック図鑑 → みんなのテーマ → 配信 */
+/** ホーム: 始める（ヒーロー）→ 続きから → できること → トピック図鑑 → みんなのテーマ → 配信 */
 export function StartScreen({
   boards,
   activeBoardId,
@@ -233,17 +233,14 @@ export function StartScreen({
 
           <section className="mt-12" aria-labelledby="home-usage">
             <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <h2 id="home-usage" className="text-sm font-semibold tracking-wide">
-                  使い方
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">横にスワイプすると続きが見られます</p>
-              </div>
+              <h2 id="home-usage" className="text-sm font-semibold tracking-wide">
+                できること
+              </h2>
               <Link href="/guide/" className="shrink-0 text-xs text-primary underline underline-offset-4">
                 くわしい使い方
               </Link>
             </div>
-            <UsageGallery />
+            <UsageGallery className="mx-auto max-w-2xl" />
           </section>
 
           <TopicShowcase onStart={(label) => onStart(label, DEFAULT_MODE)} busy={busy} />

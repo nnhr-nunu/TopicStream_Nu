@@ -7,6 +7,7 @@ import type { Board, TNode } from "@/lib/types";
  * 選んだ話題 = 中心のお題・広げた話題・ピンした話題・ハートが付いた話題（と、そこへ至る道）。
  * マンダラートで広げると新しい 3×3 の中央に同じ文の写し（copiedFromId）が置かれるので、
  * 写しは元のマスにまとめ、写しの下に広がった話題は元のマスの子として扱う。
+ * 掛け合わせた話題は、重ねた先（土台）の子になる。持ってきたカードも木に残し、mixedFrom で指す。
  */
 export type TrailNode = {
   id: string;
@@ -19,6 +20,8 @@ export type TrailNode = {
   step: number | null;
   pinned: boolean;
   hearts: number;
+  /** 掛け合わせた話題なら、持ってきたカードの id（木の中にある） */
+  mixedFrom: string | null;
   children: TrailNode[];
 };
 
@@ -39,6 +42,14 @@ export function buildTopicTrail(board: Board): TopicTrail {
   const order = new Map(board.nodes.map((node, index) => [node.id, index]));
   const isCopy = (node: TNode) => Boolean(node.data.copiedFromId && byId.has(node.data.copiedFromId));
   const real = board.nodes.filter((node) => !node.data.placeholder && !isCopy(node));
+
+  /** 写しなら元のマス */
+  const logicalId = (id: string): string => {
+    const node = byId.get(id);
+    return node && isCopy(node) ? node.data.copiedFromId! : id;
+  };
+  const mixedFromOf = (node: TNode): string | null =>
+    node.data.mixedFromId && byId.has(node.data.mixedFromId) ? logicalId(node.data.mixedFromId) : null;
 
   /** 写しを元のマスに置き換えた親 */
   const logicalParent = (node: TNode): string | null => {
@@ -83,6 +94,17 @@ export function buildTopicTrail(board: Board): TopicTrail {
       markWithAncestors(node);
     }
   }
+  // 残した掛け合わせの、持ってきたカードも（道ごと）残す。それが掛け合わせなら、さらにその元も
+  for (let added = true; added; ) {
+    added = false;
+    for (const node of real) {
+      const from = keep.has(node.id) ? mixedFromOf(node) : null;
+      if (from && !keep.has(from)) {
+        markWithAncestors(byId.get(from));
+        added = true;
+      }
+    }
+  }
 
   const childrenOf = new Map<string, TNode[]>();
   const roots: TNode[] = [];
@@ -116,6 +138,7 @@ export function buildTopicTrail(board: Board): TopicTrail {
       step: stepOf.get(node.id) ?? null,
       pinned: board.pinnedNodeId === node.id,
       hearts: heartsOf(node),
+      mixedFrom: mixedFromOf(node),
       children: kids.map((kid) => toTrail(kid, depth + 1)),
     };
   };
