@@ -106,7 +106,7 @@ function AiUsagePanel() {
           </p>
           {usage.fallbacks > 0 ? (
             <p className="tabular-nums">
-              オフライン候補になった {usage.fallbacks} 回（{failures.map(([reason, count]) => `${reason} ×${count}`).join(" / ")}）
+              AI の語が取れなかった {usage.fallbacks} 回（{failures.map(([reason, count]) => `${reason} ×${count}`).join(" / ")}）
             </p>
           ) : null}
           {usage.last ? (
@@ -117,13 +117,6 @@ function AiUsagePanel() {
           ) : null}
         </>
       )}
-      <p className="text-muted-foreground/80">
-        Gemini は残りの枠を教えてくれないため、残量は{" "}
-        <a href="https://aistudio.google.com/usage" target="_blank" rel="noreferrer" className="underline underline-offset-2">
-          Google AI Studio の使用量
-        </a>
-        で確認します。1日の枠は太平洋時間の 0 時（日本時間 16〜17 時）に戻ります。
-      </p>
     </section>
   );
 }

@@ -161,11 +161,13 @@ export function padTopics(parsed: string[], fallback: string[], count: number, s
 }
 
 /** 1回の呼び出しの上限。ストリーミングなので、時間切れでも届いた分は使う。 */
-export const GEMINI_TIMEOUT_MS = 12_000;
-/** 最初の文字がこの時間内に来ないモデルは諦めて次へ（混んでいるモデルで待ち続けない）。 */
-export const GEMINI_FIRST_CHUNK_MS = 5_000;
-/** モデルを替えて試す全体の上限。API route の maxDuration（30秒）より短くする。 */
-export const GEMINI_DEADLINE_MS = 24_000;
+export const GEMINI_TIMEOUT_MS = 20_000;
+/** 1巡目: 最初の文字がこの時間内に来ないモデルは諦めて次へ（混んでいるモデルで待ち続けない）。 */
+export const GEMINI_FIRST_CHUNK_MS = 6_000;
+/** 2巡目（全部のモデルが時間切れ・混雑だったとき）は、1つのモデルを長めに待つ */
+export const GEMINI_PATIENT_FIRST_CHUNK_MS = 15_000;
+/** モデルを替えて試す全体の上限。API route の maxDuration（60秒）より短くする。 */
+export const GEMINI_DEADLINE_MS = 50_000;
 
 export class GeminiRequestError extends Error {
   constructor(
@@ -294,10 +296,10 @@ export function geminiUserNotice(error: unknown): { kind: GeminiNoticeKind; mess
   return { kind: "unavailable", message: "AI を使えなかったので、今回はオフラインの候補で広げました。" };
 }
 
-/** テストで待ちを潰す。本番は短いバックオフと、全部混んでいたときの最後の 1.5 秒待ち。 */
+/** テストで待ちを潰す。本番は短いバックオフと、全部だめだったときに2巡目へ入る前の 1.5 秒待ち。 */
 export const geminiRetry = {
   sameModelMs: 800,
-  lastModelMs: 1_500,
+  nextRoundMs: 1_500,
   sleep(ms: number) {
     return new Promise<void>((resolve) => setTimeout(resolve, ms));
   },
@@ -411,6 +413,10 @@ type GeminiOptions = {
   onCall?: (tokens: number) => void;
   /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
   mixFrom?: string[];
+  /** 全体の上限（省くと GEMINI_DEADLINE_MS）。まとめて何度も呼ぶ図鑑育てなどで短くする */
+  deadlineMs?: number;
+  /** 最初の文字を待つ時間（省くと GEMINI_FIRST_CHUNK_MS）。requestGemini が巡目ごとに決める */
+  firstChunkMs?: number;
 };
 
 type Remaining = () => number;
@@ -455,7 +461,8 @@ export async function requestGemini(
   options: GeminiOptions,
 ): Promise<{ topics: string[]; model: string; tried: string[] }> {
   const started = geminiRetry.now();
-  const remaining: Remaining = () => GEMINI_DEADLINE_MS - (geminiRetry.now() - started);
+  const deadline = options.deadlineMs ?? GEMINI_DEADLINE_MS;
+  const remaining: Remaining = () => deadline - (geminiRetry.now() - started);
   const tried: string[] = [];
   const attempts: string[] = [];
   const models = orderByCooldown(fallbackModels(options.model));
@@ -481,12 +488,13 @@ export async function requestGemini(
     return failed;
   };
 
-  const runModel = async (model: string) => {
+  const runModel = async (model: string, firstChunkMs: number) => {
     const need = options.count - collected.length;
     const topics = await requestGeminiWithSameModelRetry(
       {
         ...options,
         model,
+        firstChunkMs,
         count: need,
         minimum: Math.max(1, minimum - collected.length),
         existing: [...options.existing, ...collected],
@@ -497,38 +505,36 @@ export async function requestGemini(
     for (const label of topics) emit(label);
   };
 
-  for (const model of models) {
-    if (remaining() < 3_000 || collected.length >= minimum) break;
-    tried.push(model);
-    try {
-      await runModel(model);
-      return { topics: [...collected], model, tried };
-    } catch (error) {
-      lastError = record(error, model);
-      if (collected.length > 0 && !shouldTryNextModel(lastError)) break;
-      if (shouldTryNextModel(lastError)) continue;
-      throw lastError;
+  // 1巡目は最初の文字が遅いモデルを早めに見切って次へ。全部が時間切れ・混雑なら、少し置いて
+  // 2巡目は同じモデルを長めに待つ（多少待っても、AI の語が出る見込みを上げる）
+  /** 2巡目で試し直す意味があるモデル（時間切れ・混雑。枠切れ・404 は待っても直らない） */
+  const retryable: string[] = [];
+  let lastModel: string | undefined;
+  for (const [round, patience] of [GEMINI_FIRST_CHUNK_MS, GEMINI_PATIENT_FIRST_CHUNK_MS].entries()) {
+    const queue = round === 0 ? models : [...retryable];
+    if (queue.length === 0 || collected.length >= minimum) break;
+    if (round > 0) {
+      if (remaining() < geminiRetry.nextRoundMs + 5_000) break;
+      await geminiRetry.sleep(geminiRetry.nextRoundMs);
+    }
+    for (const model of queue) {
+      if (remaining() < 3_000 || collected.length >= minimum) break;
+      if (!tried.includes(model)) tried.push(model);
+      lastModel = model;
+      try {
+        await runModel(model, patience);
+        return { topics: [...collected], model, tried };
+      } catch (error) {
+        lastError = record(error, model);
+        if (collected.length > 0 && !shouldTryNextModel(lastError)) break;
+        if (!shouldTryNextModel(lastError)) throw lastError;
+        const again = lastError.kind === "timeout" || (isGeminiBusyError(lastError) && !isQuotaError(lastError.debug));
+        if (round === 0 && again) retryable.push(model);
+      }
     }
   }
 
-  const lastModel = tried[tried.length - 1];
-  if (
-    collected.length < minimum &&
-    lastError &&
-    lastModel &&
-    isGeminiBusyError(lastError) &&
-    !isQuotaError(lastError.debug) &&
-    remaining() > geminiRetry.lastModelMs + 3_000
-  ) {
-    await geminiRetry.sleep(geminiRetry.lastModelMs);
-    try {
-      await runModel(lastModel);
-    } catch (error) {
-      lastError = record(error, lastModel);
-    }
-  }
-
-  // 一部でも AI の語が取れていれば成功として返す（足りない分は呼び出し側がオフライン候補で埋める）
+  // 一部でも AI の語が取れていれば成功として返す（足りない分は呼び出し側で埋める）
   if (collected.length > 0) return { topics: [...collected], model: lastModel ?? options.model, tried };
   if (quotaError) {
     quotaError.debug.tried = [...tried];
@@ -603,7 +609,7 @@ async function generateGeminiText(
   const firstChunkTimer = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, GEMINI_FIRST_CHUNK_MS);
+  }, options.firstChunkMs ?? GEMINI_FIRST_CHUNK_MS);
   const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse`;
   const result: GeminiText = { text: "", partial: false, totalMs: 0 };
   let retryPlain = false;

@@ -17,7 +17,8 @@ export const maxDuration = 60;
 
 /** 1回の実行で頼むお題の数の既定（GROW_LIMIT で変えられる） */
 const DEFAULT_LIMIT = 20;
-/** 1つ頼むのに最大 24 秒かかることがあるので、残りがこれを切ったら次は頼まない */
+/** 1つのお題に待つ上限。残りがこれ（MIN_REMAINING_MS）を切ったら次は頼まない */
+const GROW_DEADLINE_MS = 24_000;
 const TIME_BUDGET_MS = 52_000;
 const MIN_REMAINING_MS = 14_000;
 
@@ -55,6 +56,8 @@ export async function GET(request: Request) {
         model: DEFAULT_MODEL,
         count: 12,
         mode: candidate.mode,
+        // 画面の広げる操作より短く見切り、1回の実行でなるべく多くのお題を育てる
+        deadlineMs: Math.min(GROW_DEADLINE_MS, TIME_BUDGET_MS - (Date.now() - started)),
       });
       await recordSharedKnowledge(candidate.seed, result.topics, candidate.mode);
       grown.push({ seed: candidate.seed, mode: candidate.mode, added: result.topics.length });
