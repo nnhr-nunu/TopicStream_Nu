@@ -65,11 +65,18 @@ export function StickyNotePanel({
         <DialogHeader>
           <DialogTitle>📝 {title || "付箋"}</DialogTitle>
           <DialogDescription>
-            {readOnly
-              ? "配信メモです。マスの大きさは変わりません。"
-              : "自分用のメモです（トピック図鑑・みんなのトークテーマには送りません）。Enter で完了、Shift+Enter で改行。"}
+            {readOnly ? "配信メモです。マスの大きさは変わりません。" : "Enter で完了、Shift+Enter で改行。"}
           </DialogDescription>
         </DialogHeader>
+        {readOnly ? null : (
+          <p className="flex items-start gap-2 rounded-md border border-dashed bg-muted/50 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            <span aria-hidden>🔒</span>
+            <span>
+              <span className="font-semibold text-foreground">この付箋はあなたにだけ見えます。</span>
+              この端末のブラウザにだけ保存され、トピック図鑑・みんなの配信・いっしょに見るリンクには載りません。
+            </span>
+          </p>
+        )}
         {readOnly ? (
           <p className="whitespace-pre-wrap text-sm leading-6">{value || "メモはまだありません"}</p>
         ) : (

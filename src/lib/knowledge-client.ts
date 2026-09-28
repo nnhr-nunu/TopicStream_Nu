@@ -178,7 +178,13 @@ export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverr
   const seed = (seedOverride ?? parent?.data.label)?.trim();
   // 最初のお題（親が無い）と、マンダラートの中央（親の写し）は「選ばれた語」ではない
   if (!topic || !seed || node?.data.placeholder || normalizeSeed(topic) === normalizeSeed(seed)) return;
+  noteTopicPick(seed, topic, kind, mode);
+}
 
+/** お題 seed の語 topic が選ばれたことを図鑑に伝える（ボードの外、図鑑を見る画面の ♡ など） */
+export function noteTopicPick(seed: string, topic: string, kind: PickKind, mode: BoardMode = "chat") {
+  if (typeof window === "undefined") return;
+  if (!topic.trim() || !seed.trim() || normalizeSeed(topic) === normalizeSeed(seed)) return;
   writeLocal(recordPick(loadLocalKnowledge(), seed, topic, kind, Date.now(), mode));
   if (sharedUnavailable) return;
   pendingPicks.push({ seed, topic, kind, ...(mode === "chat" ? {} : { mode }) });

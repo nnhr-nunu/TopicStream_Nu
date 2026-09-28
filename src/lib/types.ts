@@ -127,4 +127,8 @@ export type GenerateResult = {
   /** 同じ種類のお知らせを何度も出さないための分類（quota / busy / slow / unavailable） */
   noticeKind?: string;
   debug?: GeminiDebug;
+  /** このお願いで Gemini を実際に呼んだ回数とトークン数（設定画面の利用状況に足す） */
+  usage?: GeminiUsage;
 };
+
+export type GeminiUsage = { calls: number; tokens: number };

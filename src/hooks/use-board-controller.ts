@@ -41,6 +41,11 @@ function currentSnapshot(): AppSnapshot {
 
 const SHARE_KEY = "topicstream-nu:share-id";
 
+/** 付箋は自分用のメモなので、いっしょに見るリンクにも載せない（サーバーへ送らない） */
+function withoutMemos(board: Board): Board {
+  return { ...board, nodes: board.nodes.map((node) => (node.data.memo ? { ...node, data: { ...node.data, memo: "" } } : node)) };
+}
+
 /** 予備が尽きて AI に作り直しを頼んだあと、次に頼めるまでの間隔（無料枠を連打で使い切らないため） */
 export const REGEN_COOLDOWN_MS = 15_000;
 
@@ -55,6 +60,21 @@ function showGenerateNotice(result: GenerateResult) {
   noticeShownAt.set(kind, now);
   if (kind === "quota") toast.warning(result.warning, { duration: 8_000 });
   else toast.message(result.warning);
+}
+
+/**
+ * お悩み相談などで深く広げたとき、中心のお題に寄せて広げていることを一度だけ知らせる（ボードごと・再読み込みまで）。
+ * 雑談は話が広がるのが楽しいので寄せない（知らせもしない）。
+ */
+const anchorNoticeShown = new Set<string>();
+function showAnchorNotice(board: Board, context: string[]) {
+  const root = context[context.length - 1];
+  if (isChatMode(boardMode(board)) || context.length < 2 || !root || anchorNoticeShown.has(board.id)) return;
+  anchorNoticeShown.add(board.id);
+  toast.message(`中心の「${root}」から離れないように広げています`, {
+    description: "もっと寄せたいときは、カードを中心のカードに重ねると掛け合わせられます。",
+    duration: 6_000,
+  });
 }
 
 /** 新しい操作をしたら、進む履歴は捨てる */
@@ -166,14 +186,18 @@ export function useBoardController() {
         const target = snap.boards.find((item) => item.id === boardId);
         return prefsFromSettings(snap.settings, overlay, target?.pinnedNodeId ?? null);
       };
+      const context = topicContext(started.board, nodeId);
+      showAnchorNotice(started.board, context);
       // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はすぐカードへ。
       const result = await generateRelatedTopics({
         seed: parent.data.label,
         existing: existingLabels,
         count: slots + SPARE_COUNT,
         preferred: detail ? [] : preferredForSeed(parent.data.label),
-        // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように
-        context: topicContext(started.board, nodeId),
+        // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように（最初のお題も必ず含む）
+        context,
+        // 掛け合わせのカードなら、持ってきた側のカードが何の話から出た語かも渡す
+        mixFrom: parent.data.mixedFromId ? topicContext(started.board, parent.data.mixedFromId, 2) : undefined,
         mode: started.board.mode,
         // トピック図鑑に十分たまっているお題は AI を呼ばずに出す（答えは図鑑に無いので毎回作る）
         recall: !detail,
@@ -730,7 +754,7 @@ export function useBoardController() {
     const response = await fetch("/api/share", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existing ?? undefined, board, nickname }),
+      body: JSON.stringify({ id: existing ?? undefined, board: withoutMemos(board), nickname }),
     });
     if (!response.ok) {
       toast.error("共有リンクを作れませんでした");
@@ -771,7 +795,7 @@ export function useBoardController() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: shareId,
-          board: activeBoard,
+          board: withoutMemos(activeBoard),
           nickname: current.settings.nickname || loadIdentity().nickname,
         }),
       }).catch(() => undefined);

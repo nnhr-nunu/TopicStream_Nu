@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, Search, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdSlot } from "@/components/ad-slot";
 import { BrandMark } from "@/components/brand-mark";
 import { SiteLinks } from "@/components/site-links";
+import { TopicPreviewDialog } from "@/components/topic-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
@@ -49,6 +50,7 @@ export function TopicDatabase() {
   const [category, setCategory] = useState<CategoryId | "all">("all");
   const [scope, setScope] = useState<Scope>("all");
   const [mode, setMode] = useState<BoardMode>("chat");
+  const [previewing, setPreviewing] = useState<KnowledgeSearchHit | null>(null);
   // localStorage とみんなの図鑑は読み込んだあとに差し替える（最初の描画はサーバーと同じ空のまま）
   const [store, setStore] = useState<KnowledgeStore>({});
   const [mine, setMine] = useState<KnowledgeStore>({});
@@ -283,7 +285,11 @@ export function TopicDatabase() {
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto flex justify-end pt-3">
+                  <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
+                    <Button size="sm" variant="outline" onClick={() => setPreviewing(hit)}>
+                      <Eye />
+                      見てみる
+                    </Button>
                     <Button size="sm" onClick={() => startBoard(hit)}>
                       <Sparkles />
                       このお題で話題マップを作る
@@ -295,6 +301,17 @@ export function TopicDatabase() {
           })}
         </ul>
       )}
+
+      <TopicPreviewDialog
+        entry={previewing?.entry ?? null}
+        startFromTopic={false}
+        onOpenChange={(open) => {
+          if (!open) setPreviewing(null);
+        }}
+        onStart={() => {
+          if (previewing) startBoard(previewing);
+        }}
+      />
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         話題は名前なしで集めています（候補には自動で作ったものも含みます）。お悩み相談などのモードの内容も公開されるので、個人がわかることは書かないでください。付箋の中身は集めません。♡・深掘り・ピン・コメントのハートで選ばれた話題ほど上に並びます。

@@ -1,7 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Palette, Settings, Users } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Activity, Palette, Settings, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { loadAiUsage, subscribeAiUsage, type AiUsageDay } from "@/lib/ai-usage";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
@@ -75,6 +76,54 @@ function Section({
         {description ? <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p> : null}
       </div>
       {children}
+    </section>
+  );
+}
+
+/** 設定の一番下にそれとなく出す、この端末からの今日の AI 利用（開発中の目安） */
+function AiUsagePanel() {
+  const [usage, setUsage] = useState<AiUsageDay | null>(null);
+  useEffect(() => {
+    const read = () => setUsage(loadAiUsage());
+    read();
+    return subscribeAiUsage(read);
+  }, []);
+  if (!usage) return null;
+  const failures = Object.entries(usage.failures).sort((a, b) => b[1] - a[1]);
+  const time = (at: number) => new Date(at).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+  return (
+    <section className="space-y-1.5 rounded-xl border border-dashed border-border/70 p-3 text-[11px] leading-4 text-muted-foreground">
+      <h3 className="flex items-center gap-1.5 font-semibold [&_svg]:size-3.5">
+        <Activity />
+        AI の利用状況（今日・この端末から）
+      </h3>
+      {usage.requests === 0 ? (
+        <p>今日はまだ AI を使っていません。</p>
+      ) : (
+        <>
+          <p className="tabular-nums">
+            広げた {usage.requests} 回 · Gemini へ送った {usage.calls} 回 · 約 {usage.tokens.toLocaleString()} トークン
+          </p>
+          {usage.fallbacks > 0 ? (
+            <p className="tabular-nums">
+              オフライン候補になった {usage.fallbacks} 回（{failures.map(([reason, count]) => `${reason} ×${count}`).join(" / ")}）
+            </p>
+          ) : null}
+          {usage.last ? (
+            <p className="break-words">
+              直近の失敗 {time(usage.last.at)}: {usage.last.reason}・{usage.last.model}
+              {usage.last.attempts && usage.last.attempts.length > 1 ? `（試した順: ${usage.last.attempts.join(" → ")}）` : null}
+            </p>
+          ) : null}
+        </>
+      )}
+      <p className="text-muted-foreground/80">
+        Gemini は残りの枠を教えてくれないため、残量は{" "}
+        <a href="https://aistudio.google.com/usage" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+          Google AI Studio の使用量
+        </a>
+        で確認します。1日の枠は太平洋時間の 0 時（日本時間 16〜17 時）に戻ります。
+      </p>
     </section>
   );
 }
@@ -160,6 +209,8 @@ export function SettingsSheet({
               </div>
             </Row>
           </Section>
+
+          <AiUsagePanel />
 
           {/*
             OBS オーバーレイ（/overlay）の入口は外した。OBS のブラウザソースはブラウザと保存領域が別なので
