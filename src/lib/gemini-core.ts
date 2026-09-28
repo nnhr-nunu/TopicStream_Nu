@@ -169,6 +169,9 @@ export const GEMINI_PATIENT_FIRST_CHUNK_MS = 15_000;
 /** モデルを替えて試す全体の上限。API route の maxDuration（60秒）より短くする。 */
 export const GEMINI_DEADLINE_MS = 50_000;
 
+/** 待ちが長引いた理由（switch: 混んでいて別のモデルに聞き直す、retry: 全部混んでいて少し置いて2巡目） */
+export type GeminiWaitStage = "switch" | "retry";
+
 export class GeminiRequestError extends Error {
   constructor(
     readonly kind: "http" | "timeout" | "network",
@@ -409,6 +412,8 @@ type GeminiOptions = {
   detail?: boolean;
   /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
   onTopic?: (label: string) => void;
+  /** 待ちが長引いたときに呼ぶ（switch: 別のモデルに聞き直す、retry: 2巡目に入る）。画面で待っている理由を見せる */
+  onStage?: (stage: GeminiWaitStage) => void;
   /** Gemini へ1回リクエストを送るたびに呼ぶ（届いた usageMetadata の合計トークン。失敗・途中打ち切りは分かった分だけ） */
   onCall?: (tokens: number) => void;
   /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
@@ -515,10 +520,12 @@ export async function requestGemini(
     if (queue.length === 0 || collected.length >= minimum) break;
     if (round > 0) {
       if (remaining() < geminiRetry.nextRoundMs + 5_000) break;
+      options.onStage?.("retry");
       await geminiRetry.sleep(geminiRetry.nextRoundMs);
     }
     for (const model of queue) {
       if (remaining() < 3_000 || collected.length >= minimum) break;
+      if (round === 0 && lastError) options.onStage?.("switch");
       if (!tried.includes(model)) tried.push(model);
       lastModel = model;
       try {
