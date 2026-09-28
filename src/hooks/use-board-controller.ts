@@ -24,7 +24,7 @@ import { addMixNode, canCombine, existingMix } from "@/lib/board-combine";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
 import type { GeminiWaitStage } from "@/lib/gemini-core";
-import { createPacer, REVEAL_GAP_MS, WAIT_QUIPS, waitNote } from "@/lib/expand-wait";
+import { createPacer, REVEAL_GAP_MS, STAGGER_REVEAL, WAIT_QUIPS, waitNote } from "@/lib/expand-wait";
 import { topicContext } from "@/lib/topic-context";
 import { detailRecordSeed } from "@/lib/detail-modes";
 import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
@@ -222,8 +222,8 @@ export function useBoardController() {
       };
       const context = topicContext(started.board, nodeId);
       showAnchorNotice(started.board, context);
-      // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はカードへ順に（まとめて届いても少しずつずらす）
-      const pacer = createPacer(REVEAL_GAP_MS);
+      // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はすぐカードへ（STAGGER_REVEAL なら少しずつずらす）
+      const pacer = createPacer(STAGGER_REVEAL ? REVEAL_GAP_MS : 0);
       const revealed = () => expandTokens.current.get(nodeId) === token;
       const reveal = (label: string) =>
         pacer.push(() => {
@@ -266,8 +266,8 @@ export function useBoardController() {
         return;
       }
 
-      if (!result.retryLater) {
-        // 流れてこなかった分（図鑑・まとめて届いた答え）も、空のカードへ1枚ずつ入れる
+      if (!result.retryLater && STAGGER_REVEAL) {
+        // 流れてこなかった分（図鑑・まとめて届いた答え）も、空のカードへ1枚ずつ入れる（ずらさないときは下の fillExpand でまとめて埋める）
         await pacer.drain();
         const { latestBoard } = boardNow();
         const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
