@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Activity, Palette, Settings, Users } from "lucide-react";
+import { Activity, Palette, PawPrint, Settings, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CritterSettings } from "@/components/critter-settings";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -181,6 +182,14 @@ export function SettingsSheet({
                 </span>
               </div>
             </Row>
+          </Section>
+
+          <Section
+            icon={<PawPrint />}
+            title="待ち時間の動物"
+            description="AI の返事を待つあいだ、広げた 3×3 で遊ぶ動物です。苦手な子はしまっておけます。"
+          >
+            <CritterSettings hidden={settings.hiddenCritters} style={settings.critterStyle} onChange={onPatch} />
           </Section>
 
           <Section icon={<Users />} title="配信" description="配信URLは画面下の「配信と連携」から設定します。">

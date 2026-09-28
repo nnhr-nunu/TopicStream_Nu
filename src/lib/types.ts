@@ -84,6 +84,10 @@ export type Settings = {
   commentScale: number;
   /** カードをタップしたときの動き（抽象展開＝切り口を広げる / 具体的＝「具体的にする」） */
   expandMode: ExpandMode;
+  /** AI を待つ間に出る動物のうち、出さないもの（wait-critters.ts の CRITTER_KINDS） */
+  hiddenCritters: string[];
+  /** 待ち時間の動物の絵のタッチ（mix はおまかせ、cute はカードの上や間、real はカードの中） */
+  critterStyle: "mix" | "cute" | "real";
 };
 
 export type ExpandMode = "abstract" | "detail";

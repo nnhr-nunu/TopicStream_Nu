@@ -3,6 +3,7 @@ import { DEFAULT_MODE, isBoardMode } from "@/lib/modes";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
+import { isCritterKind } from "@/lib/wait-critters";
 
 export function emptyBoard(name = todayBoardName()): Board {
   const now = Date.now();
@@ -141,6 +142,8 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
         ? Math.min(COMMENT_SCALE_MAX, Math.max(COMMENT_SCALE_MIN, settings.commentScale))
         : 1,
     expandMode: settings.expandMode === "detail" ? "detail" : "abstract",
+    hiddenCritters: Array.isArray(settings.hiddenCritters) ? settings.hiddenCritters.filter(isCritterKind) : [],
+    critterStyle: settings.critterStyle === "cute" || settings.critterStyle === "real" ? settings.critterStyle : "mix",
   };
 }
 

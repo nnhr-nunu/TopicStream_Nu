@@ -16,18 +16,17 @@
 
 済: 語が入るとカードの色の花が咲く、10 秒を過ぎたら状況（別の AI に聞き直し中・2 巡目）と和ませる一言をお知らせで出す（[`expand-wait.ts`](./src/lib/expand-wait.ts)、サーバーは NDJSON の `stage` 行で段階を送る）。お知らせはオーバーレイには出さない。
 
-止めたもの（フラグを true に戻せば復活）: 0.18 秒おきに 1 枚ずつ出す（`expand-wait.ts` の `STAGGER_REVEAL`）、空のカードで芽が育つ（`topic-node.tsx` の `SPROUT_WHILE_WAITING`）。どちらも体感が微妙だった。
+止めたもの（フラグを true に戻せば復活）: 0.18 秒おきに 1 枚ずつ出す（`expand-wait.ts` の `STAGGER_REVEAL`）、空のカードで芽が育つ・語が入ると花が咲く（どちらも `topic-node.tsx` の `SPROUT_WHILE_WAITING`）。体感が微妙だった。
 
-代わりに、待っている 3×3 の上をピクセルアートの動物が遊ぶ（[`wait-critters.ts`](./src/lib/wait-critters.ts) / [`wait-critters.tsx`](./src/components/wait-critters.tsx)）。いまはカエル（カードからカードへ跳ぶ）とペンギン（カードの間の溝をよちよち歩く）の2種で、待ちごとにランダム。0.7 秒より短い待ちでは出ない。`?critter=frog` / `penguin` を URL に付けると、待っていなくても選んでいる 3×3 に出る（見た目の確認用）。動物を足すときは `SPRITES` に絵を、`CRITTER_KINDS` に名前を、`mover` に動きを足す。次の候補:
+代わりに、待っている 3×3 でピクセルアートの動物が遊ぶ（[`wait-critters.ts`](./src/lib/wait-critters.ts) 種類と選び方 / [`critter-moves.ts`](./src/lib/critter-moves.ts)・[`critter-moves-window.ts`](./src/lib/critter-moves-window.ts) 動き / [`critter-cast.ts`](./src/lib/critter-cast.ts) 絵とコマの対応 / [`wait-critters.tsx`](./src/components/wait-critters.tsx) 画面）。14 種（カエル・ペンギン・うさぎ・ちょうちょ・ひよこの行列・小鳥・リス・金魚・ねこ・いぬ・ハムスター・うま・イルカ・きつねとたぬき）× 2 つのタッチで、待ちごとにランダム。0.7 秒より短い待ちでは出ない。
 
-- うさぎ: カードの上の縁をぴょんぴょん渡る。止まると耳をぴくっ
-- 蝶々: ひらひら飛んで、語が入ったカードに停まる（語が入った瞬間とつなげる）
-- ひよこの行列: 親鳥の後ろを3羽が一列で溝を歩く
-- かたつむり: カードの縁をゆっくり一周し、通ったあとがきらっと光る
-- 小鳥: 中心のカードにとまってさえずり（音符）、語が届くと飛び立つ
-- リス: どんぐりを空のカードへ1個ずつ置いていく
-- 金魚: 溝を水路に見立てて泳ぐ／ホタル: 暗いテーマで溝を漂う
-- ねこ: カードの上で丸くなって寝る、しっぽがゆれる
+- かわいい絵（手描きのドット、[`critter-sprites-cute.ts`](./src/lib/critter-sprites-cute.ts)）: カードの上の縁や溝を歩く。金魚・イルカは溝が水路になる。小鳥は待ちが終わると飛び立ち、蝶々は語が入ったばかりのカードに停まってから消える
+- リアルな絵（図形で描いて陰影を自動で付ける、[`critter-sprites-real.ts`](./src/lib/critter-sprites-real.ts) + [`pixel-draw.ts`](./src/lib/pixel-draw.ts)）: 空のカードを窓に見立てて、カードの中の床を歩く（語の入ったカードの後ろは見えない）。金魚は水槽、イルカは海になる。作るのに約 90ms かかるので、最初に出るときに作る
+- 設定の「待ち時間の動物」で、動物ごとに出す／出さない（`hiddenCritters`）と絵のタッチ（`critterStyle`: おまかせ／かわいい／リアル）
+- 確認用: URL に `?critter=rabbit`（かわいい）/ `?critter=rabbit-real` / `?critter=random` を付けると、待っていなくても選んでいる 3×3 に出る（中心以外を空のカードとして扱う）
+- 動物を足すときは、`CRITTER_KINDS` と `CRITTER_LABELS` に名前、絵、`critter-cast.ts` に配役、`cutePlanner` / `realPlanner` に動き、`CRITTER_ICONS` にアイコン。テストが「動きが使う絵が配役にあるか」を全種で確かめる
+
+次の候補: かたつむり（カードの縁をゆっくり一周し、通ったあとがきらっと光る）、ホタル（暗いテーマで溝を漂う）、たぬきの「どろん」（葉っぱを頭にのせて煙と一緒に化ける）。実際の待ち（空のカードの骨組みの上）とスマホでの見え方は未確認
 
 未採用の案は次の3つ:
 
