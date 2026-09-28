@@ -42,6 +42,8 @@ export async function GET() {
 type Final = {
   topics: string[];
   source: "gemini" | "mock";
+  /** topics の先頭から何語が AI の語か（残りはオフライン候補での埋め合わせ。図鑑には入れない） */
+  aiCount?: number;
   warning?: string;
   noticeKind?: string;
   debug?: GeminiDebug;
@@ -60,6 +62,8 @@ type Input = {
   /** 「具体的にする」: 対応策・具体的な話題を短い文で */
   detail: boolean;
   count: number;
+  /** 最低これだけそろえばよい数（残りは予備。予備のためだけに呼び直さない） */
+  minimum?: number;
   model: string;
   apiKey: string;
   clientKey: string;
@@ -67,7 +71,7 @@ type Input = {
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
 async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
-  const { seed, existing, preferred, context, mixFrom, mode, detail, count, model, apiKey } = input;
+  const { seed, existing, preferred, context, mixFrom, mode, detail, count, minimum, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
     if (!isArchived(seed, label)) sendTopic(label);
@@ -87,7 +91,7 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
   if (cached) {
     const fresh = cached.filter((label) => !isArchived(seed, label));
     for (const label of fresh) onTopic(label);
-    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini" };
+    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini", aiCount: Math.min(fresh.length, count) };
   }
 
   const slot = guard.acquire(input.clientKey);
@@ -112,7 +116,20 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     usage.tokens += tokens;
   };
   try {
-    const remote = await requestGemini({ seed, existing, context, mixFrom, mode, detail, apiKey, model, count, onTopic, onCall });
+    const remote = await requestGemini({
+      seed,
+      existing,
+      context,
+      mixFrom,
+      mode,
+      detail,
+      apiKey,
+      model,
+      count,
+      minimum,
+      onTopic,
+      onCall,
+    });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
@@ -121,7 +138,12 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     const recordSeed = detail ? detailRecordSeed(seed, context) : isGenericAngle(seed) ? undefined : seed;
     if (recordSeed) await recordSharedKnowledge(recordSeed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
-    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini", usage };
+    return {
+      topics: padTopics(fresh, mock(), count, seed, detail),
+      source: "gemini",
+      aiCount: Math.min(fresh.length, count),
+      usage,
+    };
   } catch (error) {
     const debug =
       error instanceof GeminiRequestError ? error.debug : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
@@ -141,6 +163,7 @@ export async function POST(request: Request) {
     existing?: unknown;
     model?: unknown;
     count?: unknown;
+    minimum?: unknown;
     preferred?: unknown;
     context?: unknown;
     mixFrom?: unknown;
@@ -181,6 +204,7 @@ export async function POST(request: Request) {
     mode: parseMode(body?.mode),
     detail: body?.detail === true,
     count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
+    minimum: typeof body?.minimum === "number" && body.minimum > 0 ? Math.min(12, Math.round(body.minimum)) : undefined,
     model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
     apiKey: override || readGeminiApiKey(),
     clientKey: clientKeyFromHeaders(request.headers),

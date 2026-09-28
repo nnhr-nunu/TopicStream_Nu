@@ -123,6 +123,8 @@ export type GeminiDebug = {
 export type GenerateResult = {
   topics: string[];
   source: GenerateSource;
+  /** topics の先頭から何語が AI の語か（サーバーの答え。残りは埋め合わせ） */
+  aiCount?: number;
   warning?: string;
   /** 同じ種類のお知らせを何度も出さないための分類（quota / busy / slow / unavailable） */
   noticeKind?: string;

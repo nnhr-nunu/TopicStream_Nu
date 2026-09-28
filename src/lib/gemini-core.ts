@@ -346,9 +346,35 @@ export function shouldTryNextModel(error: GeminiRequestError): boolean {
   return isGeminiBusyError(error);
 }
 
+function isUnavailable(error: GeminiRequestError): boolean {
+  return error.debug.httpStatus === 503 || error.debug.googleStatus === "UNAVAILABLE";
+}
+
 function shouldRetrySameModel(error: GeminiRequestError): boolean {
-  // 割り当てが無い 429 は待っても通らないので、すぐ次のモデルへ
-  return isGeminiBusyError(error) && !isQuotaError(error.debug);
+  // 割り当てが無い 429 は待っても通らないので、すぐ次のモデルへ。
+  // 503（Google 側でそのモデルが混んでいる）は 1 秒待っても空かないことが多いので、待たずに別のモデルへ
+  return isGeminiBusyError(error) && !isQuotaError(error.debug) && !isUnavailable(error);
+}
+
+/** 混んでいた（503・時間切れ・一時的な 429）モデルを後回しにする時間 */
+export const MODEL_COOLDOWN_MS = 120_000;
+/** モデル → 後回しをやめる時刻。サーバーの同じインスタンスの中だけで覚える（次の人も同じモデルで待たされないように） */
+const modelCooldown = new Map<string, number>();
+
+export function clearModelCooldown() {
+  modelCooldown.clear();
+}
+
+function noteModelBusy(error: GeminiRequestError, model: string) {
+  if (isQuotaError(error.debug) || isBillingError(error.debug)) return;
+  if (error.kind === "timeout" || isGeminiBusyError(error)) modelCooldown.set(model, geminiRetry.now() + MODEL_COOLDOWN_MS);
+}
+
+/** 最近混んでいたモデルを後ろへ回す（順番はそれ以外そのまま。全部混んでいても試す順が変わるだけ） */
+export function orderByCooldown(models: string[]): string[] {
+  const now = geminiRetry.now();
+  const cooling = (model: string) => (modelCooldown.get(model) ?? 0) > now;
+  return [...models.filter((model) => !cooling(model)), ...models.filter(cooling)];
 }
 
 /**
@@ -371,6 +397,8 @@ type GeminiOptions = {
   apiKey: string;
   model: string;
   count: number;
+  /** 最低これだけそろえばよい数（省くと count）。count との差は予備なので、足りなくても予備のためだけに呼び直さない */
+  minimum?: number;
   /** 広げるカードの祖先（近い順）。汎用の切り口を広げるときに、何の話なのかを伝える */
   context?: string[];
   /** ボードの用途（雑談・お悩み相談など）。指示の中身が変わる */
@@ -430,8 +458,9 @@ export async function requestGemini(
   const remaining: Remaining = () => GEMINI_DEADLINE_MS - (geminiRetry.now() - started);
   const tried: string[] = [];
   const attempts: string[] = [];
-  const models = fallbackModels(options.model);
+  const models = orderByCooldown(fallbackModels(options.model));
   const collected: string[] = [];
+  const minimum = Math.min(options.count, Math.max(1, options.minimum ?? options.count));
   let lastError: GeminiRequestError | undefined;
   /** 途中のモデルで「利用枠が無い」と言われたら覚えておく（最後のモデルの 503 より、こちらが本当の原因） */
   let quotaError: GeminiRequestError | undefined;
@@ -448,20 +477,28 @@ export async function requestGemini(
     failed.debug.tried = [...tried];
     failed.debug.attempts = [...attempts];
     if (isQuotaError(failed.debug)) quotaError ??= failed;
+    noteModelBusy(failed, model);
     return failed;
   };
 
   const runModel = async (model: string) => {
     const need = options.count - collected.length;
     const topics = await requestGeminiWithSameModelRetry(
-      { ...options, model, count: need, existing: [...options.existing, ...collected], onTopic: emit },
+      {
+        ...options,
+        model,
+        count: need,
+        minimum: Math.max(1, minimum - collected.length),
+        existing: [...options.existing, ...collected],
+        onTopic: emit,
+      },
       remaining,
     );
     for (const label of topics) emit(label);
   };
 
   for (const model of models) {
-    if (remaining() < 3_000 || collected.length >= options.count) break;
+    if (remaining() < 3_000 || collected.length >= minimum) break;
     tried.push(model);
     try {
       await runModel(model);
@@ -476,7 +513,7 @@ export async function requestGemini(
 
   const lastModel = tried[tried.length - 1];
   if (
-    collected.length < options.count &&
+    collected.length < minimum &&
     lastError &&
     lastModel &&
     isGeminiBusyError(lastError) &&
@@ -707,7 +744,8 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
     options.existing,
     options.detail,
   );
-  if (first.length >= options.count || remaining() < 4_000) return first.slice(0, options.count);
+  // 予備（minimum を超える分）が足りないだけなら呼び直さない（呼ぶ回数・枠の節約）
+  if (first.length >= (options.minimum ?? options.count) || remaining() < 4_000) return first.slice(0, options.count);
   const seen = [...options.existing, ...first];
   try {
     const retry = parseTopics(

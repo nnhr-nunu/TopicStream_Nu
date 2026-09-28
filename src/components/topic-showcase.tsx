@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { ArrowRight, BookOpen, Eye, Heart } from "lucide-react";
 
-import { TopicPreviewDialog } from "@/components/topic-preview-dialog";
+import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
+import { Button } from "@/components/ui/button";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 
 import { combinedKnowledge, fetchSharedSearch } from "@/lib/knowledge-client";
@@ -23,10 +24,6 @@ const SHOWN = 6;
 const NO_FAVORITES: string[] = [];
 /** ホームで出す分類（多すぎると選びにくいので主なものだけ） */
 const HOME_CATEGORIES: CategoryId[] = ["consult", "life", "food", "people", "work", "shopping", "game", "oshi", "memory", "hobby", "talk"];
-
-function picksOf(entry: KnowledgeEntry): number {
-  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
-}
 
 /** ホーム: トピック図鑑の中身を少しだけ見せて、そのまま始められるようにする */
 export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) => void; busy?: boolean }) {
@@ -93,19 +90,11 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
 
       <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {hits.map(({ entry }) => {
-          const picks = picksOf(entry);
+          const liked = favs.includes(entry.seed);
           return (
             <li key={entry.seed}>
               <article className="home-topic-card">
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                  <span>{categoryLabel(entry.category)}</span>
-                  {picks > 0 ? (
-                    <span className="inline-flex items-center gap-0.5">
-                      <Heart className="size-3 fill-current text-primary" />
-                      {picks}
-                    </span>
-                  ) : null}
-                </div>
+                <p className="text-[11px] text-muted-foreground">{categoryLabel(entry.category)}</p>
                 <h3 className="mt-1 text-base leading-6 font-semibold break-words">{entry.seed}</h3>
                 <ul className="mt-2.5 flex flex-wrap gap-1.5">
                   {rankedTopics(entry, 6).map((label) => (
@@ -122,30 +111,24 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
                     </li>
                   ))}
                 </ul>
-                <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
-                  <button type="button" className="home-topic-action" onClick={() => setPreviewing(entry)}>
-                    <Eye className="size-3.5" />
+                <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                  <Button size="sm" onClick={() => setPreviewing(entry)}>
+                    <Eye />
                     見てみる
-                  </button>
-                  <button
-                    type="button"
-                    className="home-topic-action"
-                    aria-pressed={favs.includes(entry.seed)}
-                    aria-label={favs.includes(entry.seed) ? "お気に入りから外す" : "お気に入りに残す"}
-                    title="お気に入りに残す"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={liked ? "secondary" : "outline"}
                     onClick={() => toggleFavoriteTopic(entry.seed)}
+                    aria-label={liked ? "ハートを外す" : "ハートを付ける"}
                   >
-                    <Heart className={cn("size-3.5", favs.includes(entry.seed) && "fill-current text-primary")} />
-                  </button>
-                  <button
-                    type="button"
-                    className="home-topic-go ml-auto"
-                    onClick={() => onStart(entry.seed)}
-                    disabled={busy}
-                  >
+                    <Heart className={liked ? "fill-current" : undefined} />
+                    {entryPicks(entry)}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => onStart(entry.seed)} disabled={busy}>
                     このお題で始める
-                    <ArrowRight className="size-3.5" />
-                  </button>
+                    <ArrowRight />
+                  </Button>
                 </div>
               </article>
             </li>

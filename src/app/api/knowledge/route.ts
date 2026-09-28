@@ -6,7 +6,7 @@ import {
   type SharedPick,
 } from "@/lib/knowledge-server";
 import { isBoardMode, parseMode } from "@/lib/modes";
-import { isCategoryId, isPickKind, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
+import { isCategoryId, isPickKind, knowledgeCounts, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
 
 /**
  * みんなの図鑑の口。
@@ -38,7 +38,13 @@ export async function GET(request: Request) {
     mode,
   );
   return Response.json(
-    { entries: hits.map((hit) => hit.entry), total: Object.keys(shared).length, backend: knowledgeBackend() },
+    {
+      entries: hits.map((hit) => hit.entry),
+      total: Object.keys(shared).length,
+      // 返すのは検索に合った分だけなので、タグの横の数は図鑑全体から数えて別に返す
+      counts: knowledgeCounts(shared, mode),
+      backend: knowledgeBackend(),
+    },
     { headers },
   );
 }

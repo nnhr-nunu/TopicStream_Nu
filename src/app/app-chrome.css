@@ -696,40 +696,6 @@
   background: color-mix(in oklab, var(--primary) 16%, transparent);
   color: var(--primary);
 }
-.home-topic-go {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  border-radius: 0.6rem;
-  color: var(--primary);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 0.3rem 0;
-}
-.home-topic-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-height: 2rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--muted-foreground);
-  font-size: 0.74rem;
-  font-weight: 600;
-  padding: 0.25rem 0.7rem;
-  transition:
-    border-color 140ms ease,
-    color 140ms ease;
-}
-.home-topic-action:hover,
-.home-topic-action[aria-pressed="true"] {
-  border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
-  color: var(--primary);
-}
-.home-topic-go:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .home-showcase-more {
   display: inline-flex;
   align-items: center;

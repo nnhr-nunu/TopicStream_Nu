@@ -3,6 +3,8 @@ export const USAGE_KEY = "topicstream-nu:usage";
 export const IDENTITY_KEY = "topicstream-nu:identity";
 export const FAVORITES_KEY = "topicstream-nu:favorites";
 export const KNOWLEDGE_KEY = "topicstream-nu:knowledge";
+/** AI が使えなかったときの埋め合わせで出た語（図鑑に入れないための目印） */
+export const FILLER_KEY = "topicstream-nu:fillers";
 export const CHILD_COUNT = 8;
 export const COMMENT_SCALE_MIN = 0.9;
 export const COMMENT_SCALE_MAX = 2.2;
