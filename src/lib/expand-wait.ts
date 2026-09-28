@@ -1,6 +1,11 @@
 import type { GeminiWaitStage } from "@/lib/gemini-core";
 
-/** 語がまとめて届いても、カードは少しずつずらして出す（ぽこぽこ出る演出。全体の待ちはほぼ増やさない） */
+/**
+ * 語がまとめて届いても、カードは REVEAL_GAP_MS ずつずらして1枚ずつ出す。
+ * 2026-09-29 に試したが体感が良くなかったので止めている（届いたらすぐ出す）。true に戻せば1枚ずつに戻る
+ */
+export const STAGGER_REVEAL = false;
+/** STAGGER_REVEAL のときの間隔（ぽこぽこ出る演出。全体の待ちはほぼ増やさない） */
 export const REVEAL_GAP_MS = 180;
 
 /**

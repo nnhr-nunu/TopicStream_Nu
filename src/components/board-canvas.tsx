@@ -20,6 +20,7 @@ import "@xyflow/react/dist/style.css";
 import { CombineGhost, CombinePickBanner, CombineProvider, nodeIdAt, type CombineApi } from "@/components/combine-drag";
 import { FlowEdge } from "@/components/flow-edge";
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
+import { WaitCritters } from "@/components/wait-critters";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
@@ -427,6 +428,7 @@ function CanvasInner({
       }}
       className={cn("h-full w-full", overlay && "overlay-flow")}
     >
+      <WaitCritters nodes={nodes} focusedId={board.focusedNodeId} />
       {overlay ? null : (
         <>
           <Background

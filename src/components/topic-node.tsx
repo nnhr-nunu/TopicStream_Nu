@@ -29,6 +29,12 @@ const HOLD_SLOP = 10;
 /** 持ち上げたあと、これ以上動かしたら掛け合わせのドラッグ */
 const LIFT_DRAG = 12;
 
+/**
+ * 待っている間に空のカードの中で芽を育てる（茎 → 葉 → つぼみ）。2026-09-29 に試したが微妙だったので止めている。
+ * true に戻せば出る。いまは盤面を歩く動物（wait-critters.tsx）に任せる
+ */
+const SPROUT_WHILE_WAITING = false;
+
 /** 語が届いたときに咲く花（花びらはカードの色 = currentColor、真ん中は黄色） */
 function BloomFlower() {
   return (
@@ -406,12 +412,16 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       >
         {data.placeholder ? (
           <span className="topic-skeleton" aria-label="話題を準備中">
-            <span className="topic-skeleton-sprout" aria-hidden>
-              <span className="topic-skeleton-stem" />
-              <span className="topic-skeleton-leaf" />
-              <span className="topic-skeleton-leaf" />
+            {SPROUT_WHILE_WAITING ? (
+              <span className="topic-skeleton-sprout" aria-hidden>
+                <span className="topic-skeleton-stem" />
+                <span className="topic-skeleton-leaf" />
+                <span className="topic-skeleton-leaf" />
+                <span className="topic-skeleton-bud" />
+              </span>
+            ) : (
               <span className="topic-skeleton-bud" />
-            </span>
+            )}
             <span className="topic-skeleton-bar" />
           </span>
         ) : (

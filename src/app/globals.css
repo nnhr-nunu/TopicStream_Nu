@@ -377,7 +377,7 @@ html.overlay-mode .topic-chip {
   gap: 0.45rem;
 }
 
-/* 待っている間に芽が伸びる（茎 → 葉 → つぼみが色づく）。語が届くと .topic-bloom の花が咲く */
+/* 待っている間に芽が伸びる（茎 → 葉 → つぼみが色づく）。いまは止めている（topic-node.tsx の SPROUT_WHILE_WAITING）。語が届くと .topic-bloom の花が咲く */
 .topic-skeleton-sprout {
   position: relative;
   flex: none;
@@ -417,12 +417,18 @@ html.overlay-mode .topic-chip {
 }
 
 .topic-skeleton-bud {
-  position: absolute;
-  bottom: 0;
-  left: calc(50% - 0.35rem);
   width: 0.7rem;
   height: 0.7rem;
   border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 55%, white);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 16%, transparent);
+  animation: topic-bud 1.1s ease-in-out infinite;
+}
+
+.topic-skeleton-sprout .topic-skeleton-bud {
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - 0.35rem);
   translate: 0 -0.7rem;
   background: color-mix(in oklab, var(--family-line, var(--primary)) 85%, white);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--family-line, var(--primary)) 16%, transparent);
@@ -503,7 +509,65 @@ html.overlay-mode .topic-chip {
   }
 }
 
+/* AI を待つ間に 3×3 の上で遊ぶ動物（wait-critters.tsx）。位置・向き・コマは JS で動かす。すぐ終わる待ちでは見えないよう少し遅れて出る */
+.wait-critter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* ふつうのカード（0〜11）より上、選んだ・触れているカードとそのメニュー（12〜）より下 */
+  z-index: 11;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.wait-critter.is-leaving {
+  opacity: 0;
+}
+
+.wait-critter-fade {
+  animation: wait-critter-in 0.5s ease-out 0.7s both;
+}
+
+.wait-critter-body {
+  position: absolute;
+  transform-origin: 50% 100%;
+}
+
+.wait-critter-body svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.wait-critter-shadow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 5px;
+  translate: -50% -50%;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.16);
+}
+
+.dark .wait-critter-body {
+  filter: drop-shadow(0 0 1px rgb(255 255 255 / 0.55));
+}
+
+@keyframes wait-critter-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .wait-critter {
+    display: none;
+  }
   .topic-skeleton-stem,
   .topic-skeleton-leaf,
   .topic-skeleton-bud {
