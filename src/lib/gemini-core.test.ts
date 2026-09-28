@@ -368,7 +368,7 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.topics).toHaveLength(8);
   });
 
-  it("全部 503 なら最後のモデルをもう一度待つ", async () => {
+  it("全部 503 なら少し置いて2巡目で試し直す", async () => {
     const sleep = vi.fn(async () => {});
     geminiRetry.sleep = sleep;
     let lastHits = 0;
@@ -395,7 +395,7 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.model).toBe("gemini-flash-latest");
     expect(result.topics).toContain("再試行");
     expect(result.tried).toEqual([...GEMINI_FALLBACK_MODELS]);
-    expect(sleep).toHaveBeenCalledWith(geminiRetry.lastModelMs);
+    expect(sleep).toHaveBeenCalledWith(geminiRetry.nextRoundMs);
   });
 
   it("ストリーミングで8個そろったら、続きを待たずに打ち切る", async () => {
@@ -453,6 +453,33 @@ describe("1つずつ届ける", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    clearModelCooldown();
+  });
+
+  it("全部のモデルが時間切れなら、2巡目は同じモデルを長めに待つ", async () => {
+    vi.useFakeTimers();
+    const hits = new Map<string, number>();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL, init?: { signal?: AbortSignal }) => {
+        const model = /models\/([^:]+):/.exec(String(input))![1]!;
+        const hit = (hits.get(model) ?? 0) + 1;
+        hits.set(model, hit);
+        return new Promise((resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          // 1巡目の見切りより遅く、2巡目の待ちよりは早く答える
+          if (model === DEFAULT_MODEL && hit === 2) {
+            setTimeout(() => resolve(googleOk(["地元あるある", "深夜のコンビニ", "失敗談", "推しの話"])), 10_000);
+          }
+        });
+      }),
+    );
+    const pending = requestGemini({ seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 4 });
+    await vi.advanceTimersByTimeAsync(GEMINI_FIRST_CHUNK_MS * GEMINI_FALLBACK_MODELS.length + geminiRetry.nextRoundMs + 11_000);
+    const result = await pending;
+    expect(result.model).toBe(DEFAULT_MODEL);
+    expect(result.topics).toHaveLength(4);
+    expect(hits.get(DEFAULT_MODEL)).toBe(2);
   });
 
   it("書きかけの語は拾わない", () => {

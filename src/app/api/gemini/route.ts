@@ -16,8 +16,8 @@ import { parseMode } from "@/lib/modes";
 import { isArchived } from "@/lib/topic-archive";
 import type { BoardMode, GeminiDebug, GeminiUsage } from "@/lib/types";
 
-/** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
-export const maxDuration = 30;
+/** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 50 秒）。 */
+export const maxDuration = 60;
 
 /** インスタンスが生きている間だけ効く交通整理（回数制限・同時実行・書き出しの使い回し） */
 const guard = createGeminiGuard();

@@ -51,7 +51,7 @@ export async function generateRelatedTopics(options: {
   const mode = parseMode(options.mode);
   if (options.detail) {
     const mock = mockDetailTopics(options.seed, options.existing, count, mode, context);
-    return requestTopics(options, { count, context, mode, mock, recordSeed: detailRecordSeed(options.seed, context), detail: true });
+    return requestTopics(options, { count, context, mode, mock, known: 0, recordSeed: detailRecordSeed(options.seed, context), detail: true });
   }
   // 「一番の失敗談」のような汎用の切り口は、図鑑にもこのお題としてはためない（別のお題の話が混ざる）
   const generic = isGenericAngle(options.seed);
@@ -87,18 +87,46 @@ export async function generateRelatedTopics(options: {
     count,
     options.seed,
   );
-  return requestTopics(options, { count, context, mode, mock, recordSeed: generic ? undefined : options.seed, detail: false });
+  return requestTopics(options, {
+    count,
+    context,
+    mode,
+    mock,
+    known: recalled.topics.length,
+    recordSeed: generic ? undefined : options.seed,
+    detail: false,
+  });
 }
 
 type RequestOptions = Parameters<typeof generateRelatedTopics>[0];
 
+/** AI が答えず、図鑑の語も足りなかったときのお知らせ（定型の候補は出さずに、再試行をお願いする） */
+export function retryLaterMessage(kind: string | undefined): string {
+  if (kind === "quota") return "AI の利用上限に達しました。時間を置いてから、もう一度お試しください。";
+  if (kind === "rate") return "続けてたくさん広げたので、少し時間を置いてから、もう一度お試しください。";
+  return "AI から返事がありませんでした。しばらく時間を置いてから、もう一度お試しください。";
+}
+
+/**
+ * AI を呼んだのに語が1つも取れず（キーが無いだけの公開版は除く）、図鑑の語も必要な数に届かないなら、
+ * 定型の組み合わせで埋めずに諦める（意味の薄い候補を並べるより、再試行してもらう方がよい）
+ */
+function withRetryLater(result: GenerateResult, known: number, need: number): GenerateResult {
+  if (result.source !== "mock" || !result.warning || known >= need) return result;
+  return { ...result, retryLater: true, warning: retryLaterMessage(result.noticeKind) };
+}
+
 /** サーバーに頼む本体。届いた語は onTopic で先に知らせ、足りない分は mock で埋める */
 async function requestTopics(
   options: RequestOptions,
-  /** recordSeed: AI の結果を自分の図鑑に残すときのお題（無ければ残さない） */
-  plan: { count: number; context: string[]; mode: BoardMode; mock: string[]; recordSeed?: string; detail: boolean },
+  /**
+   * known: mock の先頭のうち図鑑から持ってきた語の数（残りは定型の組み合わせ）。
+   * recordSeed: AI の結果を自分の図鑑に残すときのお題（無ければ残さない）
+   */
+  plan: { count: number; context: string[]; mode: BoardMode; mock: string[]; known: number; recordSeed?: string; detail: boolean },
 ): Promise<GenerateResult> {
-  const { count, context, mode, mock, recordSeed, detail } = plan;
+  const { count, context, mode, mock, known, recordSeed, detail } = plan;
+  const need = Math.min(count, options.minimum ?? count);
   const override = sanitizeSecret(options.apiKey);
   const streamed: string[] = [];
   const accept = (label: unknown) => {
@@ -118,14 +146,18 @@ async function requestTopics(
     const topics = padTopics(streamed, [...(fromAi ? parsed : []), ...mock], count, options.seed, detail);
     if (aiTopics.length > 0 && recordSeed) rememberTopics(recordSeed, aiTopics, mode);
     markFillers(options.seed, topics.filter((label) => !aiTopics.includes(label)), mode);
-    const result: GenerateResult = {
-      topics,
-      source: fromAi ? "gemini" : "mock",
-      warning: json.warning,
-      noticeKind: json.noticeKind,
-      debug: json.debug,
-      usage: json.usage,
-    };
+    const result = withRetryLater(
+      {
+        topics,
+        source: fromAi ? "gemini" : "mock",
+        warning: json.warning,
+        noticeKind: json.noticeKind,
+        debug: json.debug,
+        usage: json.usage,
+      },
+      known,
+      need,
+    );
     recordAiUsage(result);
     return result;
   };
@@ -184,12 +216,16 @@ async function requestTopics(
   } catch {
     if (streamed.length > 0) return finish({ source: "gemini" });
     markFillers(options.seed, mock, mode);
-    return {
-      topics: mock,
-      source: "mock",
-      warning: "AI に届かなかったので、今回はオフラインの候補で広げました。",
-      noticeKind: "unavailable",
-      debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
-    };
+    return withRetryLater(
+      {
+        topics: mock,
+        source: "mock",
+        warning: "AI に届かなかったので、今回はオフラインの候補で広げました。",
+        noticeKind: "unavailable",
+        debug: { reason: "proxy", host: "local", model: options.model?.trim() || DEFAULT_MODEL },
+      },
+      known,
+      need,
+    );
   }
 }

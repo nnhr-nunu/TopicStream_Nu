@@ -131,6 +131,11 @@ export type GenerateResult = {
   debug?: GeminiDebug;
   /** このお願いで Gemini を実際に呼んだ回数とトークン数（設定画面の利用状況に足す） */
   usage?: GeminiUsage;
+  /**
+   * AI が答えず、図鑑にも足りるだけの語が無かった。topics は定型の埋め合わせなので画面には出さず、
+   * warning（時間を置いて再試行してほしい旨）だけを見せる
+   */
+  retryLater?: boolean;
 };
 
 export type GeminiUsage = { calls: number; tokens: number };

@@ -147,8 +147,11 @@ export function useBoardController() {
       const board = current.boards.find((item) => item.id === current.activeBoardId);
       if (!board) return;
       let working = board;
+      /** 作り直しで消した前の 8 枚（AI が答えなかったときに戻す） */
+      let clearedHistory: HistoryEntry | null = null;
       if (replace) {
         const cleared = ops.clearChildren(working, nodeId);
+        clearedHistory = cleared.history;
         // 前に広げたときの予備は捨てる（「具体的にする」で作り直した後に、元の切り口の語が混ざらないように）
         working = {
           ...cleared.board,
@@ -223,6 +226,30 @@ export function useBoardController() {
         return;
       }
 
+      const sameEntry = (entry: HistoryEntry, parentId: string, childIds: string[]) =>
+        entry.parentId === parentId &&
+        entry.childIds.length === childIds.length &&
+        entry.childIds.every((id, index) => id === childIds[index]);
+
+      // AI が答えず図鑑にも足りる語が無い: 定型の候補は並べずに、広げる前（掛け合わせならカードを置く前）へ戻す
+      if (result.retryLater) {
+        const entry = ops.historyFromChildren(latestBoard, hist.parentId, hist.childIds, hist.edgeIds);
+        const undone = ops.undoExpand(latestBoard, entry);
+        const restored = clearedHistory ? ops.redoExpand(undone, clearedHistory) : undone;
+        persist({ ...latest, boards: latest.boards.map((item) => (item.id === restored.id ? restored : item)) });
+        const cleared = clearedHistory;
+        updateHistory(boardId, (history) => ({
+          ...history,
+          undo: history.undo.filter(
+            (item) =>
+              !sameEntry(item, hist.parentId, hist.childIds) && !(cleared && sameEntry(item, cleared.parentId, cleared.childIds)),
+          ),
+        }));
+        setBusy(false);
+        toast.warning(result.warning, { duration: 8_000 });
+        return;
+      }
+
       // 流れてきた語で埋まっていない分を最終結果で埋め、余りは予備として中央に持たせる
       const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
       const unused = result.topics.filter((label) => !onBoard.has(label));
@@ -247,11 +274,7 @@ export function useBoardController() {
         const next = [...history.undo];
         for (let i = next.length - 1; i >= 0; i -= 1) {
           const entry = next[i]!;
-          if (
-            entry.parentId === hist.parentId &&
-            entry.childIds.length === hist.childIds.length &&
-            entry.childIds.every((id, index) => id === hist.childIds[index])
-          ) {
+          if (sameEntry(entry, hist.parentId, hist.childIds)) {
             next[i] = ops.historyFromChildren(filled, hist.parentId, hist.childIds, hist.edgeIds);
             break;
           }
@@ -481,6 +504,11 @@ export function useBoardController() {
           }),
           new Promise((resolve) => window.setTimeout(resolve, 600)),
         ]);
+        if (result.retryLater) {
+          // 定型の埋め合わせで今のカードを置き換えない
+          toast.warning(result.warning, { duration: 8_000 });
+          return;
+        }
         const [nextLabel, ...rest] = result.topics;
         if (nextLabel) {
           updateBoardById(board.id, (item) => {
