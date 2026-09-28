@@ -53,6 +53,8 @@ export const DEFAULT_SETTINGS = {
   showComments: false,
   commentScale: 1,
   expandMode: "abstract" as const,
+  hiddenCritters: [] as string[],
+  critterStyle: "mix" as const,
 };
 
 export const RADIUS = {
