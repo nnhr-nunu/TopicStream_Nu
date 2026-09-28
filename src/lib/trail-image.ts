@@ -337,7 +337,8 @@ function drawTrail(trail: TopicTrail, title: string, familyName: string): HTMLCa
     roundRect(ctx, x, y, w, h, 16);
     ctx.fillStyle = chosen ? colors.strong : "#fff";
     ctx.fill();
-    ctx.lineWidth = item.depth === 0 ? 3.5 : chosen ? 2.5 : 1.5;
+    // 最初のお題は太枠でひと目で分かるように
+    ctx.lineWidth = item.depth === 0 ? 6 : chosen ? 2.5 : 1.5;
     ctx.strokeStyle = chosen ? colors.line : colors.lineSoft;
     ctx.stroke();
     drawLabel(ctx, item.label, x + w / 2, y + h / 2 + 1, w - 32, 2, 20, chosen ? 700 : 500, familyName);
@@ -440,12 +441,14 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
 
   for (const { item: node, x, y, w, h } of boxes) {
     const colors = family(familyOf(node));
-    const isCenter = node.data.parentId === null || node.data.role === "source";
+    const isRoot = node.data.parentId === null;
+    const isCenter = isRoot || node.data.role === "source";
     const step = steps.get(node.id) ?? null;
     roundRect(ctx, x, y, w, h, layout === "mandala" ? 14 : h / 2);
     ctx.fillStyle = isCenter ? colors.strong : layout === "mandala" ? colors.soft : "#fff";
     ctx.fill();
-    ctx.lineWidth = isCenter ? 3 : step ? 2.5 : 1;
+    // 最初のお題（中心）はいちばん太く、マンダラートの各 3×3 の中央はその次
+    ctx.lineWidth = isRoot ? 6 : isCenter ? 3.5 : step ? 2.5 : 1;
     ctx.strokeStyle = isCenter || step ? colors.line : colors.lineSoft;
     ctx.stroke();
 

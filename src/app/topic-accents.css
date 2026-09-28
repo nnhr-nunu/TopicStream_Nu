@@ -1,16 +1,15 @@
 /* カードの装飾: 付箋タグ・NOW リボン・ピン留めの強調・ハートの +N・マンダラートのつながり線 */
 
-/* 付箋: カードの下の縁に貼った黄色いメモ。マス間隔は変えず、隙間にはみ出す */
+/* 付箋: カードの上の縁（左肩。右肩は ♡ ボタン）に貼った黄色いメモ。下に出る操作メニューと重ならないよう上へはみ出す */
 .topic-memo-tag {
   position: absolute;
-  left: 50%;
-  top: calc(100% - 0.55rem);
+  left: -0.35rem;
+  bottom: calc(100% - 0.5rem);
   z-index: 6;
   display: block;
   width: max-content;
-  max-width: 92%;
-  translate: -50% 0;
-  rotate: -1.2deg;
+  max-width: 72%;
+  rotate: -1.6deg;
   border: 0;
   border-radius: 0.3rem 0.3rem 0.45rem 0.3rem;
   background: var(--sticky);
@@ -29,6 +28,7 @@
     translate 140ms ease;
 }
 
+/* 貼り付けたテープ */
 .topic-memo-tag::before {
   content: "";
   position: absolute;
@@ -45,37 +45,41 @@
 .topic-memo-tag:hover,
 .topic-memo-tag:focus-visible {
   rotate: 0deg;
-  translate: -50% -2px;
+  translate: 0 -2px;
 }
 
-/* 2行まで。それ以上はホバーで全文 */
+/* 1行まで。それ以上はホバーで全文 */
 .topic-memo-tag-text {
   display: -webkit-box;
   overflow: hidden;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
+/* 全文は付箋そのものの上に重ねて広げる（下に別の吹き出しを出すと同じ文が2つ並んで見えるため） */
 .topic-memo-tag-full {
   position: absolute;
-  left: 50%;
-  top: calc(100% + 0.35rem);
+  left: 0;
+  bottom: 0;
   z-index: 20;
   display: none;
   width: max-content;
+  min-width: 100%;
   max-width: 17rem;
-  translate: -50% 0;
-  border-radius: 0.5rem;
+  border-radius: 0.3rem 0.3rem 0.45rem 0.3rem;
   background: var(--sticky);
   color: var(--sticky-foreground);
   box-shadow: 0 10px 28px color-mix(in oklab, black 22%, transparent);
   font-size: 0.8rem;
   line-height: 1.5;
-  padding: 0.55rem 0.7rem;
+  padding: 0.45rem 0.7rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* 引いたときに小さくなりすぎないようにする */
+  scale: var(--menu-scale, 1);
+  transform-origin: bottom left;
 }
 
 .topic-memo-tag:hover .topic-memo-tag-full,
@@ -87,16 +91,10 @@
   z-index: 13 !important;
 }
 
-/* 付箋を読んでいる間は操作メニューを引っ込める（全文と重なって読めないので） */
+/* 付箋を読んでいる間は操作メニューを引っ込める */
 .topic-node:has(.topic-memo-tag:hover) .topic-actions {
   opacity: 0;
   pointer-events: none;
-}
-
-/* 付箋の全文も、引いたときに小さくなりすぎないようにする */
-.topic-memo-tag-full {
-  scale: var(--menu-scale, 1);
-  transform-origin: top center;
 }
 
 /* 文を作り直している最中: 光が流れ、「作り直し中…」を出す */

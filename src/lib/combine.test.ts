@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { addMixNode, canCombine } from "@/lib/board-combine";
 import * as ops from "@/lib/board-ops";
-import { combineInstruction, mixLabel, mockMixTopics, splitMix } from "@/lib/combine";
+import { combineInstruction, mixLabel, mixOriginNote, mockMixTopics, splitMix } from "@/lib/combine";
 import { LABEL_MAX } from "@/lib/constants";
 import { mockRelatedTopics } from "@/lib/mock-topics";
 import { buildPrompt } from "@/lib/gemini-core";
@@ -119,5 +119,18 @@ describe("掛け合わせのカード", () => {
     const cleared = ops.clearChildren(added.board, root.id);
     expect(cleared.board.nodes.some((node) => node.id === added.mixId)).toBe(true);
     expect(cleared.board.nodes.some((node) => node.data.label === "旅行")).toBe(false);
+  });
+});
+
+describe("掛け合わせの元の話", () => {
+  it("2枚がそれぞれ何の話から出た語かを AI に伝える", () => {
+    expect(mixOriginNote("キャンプ × 一番の失敗談", "アウトドア", "料理")).toBe(
+      "「キャンプ」は「アウトドア」の話から、「一番の失敗談」は「料理」の話から出てきた語です。その意味で組み合わせてください。\n",
+    );
+    expect(mixOriginNote("キャンプ × 料理", undefined, undefined)).toBe("");
+    expect(mixOriginNote("キャンプ", "a", "b")).toBe("");
+    const prompt = buildPrompt("キャンプ × 一番の失敗談", [], 8, ["キャンプ", "アウトドア"], "chat", false, ["料理"]);
+    expect(prompt).toContain("「一番の失敗談」は「料理」の話から");
+    expect(prompt).toContain("片方だけで成り立つ語は出さない");
   });
 });

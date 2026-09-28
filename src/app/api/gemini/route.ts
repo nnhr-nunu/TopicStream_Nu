@@ -14,7 +14,7 @@ import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
 import { isArchived } from "@/lib/topic-archive";
-import type { BoardMode, GeminiDebug } from "@/lib/types";
+import type { BoardMode, GeminiDebug, GeminiUsage } from "@/lib/types";
 
 /** モデルを替えて試す分の余裕（gemini-core の GEMINI_DEADLINE_MS は 24 秒）。 */
 export const maxDuration = 30;
@@ -45,6 +45,7 @@ type Final = {
   warning?: string;
   noticeKind?: string;
   debug?: GeminiDebug;
+  usage?: GeminiUsage;
 };
 
 type Input = {
@@ -53,6 +54,8 @@ type Input = {
   preferred: string[];
   /** 広げるカードの祖先（近い順） */
   context: string[];
+  /** 掛け合わせのカードで、持ってきた側のカードの祖先（近い順） */
+  mixFrom: string[];
   mode: BoardMode;
   /** 「具体的にする」: 対応策・具体的な話題を短い文で */
   detail: boolean;
@@ -64,7 +67,7 @@ type Input = {
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
 async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
-  const { seed, existing, preferred, context, mode, detail, count, model, apiKey } = input;
+  const { seed, existing, preferred, context, mixFrom, mode, detail, count, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
     if (!isArchived(seed, label)) sendTopic(label);
@@ -103,8 +106,13 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     };
   }
 
+  const usage: GeminiUsage = { calls: 0, tokens: 0 };
+  const onCall = (tokens: number) => {
+    usage.calls += 1;
+    usage.tokens += tokens;
+  };
   try {
-    const remote = await requestGemini({ seed, existing, context, mode, detail, apiKey, model, count, onTopic });
+    const remote = await requestGemini({ seed, existing, context, mixFrom, mode, detail, apiKey, model, count, onTopic, onCall });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
@@ -113,7 +121,7 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     const recordSeed = detail ? detailRecordSeed(seed, context) : isGenericAngle(seed) ? undefined : seed;
     if (recordSeed) await recordSharedKnowledge(recordSeed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
-    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini" };
+    return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini", usage };
   } catch (error) {
     const debug =
       error instanceof GeminiRequestError ? error.debug : geminiDebug({ reason: "network", model, host: GEMINI_HOST });
@@ -121,7 +129,7 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
     // 技術的な詳細（試したモデル・Google の返事）はサーバーログへ。利用者には短いお知らせだけ返す
     console.warn("[gemini]", geminiFailureWarning(error));
     const notice = geminiUserNotice(error);
-    return { topics: mock(), source: "mock", warning: notice.message, noticeKind: notice.kind, debug };
+    return { topics: mock(), source: "mock", warning: notice.message, noticeKind: notice.kind, debug, usage };
   } finally {
     slot.release();
   }
@@ -135,6 +143,7 @@ export async function POST(request: Request) {
     count?: unknown;
     preferred?: unknown;
     context?: unknown;
+    mixFrom?: unknown;
     mode?: unknown;
     detail?: unknown;
     apiKey?: unknown;
@@ -160,7 +169,14 @@ export async function POST(request: Request) {
           .filter((item): item is string => typeof item === "string")
           .map((item) => item.trim().slice(0, 48))
           .filter(Boolean)
-          .slice(0, 3)
+          .slice(0, 4)
+      : [],
+    mixFrom: Array.isArray(body?.mixFrom)
+      ? body.mixFrom
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim().slice(0, 48))
+          .filter(Boolean)
+          .slice(0, 2)
       : [],
     mode: parseMode(body?.mode),
     detail: body?.detail === true,

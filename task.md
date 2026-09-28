@@ -2,6 +2,14 @@
 
 完了の詳細は `git log`。制約はエージェント用の [`AGENTS.md`](./AGENTS.md)。
 
+## 残り: AI の混雑・話題のズレ・掛け合わせ（2026-09-29）
+
+済: 設定の一番下に「AI の利用状況（今日・この端末から）」（[`ai-usage.ts`](./src/lib/ai-usage.ts)。回数・トークン・失敗の理由・直近の失敗と試したモデル）。途中のモデルで「利用枠なし」が出たらそちらを原因として返す（最後のモデルの 503 で「混み合って」と出ていた）。深く広げても最初のお題を文脈に必ず入れ、雑談以外は中心へ寄せる指示（`anchorInstruction`）＋一度だけお知らせ。掛け合わせは持ってきた側のカードの親も渡し（`mixOriginNote`）、よい例・悪い例を追加。
+
+- 「混み合って」の本当の原因は未確認（Vercel のログ検索がタイムアウトして読めなかった）。設定の「直近の失敗」で `http-503 UNAVAILABLE`（Google 側の混雑）/ `http-429`（枠）/ `timeout`（最初の文字が 5 秒で来ない）/ `guard-busy`（自前の同時実行制限）のどれが多いかを見る。503 が 3.6-flash に偏るなら `GEMINI_FALLBACK_MODELS` で 3.1-flash-lite を先にする
+- `/api/gemini` は誰でも呼べる（キー自体は漏れないが、枠は使われうる）。気になるなら Origin チェックや1日の全体上限を足す
+- 実キーで、お悩み相談の深い段で中心から離れないか・掛け合わせが両方にまたがるかを確認
+
 ## 残り: 掛け合わせ・スマホ操作（2026-09-27）
 
 済: 掛け合わせ（[`combine.ts`](./src/lib/combine.ts) / [`board-combine.ts`](./src/lib/board-combine.ts) / [`combine-drag.tsx`](./src/components/combine-drag.tsx)）、スマホの下から出るメニュー、左下の抽象展開/具体的 + 使い方（[`mode-dock.tsx`](./src/components/mode-dock.tsx)）、使い方ギャラリー（画像は `node scripts/capture-guide.mjs` で撮り直し）。「…」ボタン案はやめ、長押し中の吹き出し・初回ヒント・? ボタンで代える。

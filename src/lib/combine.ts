@@ -35,8 +35,29 @@ export function combineInstruction(seed: string): string {
   if (!parts) return "";
   const [base, added] = parts;
   return `
-このお題は「${base}」と「${added}」の掛け合わせです。どちらか片方だけの話ではなく、両方にまたがる話題（組み合わせたときの意外な共通点・あるある・企画・体験）にしてください。
+このお題は「${base}」と「${added}」の掛け合わせです。
+- どの語も「${base}」と「${added}」の両方に関わる話題にする。片方だけで成り立つ語は出さない
+- 組み立て方の例: ${base}の場面で${added}が起きたら / ${added}の目線で見た${base} / 2つの意外な共通点・あるある / 組み合わせた企画・体験・失敗談
+- 2つの語をそのまま並べただけの語（「${base}と${added}」）にはしない
+例: お題「ゲーム × 料理」なら
+よい: ["ゲーム飯の再現","料理ゲームの腕前","徹夜ゲームの夜食","ゲーム内料理の味"]
+よくない: ["好きなゲーム","得意料理","ゲームと料理"]
 `;
+}
+
+/**
+ * 掛け合わせた 2 枚が、それぞれ何の話から出てきた語か（AI が語の意味を取り違えないように）。
+ * baseFrom は土台のカードの親、addedFrom は持ってきたカードの親の語。
+ */
+export function mixOriginNote(seed: string, baseFrom?: string, addedFrom?: string): string {
+  const parts = splitMix(seed);
+  if (!parts) return "";
+  const [base, added] = parts;
+  const notes = [
+    baseFrom && baseFrom !== added ? `「${base}」は「${baseFrom}」の話から` : "",
+    addedFrom && addedFrom !== base ? `「${added}」は「${addedFrom}」の話から` : "",
+  ].filter(Boolean);
+  return notes.length ? `${notes.join("、")}出てきた語です。その意味で組み合わせてください。\n` : "";
 }
 
 /** キー無し・AI 失敗時の掛け合わせの候補。語を入れると長すぎる形は使わず、「2つ」「組み合わせ」の言い方で埋める */

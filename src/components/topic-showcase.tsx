@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Heart } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Heart } from "lucide-react";
+
+import { TopicPreviewDialog } from "@/components/topic-preview-dialog";
+import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 
 import { combinedKnowledge, fetchSharedSearch } from "@/lib/knowledge-client";
 import {
@@ -17,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const SHOWN = 6;
+const NO_FAVORITES: string[] = [];
 /** ホームで出す分類（多すぎると選びにくいので主なものだけ） */
 const HOME_CATEGORIES: CategoryId[] = ["consult", "life", "food", "people", "work", "shopping", "game", "oshi", "memory", "hobby", "talk"];
 
@@ -29,6 +33,8 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
   // ホームはボードを読み込んだあと（ブラウザ側）でしか描かないので、手元の記録はすぐ読める。みんなの図鑑は届いたら重ねる
   const [store, setStore] = useState<KnowledgeStore>(() => combinedKnowledge());
   const [category, setCategory] = useState<CategoryId | "all">("all");
+  const [previewing, setPreviewing] = useState<KnowledgeEntry | null>(null);
+  const favs = useSyncExternalStore(subscribeTopicFavorites, loadFavoriteTopics, () => NO_FAVORITES);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,20 +122,45 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
                     </li>
                   ))}
                 </ul>
-                <button
-                  type="button"
-                  className="home-topic-go"
-                  onClick={() => onStart(entry.seed)}
-                  disabled={busy}
-                >
-                  このお題で始める
-                  <ArrowRight className="size-3.5" />
-                </button>
+                <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+                  <button type="button" className="home-topic-action" onClick={() => setPreviewing(entry)}>
+                    <Eye className="size-3.5" />
+                    見てみる
+                  </button>
+                  <button
+                    type="button"
+                    className="home-topic-action"
+                    aria-pressed={favs.includes(entry.seed)}
+                    aria-label={favs.includes(entry.seed) ? "お気に入りから外す" : "お気に入りに残す"}
+                    title="お気に入りに残す"
+                    onClick={() => toggleFavoriteTopic(entry.seed)}
+                  >
+                    <Heart className={cn("size-3.5", favs.includes(entry.seed) && "fill-current text-primary")} />
+                  </button>
+                  <button
+                    type="button"
+                    className="home-topic-go ml-auto"
+                    onClick={() => onStart(entry.seed)}
+                    disabled={busy}
+                  >
+                    このお題で始める
+                    <ArrowRight className="size-3.5" />
+                  </button>
+                </div>
               </article>
             </li>
           );
         })}
       </ul>
+
+      <TopicPreviewDialog
+        entry={previewing}
+        busy={busy}
+        onOpenChange={(open) => {
+          if (!open) setPreviewing(null);
+        }}
+        onStart={onStart}
+      />
 
       <div className="mt-5 flex justify-center">
         <Link href="/topics/" className="home-showcase-more">

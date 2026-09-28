@@ -2,6 +2,7 @@ import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { isJunkTopic, padTopics } from "@/lib/gemini-core";
+import { recordAiUsage } from "@/lib/ai-usage";
 import { splitMix } from "@/lib/combine";
 import { fetchSharedRelated, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
@@ -36,6 +37,8 @@ export async function generateRelatedTopics(options: {
   count?: number;
   preferred?: string[];
   context?: string[];
+  /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
+  mixFrom?: string[];
   mode?: BoardMode;
   onTopic?: (label: string) => void;
   recall?: boolean;
@@ -66,7 +69,10 @@ export async function generateRelatedTopics(options: {
     anchor && !mixed && recalled.topics.length < count
       ? recallTopicsNow(anchor, [...options.existing, ...context], count, mode).topics
       : [];
-  if (options.recall && recalled.depth >= count && recalled.topics.length >= count && Math.random() >= RECALL_AI_RATE) {
+  // お悩み相談などで深く広げたカードは、図鑑（ほかのボードで同じ語から出た語）だけで済ませない。
+  // 中心のお題を知らない語が並び、話がズレていくため（AI には中心のお題を渡して寄せてもらう）
+  const deep = mode !== "chat" && context.length >= 2;
+  if (options.recall && !deep && recalled.depth >= count && recalled.topics.length >= count && Math.random() >= RECALL_AI_RATE) {
     for (const label of recalled.topics) {
       options.onTopic?.(label);
       await wait(40);
@@ -107,13 +113,16 @@ async function requestTopics(
     // AI が使えなかったときのサーバーの候補は定型なので、図鑑を先に使う手元の候補で置き換える
     const topics = padTopics(streamed, [...(fromAi ? parsed : []), ...mock], count, options.seed, detail);
     if (fromAi && recordSeed) rememberTopics(recordSeed, [...streamed, ...parsed], mode);
-    return {
+    const result: GenerateResult = {
       topics,
       source: fromAi ? "gemini" : "mock",
       warning: json.warning,
       noticeKind: json.noticeKind,
       debug: json.debug,
+      usage: json.usage,
     };
+    recordAiUsage(result);
+    return result;
   };
 
   try {
@@ -127,6 +136,7 @@ async function requestTopics(
         count,
         preferred: options.preferred ?? [],
         context,
+        mixFrom: options.mixFrom?.length ? options.mixFrom : undefined,
         mode,
         detail: detail || undefined,
         apiKey: override || undefined,

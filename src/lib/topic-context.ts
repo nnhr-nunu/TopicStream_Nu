@@ -25,5 +25,21 @@ export function topicContext(board: Board, nodeId: string, depth = CONTEXT_DEPTH
     if (label && !parent.data.placeholder) labels.push(label);
     current = parent;
   }
+  // 深く広げても最初のお題（中心）は必ず最後に付ける。近い祖先だけだと、深くなるほど中心から話がズレていく
+  const root = rootLabel(board, nodeId);
+  if (root && labels.length >= depth && labels[labels.length - 1] !== root) labels.push(root);
   return labels;
+}
+
+/** そのカードが属するボードの最初のお題（親をたどった先）。カード自身が中心なら undefined */
+export function rootLabel(board: Board, nodeId: string): string | undefined {
+  const byId = new Map(board.nodes.map((node) => [node.id, node]));
+  const seen = new Set<string>();
+  let current = byId.get(nodeId);
+  if (!current || current.data.parentId === null) return undefined;
+  while (current && current.data.parentId !== null && !seen.has(current.id)) {
+    seen.add(current.id);
+    current = byId.get(current.data.parentId);
+  }
+  return current?.data.parentId === null ? current.data.label.trim() || undefined : undefined;
 }

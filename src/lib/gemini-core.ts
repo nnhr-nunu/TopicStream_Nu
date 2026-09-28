@@ -7,6 +7,7 @@ import {
   RETIRED_GEMINI_MODELS,
 } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
+import { mixOriginNote } from "@/lib/combine";
 import { buildDetailPrompt } from "@/lib/detail-modes";
 import { buildModePrompt } from "@/lib/modes";
 import type { BoardMode, GeminiDebug } from "@/lib/types";
@@ -20,15 +21,28 @@ export function buildPrompt(
   context: string[] = [],
   mode: BoardMode = "chat",
   detail = false,
+  /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
+  mixFrom: string[] = [],
 ): string {
   const banned = existing.slice(0, 24).join(" / ") || "なし";
   // 祖先は近い順で届くので、話の流れとして読めるよう遠い方から並べる
   const flow = context.length
     ? `
 このお題は「${[...context].reverse().join(" → ")} → ${seed}」という話の流れで出てきました。流れから外れない切り口にしてください。
-`
+${anchorInstruction(mode, seed, context)}${mixOriginNote(seed, context[1], mixFrom[0])}`
     : "";
   return detail ? buildDetailPrompt(mode, seed, count, flow, banned, context) : buildModePrompt(mode, seed, count, flow, banned);
+}
+
+/**
+ * 深く広げたときに、最初のお題（中心）から話がズレないようにする指示。
+ * 雑談は話が広がるのが楽しいので付けない。お悩み相談などの目的があるモードは、中心の役に立つ切り口に寄せる。
+ */
+export function anchorInstruction(mode: BoardMode, seed: string, context: string[]): string {
+  const root = context[context.length - 1];
+  if (mode === "chat" || context.length < 2 || !root) return "";
+  return `このボードの中心のお題は「${root}」です。「${seed}」を掘り下げつつ、どれも中心のお題「${root}」の役に立つ・つながる切り口にしてください。中心から離れた一般論にはしないでください。
+`;
 }
 
 /** 語の長さの上限。「具体的にする」の答えは文なので長め */
@@ -365,6 +379,10 @@ type GeminiOptions = {
   detail?: boolean;
   /** 新しいキーワードが1つ読めるたびに呼ぶ（画面に1つずつ出すため）。モデルを替えても同じ語は2度呼ばない。 */
   onTopic?: (label: string) => void;
+  /** Gemini へ1回リクエストを送るたびに呼ぶ（届いた usageMetadata の合計トークン。失敗・途中打ち切りは分かった分だけ） */
+  onCall?: (tokens: number) => void;
+  /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
+  mixFrom?: string[];
 };
 
 type Remaining = () => number;
@@ -415,6 +433,8 @@ export async function requestGemini(
   const models = fallbackModels(options.model);
   const collected: string[] = [];
   let lastError: GeminiRequestError | undefined;
+  /** 途中のモデルで「利用枠が無い」と言われたら覚えておく（最後のモデルの 503 より、こちらが本当の原因） */
+  let quotaError: GeminiRequestError | undefined;
 
   const emit = (label: string) => {
     if (collected.includes(label) || collected.length >= options.count) return;
@@ -427,6 +447,7 @@ export async function requestGemini(
     attempts.push(describeAttempt(failed));
     failed.debug.tried = [...tried];
     failed.debug.attempts = [...attempts];
+    if (isQuotaError(failed.debug)) quotaError ??= failed;
     return failed;
   };
 
@@ -472,6 +493,11 @@ export async function requestGemini(
 
   // 一部でも AI の語が取れていれば成功として返す（足りない分は呼び出し側がオフライン候補で埋める）
   if (collected.length > 0) return { topics: [...collected], model: lastModel ?? options.model, tried };
+  if (quotaError) {
+    quotaError.debug.tried = [...tried];
+    quotaError.debug.attempts = [...attempts];
+    throw quotaError;
+  }
   throw lastError ?? new GeminiRequestError("timeout", geminiDebug({ reason: "deadline", model: options.model, tried, attempts }));
 }
 
@@ -491,7 +517,7 @@ function generationConfig(model: string, detail = false): Record<string, unknown
 
 type StreamChunk = {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
-  usageMetadata?: { thoughtsTokenCount?: number; candidatesTokenCount?: number };
+  usageMetadata?: { thoughtsTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
   error?: unknown;
 };
 
@@ -504,6 +530,7 @@ export type GeminiText = {
   finishReason?: string;
   thoughtsTokens?: number;
   outputTokens?: number;
+  totalTokens?: number;
 };
 
 function chunkText(chunk: StreamChunk): string {
@@ -543,6 +570,7 @@ async function generateGeminiText(
   const endpoint = `https://${GEMINI_HOST}/v1beta/models/${encodeURIComponent(options.model)}:streamGenerateContent?alt=sse`;
   const result: GeminiText = { text: "", partial: false, totalMs: 0 };
   let retryPlain = false;
+  let sent = false;
 
   const absorb = (chunk: StreamChunk) => {
     if (chunk.error) {
@@ -559,9 +587,11 @@ async function generateGeminiText(
     result.finishReason = chunk.candidates?.[0]?.finishReason ?? result.finishReason;
     result.thoughtsTokens = chunk.usageMetadata?.thoughtsTokenCount ?? result.thoughtsTokens;
     result.outputTokens = chunk.usageMetadata?.candidatesTokenCount ?? result.outputTokens;
+    result.totalTokens = chunk.usageMetadata?.totalTokenCount ?? result.totalTokens;
   };
 
   try {
+    sent = true;
     const response = await fetch(endpoint, {
       method: "POST",
       signal: controller.signal,
@@ -570,7 +600,7 @@ async function generateGeminiText(
         "x-goog-api-key": options.apiKey,
       },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode, options.detail) }] }],
+        contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode, options.detail, options.mixFrom) }] }],
         generationConfig: generationConfig(options.model, options.detail),
       }),
     });
@@ -628,6 +658,7 @@ async function generateGeminiText(
   } finally {
     clearTimeout(timer);
     clearTimeout(firstChunkTimer);
+    if (sent) options.onCall?.(result.totalTokens ?? 0);
   }
   if (retryPlain) return generateGeminiText(options, remaining, progress);
   result.partial = satisfied || timedOut;

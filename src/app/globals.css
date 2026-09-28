@@ -288,7 +288,10 @@ html.overlay-mode .topic-chip {
   font-size: calc(17px * var(--ts-scale));
   font-weight: 700;
   padding-inline: 1.15rem;
-  border-color: color-mix(in oklab, var(--primary) 45%, transparent);
+  /* 最初のお題（中心）は太枠でひと目で分かるように（outline なのでカードの大きさ・配置は変わらない） */
+  border-color: var(--primary);
+  outline: 3px solid var(--primary);
+  outline-offset: -1px;
 }
 
 .topic-chip-focus {
@@ -598,6 +601,12 @@ html.overlay-mode .topic-chip {
   border-color: var(--family-line, var(--primary));
   background: var(--family-strong, var(--chip-fill));
   font-weight: 700;
+}
+
+/* マンダラートでも、最初のお題はほかの 3×3 の中央より太く */
+[data-layout="mandala"] .topic-chip-root {
+  outline: 3px solid var(--family-line, var(--primary));
+  outline-offset: -1px;
 }
 
 [data-layout="mandala"] .topic-chip-keyword {
