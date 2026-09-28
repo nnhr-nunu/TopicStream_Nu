@@ -23,6 +23,8 @@ import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
 import { addMixNode, canCombine, existingMix } from "@/lib/board-combine";
 import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
 import { generateRelatedTopics } from "@/lib/gemini";
+import type { GeminiWaitStage } from "@/lib/gemini-core";
+import { createPacer, REVEAL_GAP_MS, WAIT_QUIPS, waitNote } from "@/lib/expand-wait";
 import { topicContext } from "@/lib/topic-context";
 import { detailRecordSeed } from "@/lib/detail-modes";
 import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
@@ -48,6 +50,35 @@ function withoutMemos(board: Board): Board {
 
 /** 予備が尽きて AI に作り直しを頼んだあと、次に頼めるまでの間隔（無料枠を連打で使い切らないため） */
 export const REGEN_COOLDOWN_MS = 15_000;
+
+/**
+ * 待ちが長引いたら、今の状況（別の AI に聞き直している等）と和ませる一言を小さく出し続ける。
+ * 10 秒より早く終われば何も出さない。stop で消す
+ */
+function startWaitNotes(key: string) {
+  const started = Date.now();
+  const id = `wait-${key}`;
+  const offset = Math.floor(Math.random() * WAIT_QUIPS.length);
+  let stage: GeminiWaitStage | undefined;
+  let shown = false;
+  const tick = () => {
+    const note = waitNote(Date.now() - started, stage, offset);
+    if (!note) return;
+    shown = true;
+    toast.loading(note.title, { id, description: note.quip });
+  };
+  const timer = window.setInterval(tick, 1_000);
+  return {
+    stage(next: GeminiWaitStage) {
+      stage = next;
+      tick();
+    },
+    stop() {
+      window.clearInterval(timer);
+      if (shown) toast.dismiss(id);
+    },
+  };
+}
 
 /** AI のお知らせは同じ種類を連続で出さない（上限は再読み込みまで1回、それ以外は10分に1回） */
 const noticeShownAt = new Map<string, number>();
@@ -191,7 +222,16 @@ export function useBoardController() {
       };
       const context = topicContext(started.board, nodeId);
       showAnchorNotice(started.board, context);
-      // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はすぐカードへ。
+      // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はカードへ順に（まとめて届いても少しずつずらす）
+      const pacer = createPacer(REVEAL_GAP_MS);
+      const revealed = () => expandTokens.current.get(nodeId) === token;
+      const reveal = (label: string) =>
+        pacer.push(() => {
+          if (!revealed()) return;
+          updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
+        });
+      // 配信画面（オーバーレイ）には内部の事情を出さない
+      const notes = overlay ? null : startWaitNotes(nodeId);
       const result = await generateRelatedTopics({
         seed: parent.data.label,
         existing: existingLabels,
@@ -208,23 +248,41 @@ export function useBoardController() {
         recall: !detail,
         detail,
         onTopic: (label) => {
-          if (expandTokens.current.get(nodeId) !== token) return;
-          updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
+          if (revealed()) reveal(label);
         },
-      });
+        onStage: (stage) => notes?.stage(stage),
+      }).finally(() => notes?.stop());
 
-      if (expandTokens.current.get(nodeId) !== token) {
+      const boardNow = () => {
+        const snap = currentSnapshot();
+        return { latest: snap, latestBoard: snap.boards.find((item) => item.id === boardId) ?? started.board };
+      };
+      const gone = (latestBoard: Board) =>
+        !started.childIds.some((id) => latestBoard.nodes.some((node) => node.id === id));
+
+      if (!revealed() || gone(boardNow().latestBoard)) {
+        pacer.cancel();
         setBusy(false);
         return;
       }
 
-      const latest = currentSnapshot();
-      const latestBoard = latest.boards.find((item) => item.id === boardId) ?? started.board;
-      const stillPresent = started.childIds.some((id) => latestBoard.nodes.some((node) => node.id === id));
-      if (!stillPresent) {
-        setBusy(false);
-        return;
+      if (!result.retryLater) {
+        // 流れてこなかった分（図鑑・まとめて届いた答え）も、空のカードへ1枚ずつ入れる
+        await pacer.drain();
+        const { latestBoard } = boardNow();
+        const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
+        const open = latestBoard.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
+        for (const label of result.topics.filter((item) => !onBoard.has(item)).slice(0, open)) reveal(label);
+        await pacer.drain();
+        if (!revealed() || gone(boardNow().latestBoard)) {
+          setBusy(false);
+          return;
+        }
+      } else {
+        pacer.cancel();
       }
+
+      const { latest, latestBoard } = boardNow();
 
       const sameEntry = (entry: HistoryEntry, parentId: string, childIds: string[]) =>
         entry.parentId === parentId &&

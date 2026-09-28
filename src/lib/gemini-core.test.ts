@@ -384,18 +384,22 @@ describe("Gemini の混雑リトライ", () => {
       }),
     );
 
+    const stages: string[] = [];
     const result = await requestGemini({
       seed: "お題",
       existing: [],
       apiKey: "test-key",
       model: DEFAULT_MODEL,
       count: 8,
+      onStage: (stage) => stages.push(stage),
     });
 
     expect(result.model).toBe("gemini-flash-latest");
     expect(result.topics).toContain("再試行");
     expect(result.tried).toEqual([...GEMINI_FALLBACK_MODELS]);
     expect(sleep).toHaveBeenCalledWith(geminiRetry.nextRoundMs);
+    // 画面の「待っている理由」: モデルを替えるたびに switch、2巡目に入るときに retry
+    expect(stages).toEqual([...Array(GEMINI_FALLBACK_MODELS.length - 1).fill("switch"), "retry"]);
   });
 
   it("ストリーミングで8個そろったら、続きを待たずに打ち切る", async () => {

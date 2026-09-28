@@ -29,6 +29,18 @@ const HOLD_SLOP = 10;
 /** 持ち上げたあと、これ以上動かしたら掛け合わせのドラッグ */
 const LIFT_DRAG = 12;
 
+/** 語が届いたときに咲く花（花びらはカードの色 = currentColor、真ん中は黄色） */
+function BloomFlower() {
+  return (
+    <svg viewBox="-12 -12 24 24">
+      {[0, 72, 144, 216, 288].map((angle) => (
+        <ellipse key={angle} cx={0} cy={-5.6} rx={3.6} ry={5.4} fill="currentColor" transform={`rotate(${angle})`} />
+      ))}
+      <circle r={2.9} fill="oklch(0.88 0.14 90)" />
+    </svg>
+  );
+}
+
 function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlowNode>) {
   const {
     expandNode,
@@ -126,6 +138,13 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   // 自分のハート1つだけのときは数字を出さない。コメントのハートがあれば累計を出す。
   const showCount = hearts > 1 || (data.frameHearts ?? 0) > 0;
   const pulsing = Boolean(code && pulses.includes(code));
+  // 空のカードに語が入った瞬間だけ、カードの色の花を咲かせる（key を変えてアニメーションをかけ直す）
+  const [wasPlaceholder, setWasPlaceholder] = useState(Boolean(data.placeholder));
+  const [bloom, setBloom] = useState(0);
+  if (wasPlaceholder !== Boolean(data.placeholder)) {
+    setWasPlaceholder(Boolean(data.placeholder));
+    if (wasPlaceholder) setBloom((count) => count + 1);
+  }
 
   const openLabel = () => {
     // スマホのメニューは下から出る別の画面なので、閉じてからカードの下に入力欄を出す
@@ -387,11 +406,21 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       >
         {data.placeholder ? (
           <span className="topic-skeleton" aria-label="話題を準備中">
-            <span className="topic-skeleton-bud" />
+            <span className="topic-skeleton-sprout" aria-hidden>
+              <span className="topic-skeleton-stem" />
+              <span className="topic-skeleton-leaf" />
+              <span className="topic-skeleton-leaf" />
+              <span className="topic-skeleton-bud" />
+            </span>
             <span className="topic-skeleton-bar" />
           </span>
         ) : (
           <>
+            {bloom > 0 ? (
+              <span key={bloom} className="topic-bloom" aria-hidden>
+                <BloomFlower />
+              </span>
+            ) : null}
             {code ? (
               <span className="topic-id">
                 {code}

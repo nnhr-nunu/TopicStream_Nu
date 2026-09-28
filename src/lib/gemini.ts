@@ -1,7 +1,7 @@
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
-import { isJunkTopic, padTopics } from "@/lib/gemini-core";
+import { isJunkTopic, padTopics, type GeminiWaitStage } from "@/lib/gemini-core";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { splitMix } from "@/lib/combine";
 import { fetchSharedRelated, markFillers, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
@@ -18,6 +18,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type StreamLine =
   | { type: "topic"; label?: unknown }
+  | { type: "stage"; stage?: unknown }
   | ({ type: "done" } & Partial<GenerateResult>);
 
 /**
@@ -43,6 +44,8 @@ export async function generateRelatedTopics(options: {
   mixFrom?: string[];
   mode?: BoardMode;
   onTopic?: (label: string) => void;
+  /** AI の待ちが長引いた理由（別のモデルに聞き直す・2巡目）。待っている間のお知らせに使う */
+  onStage?: (stage: GeminiWaitStage) => void;
   recall?: boolean;
   detail?: boolean;
 }): Promise<GenerateResult> {
@@ -205,7 +208,9 @@ async function requestTopics(
         if (!line.trim()) continue;
         const parsed = JSON.parse(line) as StreamLine;
         if (parsed.type === "topic") accept(parsed.label);
-        else if (parsed.type === "done") done = parsed;
+        else if (parsed.type === "stage") {
+          if (parsed.stage === "switch" || parsed.stage === "retry") options.onStage?.(parsed.stage);
+        } else if (parsed.type === "done") done = parsed;
       }
     }
     if (buffer.trim()) {

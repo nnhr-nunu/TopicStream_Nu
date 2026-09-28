@@ -7,6 +7,7 @@ import {
   geminiUserNotice,
   padTopics,
   requestGemini,
+  type GeminiWaitStage,
 } from "@/lib/gemini-core";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
@@ -70,7 +71,11 @@ type Input = {
 };
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
-async function generate(input: Input, sendTopic: (label: string) => void): Promise<Final> {
+async function generate(
+  input: Input,
+  sendTopic: (label: string) => void,
+  onStage?: (stage: GeminiWaitStage) => void,
+): Promise<Final> {
   const { seed, existing, preferred, context, mixFrom, mode, detail, count, minimum, model, apiKey } = input;
   // アーカイブした語（図鑑で隠している微妙な語）は、AI がまた出しても画面に出さない
   const onTopic = (label: string) => {
@@ -129,6 +134,7 @@ async function generate(input: Input, sendTopic: (label: string) => void): Promi
       minimum,
       onTopic,
       onCall,
+      onStage,
     });
     guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
@@ -225,7 +231,7 @@ export async function POST(request: Request) {
           if (sent.has(label)) return;
           sent.add(label);
           send({ type: "topic", label });
-        });
+        }, (stage) => send({ type: "stage", stage }));
         send({ type: "done", ...final });
       } catch {
         const topics = input.detail
