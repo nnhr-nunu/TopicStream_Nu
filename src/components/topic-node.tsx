@@ -30,8 +30,8 @@ const HOLD_SLOP = 10;
 const LIFT_DRAG = 12;
 
 /**
- * 待っている間に空のカードの中で芽を育てる（茎 → 葉 → つぼみ）。2026-09-29 に試したが微妙だったので止めている。
- * true に戻せば出る。いまは盤面を歩く動物（wait-critters.tsx）に任せる
+ * 待っている間に空のカードの中で芽を育て（茎 → 葉 → つぼみ）、語が入ったらカードの色の花を咲かせる。
+ * 2026-09-29 に試したが微妙だったので、芽も花も止めている。true に戻せば両方出る。いまは盤面を歩く動物（wait-critters.tsx）に任せる
  */
 const SPROUT_WHILE_WAITING = false;
 
@@ -426,7 +426,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
           </span>
         ) : (
           <>
-            {bloom > 0 ? (
+            {SPROUT_WHILE_WAITING && bloom > 0 ? (
               <span key={bloom} className="topic-bloom" aria-hidden>
                 <BloomFlower />
               </span>

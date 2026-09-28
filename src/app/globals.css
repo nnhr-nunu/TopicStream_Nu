@@ -474,7 +474,7 @@ html.overlay-mode .topic-chip {
   }
 }
 
-/* 語が届いた瞬間に、カードの色の花が開いてふわっと消える */
+/* 語が届いた瞬間に、カードの色の花が開いてふわっと消える。いまは芽と一緒に止めている（SPROUT_WHILE_WAITING） */
 .topic-bloom {
   position: absolute;
   top: 50%;
