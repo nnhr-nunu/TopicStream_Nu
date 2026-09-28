@@ -467,6 +467,28 @@ export function searchKnowledge(
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+export type KnowledgeCounts = {
+  /** モードごとのお題の数 */
+  modes: Partial<Record<BoardMode, number>>;
+  /** 指定したモードの中の、分類ごとのお題の数 */
+  categories: Partial<Record<CategoryId, number>>;
+  /** 指定したモードの中の、話題（語）の数 */
+  topics: number;
+};
+
+/** 図鑑ページのタグの横に出す数（検索結果の件数ではなく、図鑑全体の数） */
+export function knowledgeCounts(store: KnowledgeStore, mode: BoardMode = "chat"): KnowledgeCounts {
+  const counts: KnowledgeCounts = { modes: {}, categories: {}, topics: 0 };
+  for (const entry of Object.values(store)) {
+    const entryModeId = entryMode(entry);
+    counts.modes[entryModeId] = (counts.modes[entryModeId] ?? 0) + 1;
+    if (entryModeId !== mode) continue;
+    counts.categories[entry.category] = (counts.categories[entry.category] ?? 0) + 1;
+    counts.topics += Object.keys(entry.topics).length;
+  }
+  return counts;
+}
+
 /** 強い順（出た回数 + 選ばれた重み）の語 */
 export function rankedTopics(entry: KnowledgeEntry, limit = TOPICS_PER_SEED): string[] {
   return Object.keys(entry.topics)

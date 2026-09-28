@@ -19,6 +19,7 @@ import {
   shouldTryNextModel,
   thinkingConfigFor,
   geminiUserNotice,
+  clearModelCooldown,
 } from "@/lib/gemini-core";
 
 describe("Gemini の返答パース", () => {
@@ -243,9 +244,10 @@ describe("Gemini の混雑リトライ", () => {
   afterEach(() => {
     geminiRetry.sleep = originalSleep;
     vi.unstubAllGlobals();
+    clearModelCooldown();
   });
 
-  it("404 のあと 503 でも次モデルへ進み、同一モデルは一度だけ待ち直す", async () => {
+  it("404 のあと 503 でも次モデルへ進み、503 は同じモデルで待たずに次のモデルへ", async () => {
     const sleep = vi.fn(async () => {});
     geminiRetry.sleep = sleep;
     const calls: string[] = [];
@@ -258,10 +260,9 @@ describe("Gemini の混雑リトライ", () => {
         bodies.push(init?.body ?? "");
         if (url.includes("gemini-3.5-flash-lite")) return googleError(404, "NOT_FOUND");
         if (url.includes("models/gemini-3.6-flash:")) {
-          const hits = calls.filter((item) => item.includes("models/gemini-3.6-flash:")).length;
-          if (hits === 1) return googleError(503, "UNAVAILABLE", "This model is currently experiencing high demand.");
-          return googleOk(["温泉", "湯けむり"]);
+          return googleError(503, "UNAVAILABLE", "This model is currently experiencing high demand.");
         }
+        if (url.includes("gemini-3.1-flash-lite")) return googleOk(["温泉", "湯けむり"]);
         return googleError(503, "UNAVAILABLE");
       }),
     );
@@ -274,10 +275,10 @@ describe("Gemini の混雑リトライ", () => {
       count: 8,
     });
 
-    expect(result.model).toBe("gemini-3.6-flash");
+    expect(result.model).toBe("gemini-3.1-flash-lite");
     expect(result.topics).toContain("温泉");
-    expect(result.tried.slice(0, 2)).toEqual(["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
-    expect(sleep).toHaveBeenCalledWith(geminiRetry.sameModelMs);
+    expect(result.tried).toEqual(["gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-3.1-flash-lite"]);
+    expect(sleep).not.toHaveBeenCalled();
     const sent = JSON.parse(bodies[1]!) as { generationConfig: Record<string, unknown> };
     expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
     expect(sent.generationConfig.responseMimeType).toBe("application/json");
@@ -327,6 +328,46 @@ describe("Gemini の混雑リトライ", () => {
     expect(result.topics).toHaveLength(8);
   });
 
+  it("503 だったモデルは、しばらく次のお願いで後回しにする", async () => {
+    geminiRetry.sleep = vi.fn(async () => {});
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.includes("gemini-3.5-flash-lite")) return googleError(503, "UNAVAILABLE", "high demand");
+        return googleOk(["温泉", "湯けむり", "卓球", "浴衣", "露天風呂", "牛乳", "旅館", "足湯"]);
+      }),
+    );
+    const options = { seed: "お題", existing: [], apiKey: "k", model: DEFAULT_MODEL, count: 8 };
+    expect((await requestGemini(options)).tried).toEqual(["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
+    const second = await requestGemini(options);
+    expect(second.tried).toEqual(["gemini-3.6-flash"]);
+    expect(calls.filter((url) => url.includes("gemini-3.5-flash-lite"))).toHaveLength(1);
+  });
+
+  it("最低数がそろえば、予備が足りないだけでは呼び直さない", async () => {
+    let hits = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        hits += 1;
+        return googleOk(["地元あるある", "深夜のコンビニ", "失敗談", "推しの話", "雨の日", "初配信", "マイブーム", "部活の話"]);
+      }),
+    );
+    const result = await requestGemini({
+      seed: "お題",
+      existing: [],
+      apiKey: "test-key",
+      model: DEFAULT_MODEL,
+      count: 12,
+      minimum: 8,
+    });
+    expect(hits).toBe(1);
+    expect(result.topics).toHaveLength(8);
+  });
+
   it("全部 503 なら最後のモデルをもう一度待つ", async () => {
     const sleep = vi.fn(async () => {});
     geminiRetry.sleep = sleep;
@@ -337,7 +378,7 @@ describe("Gemini の混雑リトライ", () => {
         const url = String(input);
         if (url.includes("gemini-flash-latest")) {
           lastHits += 1;
-          if (lastHits >= 3) return googleOk(["再試行"]);
+          if (lastHits >= 2) return googleOk(["再試行"]);
         }
         return googleError(503, "UNAVAILABLE", "high demand");
       }),

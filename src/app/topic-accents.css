@@ -180,6 +180,32 @@
   pointer-events: none;
 }
 
+/* ボードの最初のお題: 線をたどる起点なので、下に「はじまり」の札と、まわりに淡い輪を付ける */
+.topic-root-ribbon {
+  position: absolute;
+  left: 50%;
+  bottom: -0.72rem;
+  z-index: 7;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 3px 10px color-mix(in oklab, var(--primary) 40%, transparent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.24rem 0.65rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.topic-chip-root:not(.topic-chip-now) {
+  box-shadow:
+    0 0 0 6px color-mix(in oklab, var(--primary) 16%, transparent),
+    0 12px 30px -6px color-mix(in oklab, var(--primary) 38%, transparent);
+}
+
 .topic-heart-mine {
   box-shadow:
     0 0 0 1.5px color-mix(in oklab, oklch(0.62 0.2 18) 55%, transparent),
@@ -261,6 +287,11 @@
 .react-flow__edge-path.flow-edge {
   fill: none;
   stroke-linecap: round;
+}
+/* 線の先の矢じり（色は線と同じものをインラインで渡す） */
+.flow-edge-arrow {
+  stroke: none;
+  pointer-events: none;
 }
 
 /* 放射（マインドマップ）: カードが丸い帯なので、❤ は右上の角の外側に出して文字に重ねない */

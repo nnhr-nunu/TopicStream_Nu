@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, Eye, Search, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Eye, Heart, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdSlot } from "@/components/ad-slot";
 import { BrandMark } from "@/components/brand-mark";
 import { SiteLinks } from "@/components/site-links";
-import { TopicPreviewDialog } from "@/components/topic-preview-dialog";
+import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
 import { boardFromTopics } from "@/lib/catalog-data";
+import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 import { combinedKnowledge, fetchSharedSearch, loadLocalKnowledge } from "@/lib/knowledge-client";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { MODE_PRESETS, modePreset, withMode } from "@/lib/modes";
@@ -25,7 +26,7 @@ import {
   rankedTopics,
   searchKnowledge,
   type CategoryId,
-  type KnowledgeEntry,
+  type KnowledgeCounts,
   type KnowledgeSearchHit,
   type KnowledgeStore,
 } from "@/lib/topic-knowledge";
@@ -35,10 +36,7 @@ import { splitMix } from "@/lib/combine";
 
 type Scope = "all" | "mine";
 
-/** 選ばれた重みの合計（♡・クリック・ピン・コメントのハート） */
-function picksOf(entry: KnowledgeEntry): number {
-  return Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
-}
+const NO_FAVORITES: string[] = [];
 
 const CHIP =
   "rounded-full border px-3 py-1 text-xs transition hover:border-primary/50 hover:text-foreground disabled:opacity-50";
@@ -55,6 +53,10 @@ export function TopicDatabase() {
   const [store, setStore] = useState<KnowledgeStore>({});
   const [mine, setMine] = useState<KnowledgeStore>({});
   const [shared, setShared] = useState<"loading" | "on" | "off">("loading");
+  // みんなの図鑑全体の数（手元には検索に合った分しか届かないので、タグの横の数はこちらも見る）
+  const [sharedCounts, setSharedCounts] = useState<KnowledgeCounts | null>(null);
+  const [sharedMode, setSharedMode] = useState<BoardMode | null>(null);
+  const favs = useSyncExternalStore(subscribeTopicFavorites, loadFavoriteTopics, () => NO_FAVORITES);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +65,10 @@ export function TopicDatabase() {
         const result = await fetchSharedSearch(query, mode);
         if (cancelled) return;
         setShared(result.available ? "on" : "off");
+        if (result.counts) {
+          setSharedCounts(result.counts);
+          setSharedMode(mode);
+        }
         setStore(combinedKnowledge());
         setMine(loadLocalKnowledge());
       },
@@ -83,18 +89,30 @@ export function TopicDatabase() {
   const modeCounts = useMemo(() => {
     const map = new Map<BoardMode, number>();
     for (const entry of Object.values(scoped)) map.set(entryMode(entry), (map.get(entryMode(entry)) ?? 0) + 1);
+    if (scope === "all" && sharedCounts) {
+      for (const [id, count] of Object.entries(sharedCounts.modes) as [BoardMode, number][]) {
+        map.set(id, Math.max(map.get(id) ?? 0, count));
+      }
+    }
     return map;
-  }, [scoped]);
+  }, [scoped, scope, sharedCounts]);
   const hits = useMemo(() => searchKnowledge(source, query, category, 60, mode), [source, query, category, mode]);
   const counts = useMemo(() => {
     const map = new Map<CategoryId, number>();
     for (const entry of Object.values(source)) map.set(entry.category, (map.get(entry.category) ?? 0) + 1);
+    // 分類の数はモードを切り替えると届き直す。前のモードの数を混ぜない
+    if (scope === "all" && sharedCounts && sharedMode === mode) {
+      for (const [id, count] of Object.entries(sharedCounts.categories) as [CategoryId, number][]) {
+        map.set(id, Math.max(map.get(id) ?? 0, count));
+      }
+    }
     return map;
-  }, [source]);
-  const topicTotal = useMemo(
-    () => Object.values(source).reduce((sum, entry) => sum + Object.keys(entry.topics).length, 0),
-    [source],
-  );
+  }, [source, scope, sharedCounts, sharedMode, mode]);
+  const topicTotal = useMemo(() => {
+    const local = Object.values(source).reduce((sum, entry) => sum + Object.keys(entry.topics).length, 0);
+    return scope === "all" && sharedCounts && sharedMode === mode ? Math.max(local, sharedCounts.topics ?? 0) : local;
+  }, [source, scope, sharedCounts, sharedMode, mode]);
+  const seedTotal = modeCounts.get(mode) ?? 0;
   const preset = modePreset(mode);
 
   function startBoard(hit: KnowledgeSearchHit) {
@@ -126,7 +144,7 @@ export function TopicDatabase() {
         </p>
         <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="home-stat">
-            <b>{Object.keys(source).length.toLocaleString()}</b>お題
+            <b>{seedTotal.toLocaleString()}</b>お題
           </span>
           <span className="home-stat">
             <b>{topicTotal.toLocaleString()}</b>話題
@@ -196,7 +214,7 @@ export function TopicDatabase() {
 
       <div className="mb-6 flex flex-wrap gap-1.5" role="group" aria-label="分類">
         {[{ id: "all" as const, label: "すべて" }, ...CATEGORIES].map((item) => {
-          const count = item.id === "all" ? Object.keys(source).length : (counts.get(item.id) ?? 0);
+          const count = item.id === "all" ? seedTotal : (counts.get(item.id) ?? 0);
           if (item.id !== "all" && count === 0) return null;
           return (
             <button
@@ -266,7 +284,6 @@ export function TopicDatabase() {
                   </div>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {hit.entry.uses} 回広げられた · {Object.keys(hit.entry.topics).length} 語
-                    {picksOf(hit.entry) > 0 ? ` · ♡ ${picksOf(hit.entry)}` : null}
                   </p>
                   <ul className="mt-3 flex flex-wrap gap-1.5">
                     {topics.map((label) => (
@@ -285,12 +302,21 @@ export function TopicDatabase() {
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-auto flex flex-wrap justify-end gap-2 pt-3">
-                    <Button size="sm" variant="outline" onClick={() => setPreviewing(hit)}>
+                  <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
+                    <Button size="sm" onClick={() => setPreviewing(hit)}>
                       <Eye />
                       見てみる
                     </Button>
-                    <Button size="sm" onClick={() => startBoard(hit)}>
+                    <Button
+                      size="sm"
+                      variant={favs.includes(hit.entry.seed) ? "secondary" : "outline"}
+                      onClick={() => toggleFavoriteTopic(hit.entry.seed)}
+                      aria-label={favs.includes(hit.entry.seed) ? "ハートを外す" : "ハートを付ける"}
+                    >
+                      <Heart className={favs.includes(hit.entry.seed) ? "fill-current" : undefined} />
+                      {entryPicks(hit.entry)}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => startBoard(hit)}>
                       <Sparkles />
                       このお題で話題マップを作る
                     </Button>
@@ -304,7 +330,6 @@ export function TopicDatabase() {
 
       <TopicPreviewDialog
         entry={previewing?.entry ?? null}
-        startFromTopic={false}
         onOpenChange={(open) => {
           if (!open) setPreviewing(null);
         }}

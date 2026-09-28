@@ -106,7 +106,9 @@ function toFlowEdges(board: Board, layout: GenerationLayout): Edge[] {
       source: edge.source,
       target: edge.target,
       selectable: false,
-      ...(layout === "mandala" ? { type: "flow", style: FLOW_EDGE_STYLE } : {}),
+      // どちらの並べ方でも、親 → 子の向きが分かる矢じり付きの線にする（放射は曲げを弱く）
+      type: "flow",
+      ...(layout === "mandala" ? { style: FLOW_EDGE_STYLE } : { data: { soft: true } }),
       ...(isMixEdge(board, edge) ? { className: "mix-edge" } : {}),
     }));
 }

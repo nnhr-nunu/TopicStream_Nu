@@ -1,4 +1,4 @@
-import { KNOWLEDGE_KEY } from "@/lib/constants";
+import { FILLER_KEY, KNOWLEDGE_KEY } from "@/lib/constants";
 import { boardMode } from "@/lib/modes";
 import {
   asKnowledgeEntry,
@@ -10,6 +10,7 @@ import {
   recordPick,
   recordTopics,
   suggestFromKnowledge,
+  type KnowledgeCounts,
   type KnowledgeEntry,
   type KnowledgeStore,
   type PickKind,
@@ -130,13 +131,17 @@ export async function recallTopics(seed: string, exclude: string[], count: numbe
 }
 
 /** 図鑑ページ用: みんなの図鑑の検索結果を取ってきて手元に重ねる（mode を省くと雑談） */
-export async function fetchSharedSearch(query: string, mode: BoardMode = "chat"): Promise<{ available: boolean }> {
-  if (typeof window === "undefined") return { available: false };
-  const json = await fetchJson<{ entries?: unknown }>(
+export async function fetchSharedSearch(
+  query: string,
+  mode: BoardMode = "chat",
+): Promise<{ available: boolean; counts: KnowledgeCounts | null }> {
+  if (typeof window === "undefined") return { available: false, counts: null };
+  const json = await fetchJson<{ entries?: unknown; counts?: KnowledgeCounts }>(
     `/api/knowledge?q=${encodeURIComponent(query)}&mode=${encodeURIComponent(mode)}`,
   );
   absorbShared(json?.entries);
-  return { available: !sharedUnavailable && json !== null };
+  const counts = json?.counts && typeof json.counts === "object" ? json.counts : null;
+  return { available: !sharedUnavailable && json !== null, counts };
 }
 
 /** 送る前の票。数秒ごと（とページを閉じるとき）にまとめて送る */
@@ -164,9 +169,48 @@ function flushPicks(useBeacon = false) {
 
 let listening = false;
 
+/** 埋め合わせの語を覚えておく数（古いものから忘れる） */
+const FILLER_LIMIT = 400;
+
+function fillerKey(seed: string, topic: string, mode: BoardMode): string {
+  return `${knowledgeKey(seed, mode)}|${normalizeSeed(topic)}`;
+}
+
+function loadFillers(): string[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(FILLER_KEY) ?? "[]") as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * AI が使えなかったとき（混雑・枠切れ・キー無し）にオフライン候補で埋めた語を覚えておく。
+ * こうした語は定型なので、あとで広げたり ♡ を付けたりしても図鑑には新しく加えない（すでに図鑑にある語なら票は入れる）。
+ */
+export function markFillers(seed: string, topics: string[], mode: BoardMode = "chat") {
+  if (typeof window === "undefined" || !seed.trim() || topics.length === 0) return;
+  const keys = topics.map((topic) => fillerKey(seed, topic, mode));
+  const next = [...loadFillers().filter((key) => !keys.includes(key)), ...keys].slice(-FILLER_LIMIT);
+  try {
+    window.localStorage.setItem(FILLER_KEY, JSON.stringify(next));
+  } catch {
+    /* 覚えられなくても広げるのは続ける */
+  }
+}
+
+/** 埋め合わせで出た語で、まだ図鑑に無いものか */
+function isUnknownFiller(seed: string, topic: string, mode: BoardMode): boolean {
+  if (!loadFillers().includes(fillerKey(seed, topic, mode))) return false;
+  const entry = combinedKnowledge()[knowledgeKey(seed, mode)];
+  return !entry || !Object.keys(entry.topics).some((label) => normalizeSeed(label) === normalizeSeed(topic));
+}
+
 /**
  * カードの語が選ばれた（♡・クリックで広げた・ピン・コピー・書き直し・コメントのハート）ことを図鑑に伝える。
  * お題はそのカードの親の語（seedOverride があればそちら）。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
+ * ただし AI が使えなかったときの埋め合わせの語（markFillers）は加えない。
  */
 export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverride?: string) {
   if (typeof window === "undefined") return;
@@ -178,6 +222,8 @@ export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverr
   const seed = (seedOverride ?? parent?.data.label)?.trim();
   // 最初のお題（親が無い）と、マンダラートの中央（親の写し）は「選ばれた語」ではない
   if (!topic || !seed || node?.data.placeholder || normalizeSeed(topic) === normalizeSeed(seed)) return;
+  // 埋め合わせの定型の語は、選ばれても図鑑に新しく加えない（自分で書き直した語は人の語なので入れる）
+  if (kind !== "edit" && isUnknownFiller(seed, topic, mode)) return;
   noteTopicPick(seed, topic, kind, mode);
 }
 

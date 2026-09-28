@@ -5,6 +5,7 @@ import { cleanForRecord, looksPersonal } from "@/lib/knowledge-server";
 import {
   asKnowledgeEntry,
   classifyTopic,
+  knowledgeCounts,
   knowledgeDepth,
   mergeStores,
   normalizeSeed,
@@ -317,5 +318,19 @@ describe("「ずれている」の印", () => {
     const base = recordPick(recordTopics(recordTopics({}, "朝", ["二度寝"]), "朝", ["二度寝"]), "朝", "二度寝", "heart");
     expect(recordPick(base, "朝", "二度寝", "wrong")["朝"]?.topics["二度寝"]).toBe(2);
     expect(recordPick(base, "朝", "寝坊", "wrong")["朝"]?.topics["寝坊"]).toBeUndefined();
+  });
+});
+
+describe("図鑑ページのタグの数", () => {
+  it("モードごと・分類ごとに図鑑全体から数える（検索結果の件数ではない）", () => {
+    let store: KnowledgeStore = {};
+    store = recordTopics(store, "夏休みの思い出", ["虫取り", "花火大会"], 1, 1, "chat");
+    store = recordTopics(store, "ラーメン", ["味噌", "醤油", "豚骨"], 1, 1, "chat");
+    store = recordTopics(store, "配信のネタ切れ", ["企画会議", "視聴者に聞く"], 1, 1, "idea");
+    const counts = knowledgeCounts(store, "chat");
+    expect(counts.modes).toEqual({ chat: 2, idea: 1 });
+    expect(Object.values(counts.categories).reduce((sum, value) => sum + (value ?? 0), 0)).toBe(2);
+    expect(counts.topics).toBe(5);
+    expect(knowledgeCounts(store, "idea").topics).toBe(2);
   });
 });

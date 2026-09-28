@@ -315,6 +315,12 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         </span>
       ) : null}
 
+      {isRoot && !data.placeholder ? (
+        <span className="topic-root-ribbon" aria-hidden>
+          はじまり
+        </span>
+      ) : null}
+
       {isPinned && !data.placeholder ? (
         <span className="topic-now-ribbon" aria-hidden>
           NOW

@@ -4,7 +4,7 @@ import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { isJunkTopic, padTopics } from "@/lib/gemini-core";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { splitMix } from "@/lib/combine";
-import { fetchSharedRelated, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
+import { fetchSharedRelated, markFillers, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
 import type { BoardMode, GenerateResult } from "@/lib/types";
@@ -35,6 +35,8 @@ export async function generateRelatedTopics(options: {
   apiKey?: string;
   model?: string;
   count?: number;
+  /** 最低これだけそろえばよい数（count との差は「作り直す」用の予備。足りなくても予備のためだけに AI を呼び直さない） */
+  minimum?: number;
   preferred?: string[];
   context?: string[];
   /** 掛け合わせのカードを広げるとき、持ってきた側のカードの祖先（近い順） */
@@ -111,8 +113,11 @@ async function requestTopics(
     const fromAi = json.source === "gemini" && (parsed.length > 0 || streamed.length > 0);
     // 流れてきた順を優先し、足りない分を最終結果・オフライン候補で埋める。
     // AI が使えなかったときのサーバーの候補は定型なので、図鑑を先に使う手元の候補で置き換える
+    // サーバーの答えも後ろは埋め合わせのことがあるので、AI の語は先頭の aiCount 語だけ
+    const aiTopics = fromAi ? [...streamed, ...parsed.slice(0, json.aiCount ?? parsed.length)] : [];
     const topics = padTopics(streamed, [...(fromAi ? parsed : []), ...mock], count, options.seed, detail);
-    if (fromAi && recordSeed) rememberTopics(recordSeed, [...streamed, ...parsed], mode);
+    if (aiTopics.length > 0 && recordSeed) rememberTopics(recordSeed, aiTopics, mode);
+    markFillers(options.seed, topics.filter((label) => !aiTopics.includes(label)), mode);
     const result: GenerateResult = {
       topics,
       source: fromAi ? "gemini" : "mock",
@@ -134,6 +139,7 @@ async function requestTopics(
         existing: options.existing,
         model: options.model?.trim() || DEFAULT_MODEL,
         count,
+        minimum: options.minimum,
         preferred: options.preferred ?? [],
         context,
         mixFrom: options.mixFrom?.length ? options.mixFrom : undefined,
@@ -145,6 +151,7 @@ async function requestTopics(
     });
     if (response.status === 404) {
       // GitHub Pages（サーバーの無い公開版）はオフライン生成が普通の動きなので、何も知らせない
+      markFillers(options.seed, mock, mode);
       return { topics: mock, source: "mock" };
     }
     if (!response.ok) throw new Error(`gemini proxy ${response.status}`);
@@ -176,6 +183,7 @@ async function requestTopics(
     return finish(done ?? { source: streamed.length ? "gemini" : "mock" });
   } catch {
     if (streamed.length > 0) return finish({ source: "gemini" });
+    markFillers(options.seed, mock, mode);
     return {
       topics: mock,
       source: "mock",

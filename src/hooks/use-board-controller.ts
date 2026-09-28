@@ -193,6 +193,8 @@ export function useBoardController() {
         seed: parent.data.label,
         existing: existingLabels,
         count: slots + SPARE_COUNT,
+        // カードの分だけそろえばよい。予備が足りないだけで AI を呼び直さない
+        minimum: slots,
         preferred: detail ? [] : preferredForSeed(parent.data.label),
         // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように（最初のお題も必ず含む）
         context,
@@ -471,6 +473,7 @@ export function useBoardController() {
             seed,
             existing: [...board.nodes.map((item) => item.data.label), ...rejectedRef.current],
             count: 1 + SPARE_COUNT,
+            minimum: 1,
             preferred: detail ? [] : preferredForSeed(seed),
             context: parent ? topicContext(board, parent.id) : [],
             mode: board.mode,
