@@ -22,10 +22,12 @@ function hydrateIfNeeded() {
 export function subscribeBoardStore(listener: () => void) {
   hydrateIfNeeded();
   listeners.add(listener);
-  window.addEventListener("storage", onStorage);
+  // 別のタブの変更を読む。同じ関数は 1 回しか登録されないので、最後の購読者が抜けたときだけ外す
+  // （1 人抜けるたびに外すと、残った画面が別タブの変更を知らないまま古い内容で上書きしてしまう）
+  if (listeners.size === 1) window.addEventListener("storage", onStorage);
   return () => {
     listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
+    if (listeners.size === 0) window.removeEventListener("storage", onStorage);
   };
 }
 
