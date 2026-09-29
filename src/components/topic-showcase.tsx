@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Eye, Heart } from "lucide-react";
+import { ArrowRight, BookOpen, Eye } from "lucide-react";
 
+import { HeartButton } from "@/components/heart-button";
 import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
@@ -94,8 +95,13 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
           return (
             <li key={entry.seed}>
               <article className="home-topic-card" data-critter-perch>
-                <p className="text-[11px] text-muted-foreground">{categoryLabel(entry.category)}</p>
-                <h3 className="mt-1 text-base leading-6 font-semibold break-words">{entry.seed}</h3>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] text-muted-foreground">{categoryLabel(entry.category)}</p>
+                    <h3 className="mt-1 text-base leading-6 font-semibold break-words">{entry.seed}</h3>
+                  </div>
+                  <HeartButton liked={liked} count={entryPicks(entry)} onToggle={() => toggleFavoriteTopic(entry.seed)} />
+                </div>
                 <ul className="mt-2.5 flex flex-wrap gap-1.5">
                   {rankedTopics(entry, 6).map((label) => (
                     <li key={label}>
@@ -115,15 +121,6 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
                   <Button size="sm" onClick={() => setPreviewing(entry)}>
                     <Eye />
                     見てみる
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={liked ? "secondary" : "outline"}
-                    onClick={() => toggleFavoriteTopic(entry.seed)}
-                    aria-label={liked ? "ハートを外す" : "ハートを付ける"}
-                  >
-                    <Heart className={liked ? "fill-current" : undefined} />
-                    {entryPicks(entry)}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => onStart(entry.seed)} disabled={busy}>
                     このお題で始める

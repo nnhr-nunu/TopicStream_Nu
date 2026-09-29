@@ -44,7 +44,7 @@
 - リアルな絵（図形で描いて陰影を自動で付ける、[`critter-sprites-real.ts`](./src/lib/critter-sprites-real.ts) + [`pixel-draw.ts`](./src/lib/pixel-draw.ts)）: 空のカードを窓に見立てて、カードの中の床を歩く（語の入ったカードの後ろは見えない）。金魚は水槽、イルカは海になる。作るのに約 90ms かかるので、最初に出るときに作る
 - 設定の「待ち時間の動物」で、動物ごとに出す／出さない（`hiddenCritters`）と絵のタッチ（`critterStyle`: おまかせ／かわいい／リアル）
 - 確認用: URL に `?critter=rabbit`（かわいい）/ `?critter=rabbit-real` / `?critter=random` を付けると、待っていなくても選んでいる 3×3 に出る（中心以外を空のカードとして扱う）
-- ほかの画面（トップの話題・トピック図鑑・みんなのトークテーマ）でも、見えているカードの一覧の上にほぼいつも誰かいる（[`ambient-critters.ts`](./src/lib/ambient-critters.ts) / [`ambient-critters.tsx`](./src/components/ambient-critters.tsx)、1場面の描画は [`critter-scene.tsx`](./src/components/critter-scene.tsx) を共用）。かわいい絵だけ、金魚・イルカは出さない。ページを開いたときからいて 22〜35 秒遊び、2〜5 秒あけて別の子（カードが見えていなければ 1 秒おきに探す）。一覧に `data-critter-garden`、カードに `data-critter-perch` を付ければ、そこにも来る。`?critter=frog` でその子がすぐ来て帰らない。狭い画面では外周の道が画面の端にかかって半分切れることがある
+- ほかの画面（トップの話題・トピック図鑑・みんなが作った話題マップ）でも、見えているカードの一覧の上にほぼいつも誰かいる（[`ambient-critters.ts`](./src/lib/ambient-critters.ts) / [`ambient-critters.tsx`](./src/components/ambient-critters.tsx)、1場面の描画は [`critter-scene.tsx`](./src/components/critter-scene.tsx) を共用）。かわいい絵だけ、金魚・イルカは出さない。ページを開いたときからいて 22〜35 秒遊び、2〜5 秒あけて別の子（カードが見えていなければ 1 秒おきに探す）。一覧に `data-critter-garden`、カードに `data-critter-perch` を付ければ、そこにも来る。`?critter=frog` でその子がすぐ来て帰らない。狭い画面では外周の道が画面の端にかかって半分切れることがある
 - 動物を足すときは、`CRITTER_KINDS` と `CRITTER_LABELS` に名前、絵、`critter-cast.ts` に配役、`cutePlanner` / `realPlanner` に動き、`CRITTER_ICONS` にアイコン。テストが「動きが使う絵が配役にあるか」を全種で確かめる
 
 次の候補: かたつむり（カードの縁をゆっくり一周し、通ったあとがきらっと光る）、ホタル（暗いテーマで溝を漂う）、たぬきの「どろん」（葉っぱを頭にのせて煙と一緒に化ける）。実際の待ち（空のカードの骨組みの上）とスマホでの見え方は未確認

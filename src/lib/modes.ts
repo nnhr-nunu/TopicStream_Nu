@@ -379,7 +379,7 @@ export function withMode<T extends Pick<Board, "mode">>(board: T, mode: BoardMod
 }
 
 /**
- * みんなのトークテーマ・よく使う話題（利用回数）に載せてよいモードか。
+ * みんなが作った話題マップ・よく使う話題（利用回数）に載せてよいモードか。
  * どちらも配信の雑談ネタの一覧なので、雑談だけにする。トピック図鑑はモードごとに分けて全モード記録する。
  */
 export function isChatMode(mode: BoardMode | undefined): boolean {

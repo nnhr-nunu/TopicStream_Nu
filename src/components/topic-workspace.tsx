@@ -15,9 +15,15 @@ import { useBoardController } from "@/hooks/use-board-controller";
 import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { spareCount } from "@/lib/board-spares";
-import { clearOpenActiveBoardRequest, isOpenActiveBoardRequested } from "@/lib/board-store";
+import {
+  clearOpenActiveBoardRequest,
+  hasStartKeywordRequest,
+  isOpenActiveBoardRequested,
+  takeStartKeywordRequest,
+} from "@/lib/board-store";
 import { fetchExplanation } from "@/lib/explain-client";
 import { cellCode } from "@/lib/mandala-ids";
+import { DEFAULT_MODE } from "@/lib/modes";
 import { topicContext } from "@/lib/topic-context";
 
 export function TopicWorkspace() {
@@ -28,7 +34,8 @@ export function TopicWorkspace() {
   // サイトに来たときはホームから。図鑑などでボードを作って戻ってきたときだけマップを直接開く
   const [atHome, setAtHome] = useState(() => !isOpenActiveBoardRequested());
   useEffect(() => clearOpenActiveBoardRequest(), []);
-  const [privacyNotice, setPrivacyNotice] = useState(0);
+  // 別ページの「このお題で始める」から来たときは、始めるのと同時に注意書きを出す
+  const [privacyNotice, setPrivacyNotice] = useState(() => (hasStartKeywordRequest() ? 1 : 0));
   // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す。
   // ボード一覧からは表示中でないボードもシェアできるので、対象のボードを覚えておく
   const [sharePostOpen, setSharePostOpen] = useState(false);
@@ -40,6 +47,14 @@ export function TopicWorkspace() {
     setSharePostOpen(true);
   };
   const notifyPrivacy = () => setPrivacyNotice((value) => value + 1);
+
+  // 別ページ（みんなが作った話題マップ）の「このお題で始める」から来たら、ボードを読み込んでから始める
+  const { hydrated, startWithKeyword } = controller;
+  useEffect(() => {
+    if (!hydrated) return;
+    const keyword = takeStartKeywordRequest();
+    if (keyword) void startWithKeyword(keyword, DEFAULT_MODE);
+  }, [hydrated, startWithKeyword]);
 
   useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
 

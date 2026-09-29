@@ -84,3 +84,22 @@ export function isOpenActiveBoardRequested() {
 export function clearOpenActiveBoardRequest() {
   openActiveBoardRequested = false;
 }
+
+// 別ページの「このお題で始める」。"/" に戻ってボードを読み込んだあと、ホームと同じ始め方（AI・図鑑）で広げる
+let startKeywordRequested: string | null = null;
+
+export function requestStartKeyword(keyword: string) {
+  startKeywordRequested = keyword;
+  openActiveBoardRequested = true;
+}
+
+export function hasStartKeywordRequest() {
+  return startKeywordRequested !== null;
+}
+
+/** 頼まれていたお題を 1 回だけ受け取る */
+export function takeStartKeywordRequest(): string | null {
+  const keyword = startKeywordRequested;
+  startKeywordRequested = null;
+  return keyword;
+}

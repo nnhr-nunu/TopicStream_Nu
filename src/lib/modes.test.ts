@@ -7,7 +7,7 @@ import { MODE_PRESETS, isDivisionLabel, modePreset, parseMode, isChatMode, withM
 import { parseSnapshot } from "@/lib/storage";
 
 describe("ボードの用途（モード）", () => {
-  it("未設定・知らない値は雑談として扱い、みんなのトークテーマに載せるのは雑談だけ", () => {
+  it("未設定・知らない値は雑談として扱い、みんなが作った話題マップに載せるのは雑談だけ", () => {
     expect(parseMode(undefined)).toBe("chat");
     expect(parseMode("unknown")).toBe("chat");
     expect(parseMode("advice")).toBe("advice");

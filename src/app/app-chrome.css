@@ -804,6 +804,50 @@
   box-shadow: 0 8px 24px color-mix(in oklab, black 7%, transparent);
   translate: 0 -2px;
 }
+/* カード右上の ♡ と数 */
+.card-heart {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  background: var(--card);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0.3rem 0.55rem;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background 140ms ease;
+}
+.card-heart:hover:not(:disabled) {
+  border-color: color-mix(in oklab, oklch(0.62 0.2 18) 45%, var(--border));
+  color: oklch(0.58 0.2 18);
+}
+.card-heart-on,
+.card-heart-on:hover:not(:disabled) {
+  border-color: color-mix(in oklab, oklch(0.62 0.2 18) 45%, transparent);
+  background: color-mix(in oklab, oklch(0.62 0.2 18) 12%, var(--card));
+  color: oklch(0.58 0.2 18);
+}
+.card-heart:disabled {
+  opacity: 0.5;
+}
+.card-heart-on svg {
+  animation: card-heart-beat 0.35s ease-out;
+}
+@keyframes card-heart-beat {
+  50% {
+    transform: scale(1.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-heart-on svg {
+    animation: none;
+  }
+}
 .home-topic-chip {
   border-radius: 999px;
   background: color-mix(in oklab, var(--muted) 80%, transparent);

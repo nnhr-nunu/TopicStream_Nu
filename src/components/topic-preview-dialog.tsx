@@ -21,7 +21,7 @@ export function entryPicks(entry: KnowledgeEntry): number {
 
 /**
  * トピック図鑑の1つのお題を、見るだけのボード（マンダラート）で開く。
- * みんなのトークテーマの「見てみる」（CatalogPreviewDialog）と同じ作り: 上に ♡ と「このお題で始める」、カードは読むだけ。
+ * みんなが作った話題マップの「見てみる」（CatalogPreviewDialog）と同じ作り: 上に ♡ と「このお題で始める」、カードは読むだけ。
  */
 export function TopicPreviewDialog({
   entry,

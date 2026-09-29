@@ -63,11 +63,11 @@ export function listCatalog(query = ""): CatalogBoard[] {
   return searchCatalog(boards, query);
 }
 
-export function bumpFavorite(id: string): number | null {
+export function bumpFavorite(id: string, delta: 1 | -1 = 1): number | null {
   const seed = SEED_CATALOG.find((board) => board.id === id);
   if (!seed) return null;
   const live = load();
-  live.extraFavorites[id] = (live.extraFavorites[id] ?? 0) + 1;
+  live.extraFavorites[id] = Math.max(0, (live.extraFavorites[id] ?? 0) + delta);
   persist();
   return seed.favorites + live.extraFavorites[id];
 }
