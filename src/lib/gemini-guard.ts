@@ -1,3 +1,5 @@
+import { DEFAULT_MODEL, GEMINI_FALLBACK_MODELS } from "@/lib/constants";
+
 /**
  * Gemini を呼ぶ前の交通整理（サーバー専用・インスタンスごとのメモリ）。
  * 開発者の無料枠を、少数の人や連打で使い切らないための仕組み。
@@ -85,6 +87,17 @@ export function createGeminiGuard(now: Clock = Date.now) {
   }
 
   return { acquire, cacheKey, readCache, writeCache, activeCount: () => active };
+}
+
+/**
+ * 使うモデル。サーバーのキーで呼ぶときは決めたモデルだけ（高いモデルや知らない名前で枠を使わせない）。
+ * 利用者が自分のキーを入れたときは、形の合う名前なら何でもよい
+ */
+export function allowedModel(requested: unknown, ownKey: boolean): string {
+  const name = typeof requested === "string" ? requested.trim() : "";
+  if (!name) return DEFAULT_MODEL;
+  if (ownKey) return /^[\w.-]{1,64}$/.test(name) ? name : DEFAULT_MODEL;
+  return (GEMINI_FALLBACK_MODELS as readonly string[]).includes(name) ? name : DEFAULT_MODEL;
 }
 
 /** Vercel などのプロキシ越しでも、同じ人をおおよそ同じキーにまとめる */

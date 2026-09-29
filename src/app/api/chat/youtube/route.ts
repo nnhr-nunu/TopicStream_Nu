@@ -1,4 +1,13 @@
+import { clientKeyFromHeaders } from "@/lib/gemini-guard";
+import { createRateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { parseStreamUrl } from "@/lib/stream-url";
+
+export const maxDuration = 20;
+
+/** 1 つの画面は 8 秒おきに読む。2 タブ分くらいまでは通し、連打で 1 日の枠を使い切らせない */
+const limit = createRateLimit(16, 60_000);
+/** YouTube が返す ID・ページの印の形（それ以外は Google へ送らない） */
+const TOKEN_PATTERN = /^[\w\-=+./]{1,300}$/;
 
 type YoutubeMessage = { id: string; text: string };
 
@@ -47,6 +56,7 @@ function classify(reason: string): { kind: YoutubeChatProblem; warning: string; 
 }
 
 export async function POST(request: Request) {
+  if (!limit(clientKeyFromHeaders(request.headers))) return tooManyRequests(30);
   const body = (await request.json().catch(() => null)) as {
     url?: unknown;
     pageToken?: unknown;
@@ -65,10 +75,11 @@ export async function POST(request: Request) {
 
   try {
     // 配信のチャットIDは一度調べたら画面側で覚えておき、毎回は調べない（1ユニット節約）
-    let chatId = typeof body?.liveChatId === "string" ? body.liveChatId : "";
+    let chatId = typeof body?.liveChatId === "string" && TOKEN_PATTERN.test(body.liveChatId) ? body.liveChatId : "";
     if (!chatId) {
       const details = await fetch(
         `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(ref.videoId)}&key=${encodeURIComponent(apiKey)}`,
+        { signal: AbortSignal.timeout(8_000), cache: "no-store" },
       );
       if (!details.ok) {
         const { reason, message } = await googleReason(details);
@@ -92,9 +103,9 @@ export async function POST(request: Request) {
     chatUrl.searchParams.set("liveChatId", chatId);
     chatUrl.searchParams.set("part", "snippet");
     chatUrl.searchParams.set("key", apiKey);
-    const token = typeof body?.pageToken === "string" ? body.pageToken : "";
+    const token = typeof body?.pageToken === "string" && TOKEN_PATTERN.test(body.pageToken) ? body.pageToken : "";
     if (token) chatUrl.searchParams.set("pageToken", token);
-    const chat = await fetch(chatUrl);
+    const chat = await fetch(chatUrl, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
     if (!chat.ok) {
       const { reason, message } = await googleReason(chat);
       const info = classify(reason);

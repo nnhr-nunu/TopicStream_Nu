@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 import { DEFAULT_MODEL } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import { geminiUserNotice, requestGemini } from "@/lib/gemini-core";
@@ -15,6 +17,11 @@ import { seedKnowledge } from "@/lib/topic-knowledge-seed";
  */
 export const maxDuration = 60;
 
+function sameSecret(a: string, b: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(a), digest(b));
+}
+
 /** 1回の実行で頼むお題の数の既定（GROW_LIMIT で変えられる） */
 const DEFAULT_LIMIT = 20;
 /** 1つのお題に待つ上限。残りがこれ（MIN_REMAINING_MS）を切ったら次は頼まない */
@@ -27,7 +34,10 @@ export async function GET(request: Request) {
   if (!secret) {
     return Response.json({ ok: false, error: "CRON_SECRET が未設定です" }, { status: 503 });
   }
-  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Vercel Cron は環境変数の値をそのまま送るので、引用符を外す前の値でも通す。比べるのは時間差の出ない方法で
+  const header = request.headers.get("authorization") ?? "";
+  const accepted = [secret, process.env.CRON_SECRET?.trim() ?? ""].filter(Boolean);
+  if (!accepted.some((value) => sameSecret(header, `Bearer ${value}`))) {
     return Response.json({ ok: false }, { status: 401 });
   }
   const apiKey = readGeminiApiKey();

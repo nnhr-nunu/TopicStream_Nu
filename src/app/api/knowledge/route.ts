@@ -5,7 +5,9 @@ import {
   recordSharedPicks,
   type SharedPick,
 } from "@/lib/knowledge-server";
+import { clientKeyFromHeaders } from "@/lib/gemini-guard";
 import { isBoardMode, parseMode } from "@/lib/modes";
+import { createRateLimit, readJsonBody, tooManyRequests } from "@/lib/rate-limit";
 import { isCategoryId, isPickKind, knowledgeCounts, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
 
 /**
@@ -51,6 +53,9 @@ export async function GET(request: Request) {
 
 /** 1回に受け付ける票の数（画面は数秒ごとにまとめて送る） */
 const MAX_BATCH = 100;
+/** 1 人（IP）が 1 時間に入れられる票の数（ふつうに使えば届かない。荒らしで図鑑を塗り替えられないように） */
+const perHour = createRateLimit(600, 60 * 60_000);
+const perMinute = createRateLimit(40, 60_000);
 
 type RawPick = { seed?: unknown; topic?: unknown; kind?: unknown; mode?: unknown };
 
@@ -65,10 +70,24 @@ function asPick(raw: RawPick): SharedPick | null {
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as ({ picks?: unknown } & RawPick) | null;
+  const client = clientKeyFromHeaders(request.headers);
+  if (!perMinute(client)) return tooManyRequests(30);
+  const body = await readJsonBody<{ picks?: unknown } & RawPick>(request, 64_000);
   const raw: RawPick[] = Array.isArray(body?.picks) ? (body.picks as RawPick[]) : body ? [body] : [];
-  const picks = raw.slice(0, MAX_BATCH).map(asPick).filter((pick): pick is SharedPick => pick !== null);
+  // 同じ語への同じ種類の票は、1 回の送信で 1 つに数える
+  const seen = new Set<string>();
+  const picks = raw
+    .slice(0, MAX_BATCH)
+    .map(asPick)
+    .filter((pick): pick is SharedPick => {
+      if (!pick) return false;
+      const key = `${pick.mode ?? "chat"}|${pick.seed}|${pick.topic}|${pick.kind}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   if (picks.length === 0) return Response.json({ ok: false }, { status: 400 });
+  if (!perHour(client, picks.length)) return tooManyRequests(10 * 60);
   const recorded = await recordSharedPicks(picks);
   return Response.json({ ok: true, recorded });
 }

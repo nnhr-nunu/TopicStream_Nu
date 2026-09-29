@@ -41,6 +41,47 @@ function currentSnapshot(): AppSnapshot {
 }
 
 const SHARE_KEY = "topicstream-nu:share-id";
+/** いっしょに見るリンクを書き換えるための鍵（作ったタブだけが持つ） */
+const SHARE_OWNER_KEY = "topicstream-nu:share-key";
+
+function readShareSession(): { id: string | null; key: string | null } {
+  try {
+    return { id: window.sessionStorage.getItem(SHARE_KEY), key: window.sessionStorage.getItem(SHARE_OWNER_KEY) };
+  } catch {
+    return { id: null, key: null };
+  }
+}
+
+function writeShareSession(value: { id: string; key: string } | null) {
+  try {
+    if (value) {
+      window.sessionStorage.setItem(SHARE_KEY, value.id);
+      window.sessionStorage.setItem(SHARE_OWNER_KEY, value.key);
+    } else {
+      window.sessionStorage.removeItem(SHARE_KEY);
+      window.sessionStorage.removeItem(SHARE_OWNER_KEY);
+    }
+  } catch {
+    /* 残せなくても、このページを開いている間は共有を続けられる */
+  }
+}
+
+/** 共有ボードを送る。forbidden はリンクの持ち主ではない（別の端末・鍵が無い） */
+async function postShare(
+  share: { id: string | null; key: string | null },
+  board: Board,
+  nickname: string,
+): Promise<{ id: string; key: string } | "forbidden" | null> {
+  const response = await fetch("/api/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: share.id ?? undefined, key: share.key ?? undefined, board: withoutMemos(board), nickname }),
+  }).catch(() => null);
+  if (response?.status === 403) return "forbidden";
+  if (!response?.ok) return null;
+  const json = (await response.json().catch(() => null)) as { id?: unknown; key?: unknown } | null;
+  return typeof json?.id === "string" && typeof json.key === "string" ? { id: json.id, key: json.key } : null;
+}
 
 /** 付箋は自分用のメモなので、いっしょに見るリンクにも載せない（サーバーへ送らない） */
 function withoutMemos(board: Board): Board {
@@ -871,19 +912,17 @@ export function useBoardController() {
       return;
     }
     const nickname = current.settings.nickname || loadIdentity().nickname;
-    const existing = shareId ?? window.sessionStorage.getItem(SHARE_KEY);
-    const response = await fetch("/api/share", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: existing ?? undefined, board: withoutMemos(board), nickname }),
-    }).catch(() => null);
-    if (!response?.ok) {
+    const session = readShareSession();
+    let saved = await postShare({ id: shareId ?? session.id, key: session.key }, board, nickname);
+    // 書き換えられないリンク（別のタブで作った等）なら、新しいリンクを作り直す
+    if (saved === "forbidden") saved = await postShare({ id: null, key: null }, board, nickname);
+    if (!saved || saved === "forbidden") {
       toast.error("共有リンクを作れませんでした");
       return;
     }
-    const json = (await response.json()) as { id: string };
+    const json = saved;
     setShareId(json.id);
-    window.sessionStorage.setItem(SHARE_KEY, json.id);
+    writeShareSession(json);
     const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
     const url = `${window.location.origin}${base}/watch?id=${encodeURIComponent(json.id)}`;
     try {
@@ -898,28 +937,28 @@ export function useBoardController() {
 
   // 再読み込みしても共有を続ける（下の自動送信でサーバー側が消えていても載せ直す）
   useEffect(() => {
-    try {
-      const saved = window.sessionStorage.getItem(SHARE_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage はマウント後にしか読めない
-      if (saved) setShareId(saved);
-    } catch {
-      /* 読めなければ共有し直してもらう */
-    }
+    const saved = readShareSession().id;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage はマウント後にしか読めない
+    if (saved) setShareId(saved);
   }, []);
 
   useEffect(() => {
     if (!shareId || !activeBoard || activeBoard.nodes.length === 0) return;
     const timer = window.setTimeout(() => {
       const current = currentSnapshot();
-      void fetch("/api/share", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: shareId,
-          board: withoutMemos(activeBoard),
-          nickname: current.settings.nickname || loadIdentity().nickname,
-        }),
-      }).catch(() => undefined);
+      const nickname = current.settings.nickname || loadIdentity().nickname;
+      void postShare({ id: shareId, key: readShareSession().key }, activeBoard, nickname).then((saved) => {
+        if (saved === "forbidden") {
+          // 別の端末で作ったリンクなど。黙って送り続けず、作り直してもらう
+          writeShareSession(null);
+          setShareId(null);
+          toast.message("いっしょに見るリンクの更新を止めました", {
+            description: "上の共有ボタンから、新しいリンクを作り直してください。",
+          });
+        } else if (saved) {
+          writeShareSession(saved);
+        }
+      });
     }, 900);
     return () => window.clearTimeout(timer);
   }, [activeBoard, shareId]);

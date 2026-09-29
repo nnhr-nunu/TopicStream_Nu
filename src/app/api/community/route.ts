@@ -1,8 +1,14 @@
 import { saveCommunityBoard } from "@/lib/community-server";
+import { clientKeyFromHeaders } from "@/lib/gemini-guard";
+import { createRateLimit, readJsonBody, tooManyRequests } from "@/lib/rate-limit";
+
+/** 1 人で「みんなのトークテーマ」を埋められないよう数を絞る（ふつうは操作が落ち着いたときに 1 回送るだけ） */
+const limit = createRateLimit(10, 10 * 60_000);
 
 /** ちゃんと使われたボードを「みんなのトークテーマ」に載せる（メモは外す。条件に合わなければ何もしない） */
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as { board?: unknown } | null;
+  if (!limit(clientKeyFromHeaders(request.headers))) return tooManyRequests(10 * 60);
+  const body = await readJsonBody<{ board?: unknown }>(request, 900_000);
   const saved = await saveCommunityBoard(body?.board);
   return Response.json({ saved });
 }
