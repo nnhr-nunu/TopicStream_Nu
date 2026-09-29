@@ -16,9 +16,15 @@ export const AMBIENT_TIMING = {
   gap: [2000, 5000],
 } as const;
 
-export const between = (rand: () => number, [min, max]: readonly [number, number]) => min + rand() * (max - min);
+/** 一覧の data-critter-skip（空白区切り）から、その一覧に出さない動物 */
+export const skippedKinds = (value: string | undefined): string[] => value?.split(/\s+/).filter(Boolean) ?? [];
 
-/** 出す動物（設定でしまったもの・水の動物は出さない。できれば前回と違うもの）。出せるものが無ければ null */
+export const between =(rand: () => number, [min, max]: readonly [number, number]) => min + rand() * (max - min);
+
+/**
+ * 出す動物（設定でしまったもの・水の動物は出さない。できれば前回と違うもの）。出せるものが無ければ null。
+ * hidden には、その一覧で出さない子（data-critter-skip）・ほかの一覧に来ている子も足して渡す
+ */
 export function pickAmbientKind(hidden: readonly string[], rand: () => number, last?: CritterKind | null): CritterKind | null {
   const kinds = CRITTER_KINDS.filter((kind) => !hidden.includes(kind) && !WATER_KINDS.includes(kind));
   if (kinds.length === 0) return null;

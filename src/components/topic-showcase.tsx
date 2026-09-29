@@ -88,7 +88,7 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
         )}
       </div>
 
-      <ul className="relative mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-critter-garden>
+      <ul className="relative mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-critter-garden data-critter-skip="frog">
         {hits.map(({ entry }) => {
           const liked = favs.includes(entry.seed);
           return (

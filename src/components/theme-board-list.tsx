@@ -16,11 +16,14 @@ export function ThemeBoardList({
   onImport,
   compact = false,
   busy = false,
+  critterSkip,
 }: {
   initialBoards?: CatalogBoard[];
   onImport: (board: CatalogBoard) => void;
   compact?: boolean;
   busy?: boolean;
+  /** この一覧に遊びに来させない動物（空白区切り。トップでは動きの大きいカエルを外す） */
+  critterSkip?: string;
 }) {
   const [query, setQuery] = useState("");
   const [boards, setBoards] = useState<CatalogBoard[]>(initialBoards ?? []);
@@ -123,7 +126,7 @@ export function ThemeBoardList({
           該当するボードがありません。別の言葉で探してみてください。
         </p>
       ) : (
-        <ul className={cn("relative grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")} data-critter-garden>
+        <ul className={cn("relative grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")} data-critter-garden data-critter-skip={critterSkip}>
           {shown.map((board) => {
             const liked = favorites.includes(board.id);
             return (

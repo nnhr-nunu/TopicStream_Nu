@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ambientCards, pickAmbientKind } from "@/lib/ambient-critters";
+import { ambientCards, pickAmbientKind, skippedKinds } from "@/lib/ambient-critters";
 import { CRITTER_KINDS } from "@/lib/wait-critters";
 
 /** 2 列 × 4 行のカードの一覧（高さ 150、行の間 12） */
@@ -20,6 +20,14 @@ describe("ほかの画面に遊びに来る動物", () => {
     expect(cards?.map((card) => card.y)).toEqual([162, 162, 324, 324]);
     const one = ambientCards(list, { top: 100, bottom: 600 }, () => 0.99);
     expect(one?.every((card) => card.y === 486)).toBe(true);
+  });
+
+  it("一覧ごとに出さない子（data-critter-skip）・ほかの一覧に来ている子は選ばない", () => {
+    expect(skippedKinds(undefined)).toEqual([]);
+    expect(skippedKinds(" frog  cat ")).toEqual(["frog", "cat"]);
+    for (let step = 0; step < 50; step += 1) {
+      expect(["frog", "penguin"]).not.toContain(pickAmbientKind([...skippedKinds("frog"), "penguin"], Math.random));
+    }
   });
 
   it("見えている行が無ければ出ない", () => {
