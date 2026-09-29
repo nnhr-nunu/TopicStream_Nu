@@ -11,9 +11,9 @@ const WATER_KINDS: readonly CritterKind[] = ["goldfish", "dolphin"];
 
 /** 最初に出るまで・いる長さ・次に出るまで（ms） */
 export const AMBIENT_TIMING = {
-  first: [2500, 6000],
+  first: [0, 300],
   stay: [22_000, 35_000],
-  gap: [25_000, 60_000],
+  gap: [2000, 5000],
 } as const;
 
 export const between = (rand: () => number, [min, max]: readonly [number, number]) => min + rand() * (max - min);
