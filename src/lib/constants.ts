@@ -10,8 +10,10 @@ export const COMMENT_SCALE_MIN = 0.9;
 export const COMMENT_SCALE_MAX = 2.2;
 export const MEMO_MAX = 120;
 export const LABEL_MAX = 16;
-/** AI には LABEL_MAX 文字で頼むが、少しはみ出した語（「パッケージの開け方が謎だったお菓子」など）はここまで切らずに受け取る */
-export const LABEL_FIT_MAX = 24;
+/** AI には「目安 LABEL_MAX 文字、文脈に要るならここまで」と頼む（無理に縮めると不自然な語になるため） */
+export const LABEL_LONG_MAX = 24;
+/** 受け取る語の上限。LABEL_LONG_MAX を少しはみ出しても切らない。長い語はカードの文字を小さくして収める */
+export const LABEL_FIT_MAX = 28;
 /** 「具体的にする」で出す答えの長さの上限（カードの文字を小さくして収める） */
 export const DETAIL_LABEL_MAX = 44;
 export const ROOT_LABEL_MAX = 48;
