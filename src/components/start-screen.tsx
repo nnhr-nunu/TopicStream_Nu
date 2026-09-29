@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowRight, Dices, History, ShieldAlert } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
@@ -229,15 +228,12 @@ export function StartScreen({
           ) : null}
 
           <section className="mt-12" aria-labelledby="home-usage">
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <h2 id="home-usage" className="text-sm font-semibold tracking-wide">
+            <div className="mb-4 text-center">
+              <h2 id="home-usage" className="text-lg font-semibold">
                 できること
               </h2>
-              <Link href="/guide/" className="shrink-0 text-xs text-primary underline underline-offset-4">
-                くわしい使い方
-              </Link>
             </div>
-            <UsageGallery className="mx-auto max-w-2xl" />
+            <UsageGallery />
           </section>
 
           <TopicShowcase onStart={(label) => onStart(label, DEFAULT_MODE)} busy={busy} />
