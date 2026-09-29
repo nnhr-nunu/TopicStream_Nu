@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Check, CircleHelp, Combine, Copy, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, ThumbsDown, X } from "lucide-react";
+import { CircleHelp, Combine, Grid3x3, ListChecks, Pencil, Pin, RefreshCw, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +26,6 @@ export function TopicActionsMenu({
   onOpenChange,
   sheetTitle,
   isPinned,
-  copied,
   onPin,
   onExpand,
   onDetail,
@@ -34,10 +33,8 @@ export function TopicActionsMenu({
   onCombine,
   onExplain,
   onRegenerate,
-  onReject,
   regenSpares = 0,
   regenReadyAt = 0,
-  onCopy,
   onEditLabel,
   onEditMemo,
   onPointerEnter,
@@ -48,7 +45,6 @@ export function TopicActionsMenu({
   /** あればスマホ向けに、画面の下から出るメニューにする（見出しはカードの文） */
   sheetTitle?: string;
   isPinned: boolean;
-  copied: boolean;
   onPin: () => void;
   /** 「具体的」モードのとき: タップの代わりにメニューから抽象展開（ふつうの広げ方）をする */
   onExpand?: () => void;
@@ -64,11 +60,8 @@ export function TopicActionsMenu({
   onRegenerate?: () => void;
   /** 予備の数。1以上なら API を呼ばず即座に作り直せる */
   regenSpares?: number;
-  /** 「ずれている」の印を付けて作り直す（作り直せるカードだけ） */
-  onReject?: () => void;
   /** 予備が無いとき、AI の作り直しが使えるようになる時刻 */
   regenReadyAt?: number;
-  onCopy: () => void;
   onEditLabel: () => void;
   onEditMemo: () => void;
   onPointerEnter: () => void;
@@ -123,17 +116,8 @@ export function TopicActionsMenu({
       onClick: onExplain,
     });
   }
-  const tail: MenuItem[] = [];
-  if (onReject) {
-    tail.push({
-      key: "reject",
-      label: "ずれている：記録して作り直す",
-      short: "ずれている",
-      icon: <ThumbsDown />,
-      onClick: onReject,
-    });
-  }
-  tail.push(
+  // 「ずれている」「コピー」はあまり使われないので出さない（コピーはショートカット C で残す）
+  const tail: MenuItem[] = [
     { key: "label", label: "文を直す", short: "文を直す", icon: <Pencil />, onClick: onEditLabel },
     {
       key: "memo",
@@ -146,14 +130,7 @@ export function TopicActionsMenu({
       ),
       onClick: onEditMemo,
     },
-    {
-      key: "copy",
-      label: "コピー",
-      short: copied ? "コピーしました" : "コピー",
-      icon: copied ? <Check /> : <Copy />,
-      onClick: onCopy,
-    },
-  );
+  ];
 
   if (sheetTitle !== undefined) {
     return open ? (
@@ -170,8 +147,9 @@ export function TopicActionsMenu({
   }
 
   return (
+    // nodrag / nopan: ボタンを押したまま少し動いただけでカードのドラッグ（離した先のカードと掛け合わせ）にならないように
     <div
-      className={cn("topic-actions", open && "topic-actions-open")}
+      className={cn("topic-actions nodrag nopan", open && "topic-actions-open")}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
     >

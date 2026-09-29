@@ -655,6 +655,116 @@
   font-size: 1rem;
   font-weight: 700;
 }
+
+/* 図鑑: モード（親）のタブの下に、選んだモードの分類（子）の枠をつなげて出す（フォルダのタブの形） */
+.topic-db-filter {
+  --topic-db-panel: color-mix(in oklab, var(--mode-color) 7%, var(--card));
+  --topic-db-line: color-mix(in oklab, var(--mode-color) 40%, var(--border));
+}
+.topic-db-modes {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 0.2rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0.1rem 0.6rem 0;
+  /* 選んだタブの下端を枠の上の線に重ねて、線を消す（タブと枠がひと続きに見える） */
+  margin-bottom: -1px;
+}
+.topic-db-modes::-webkit-scrollbar {
+  display: none;
+}
+@media (max-width: 639px) {
+  .topic-db-modes {
+    padding-right: 1.5rem;
+    mask-image: linear-gradient(to right, black calc(100% - 2rem), transparent);
+  }
+}
+.topic-db-mode {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.75rem 0.75rem 0 0;
+  padding: 0.45rem 0.8rem 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+.topic-db-mode:hover {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--mode-color) 8%, transparent);
+}
+.topic-db-mode:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--mode-color) 60%, transparent);
+  outline-offset: -2px;
+}
+.topic-db-mode[aria-pressed="true"] {
+  font-weight: 600;
+  color: var(--foreground);
+  border-color: var(--topic-db-line);
+  background: var(--topic-db-panel);
+}
+.topic-db-mode[aria-pressed="true"] svg {
+  color: var(--mode-color);
+}
+.topic-db-count {
+  font-size: 0.7em;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.topic-db-cats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--topic-db-line);
+  border-radius: 0.9rem;
+  background: var(--topic-db-panel);
+  padding: 0.65rem 0.75rem 0.75rem;
+}
+.topic-db-cats-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-right: 0.15rem;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+.topic-db-cats-head svg {
+  color: var(--mode-color);
+}
+.topic-db-cat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 0.15rem 0.6rem;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.topic-db-cat:hover {
+  color: var(--foreground);
+  border-color: var(--topic-db-line);
+}
+.topic-db-cat[aria-pressed="true"] {
+  font-weight: 600;
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--mode-color) 60%, var(--border));
+  background: color-mix(in oklab, var(--mode-color) 18%, var(--card));
+}
 .home-filter {
   border-radius: 999px;
   border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);

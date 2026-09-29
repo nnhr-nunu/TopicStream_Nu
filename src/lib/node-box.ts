@@ -258,6 +258,10 @@ export function splitGloss(label: string): { term: string; meaning: string } | n
   return { term: match[1]!.trim(), meaning: match[2]!.trim() };
 }
 
-export function isSentenceCard(data: Pick<TopicNodeData, "detail" | "label" | "parentId">): boolean {
-  return data.parentId !== null && (Boolean(data.detail) || data.label.length > LABEL_FIT_MAX);
+/**
+ * 小さめの文字・左寄せで出す「文のカード」か。長さだけで決める
+ * （「具体的にする」の答えでも短ければふつうのカードと同じ見た目にする。並べたときに一部だけ小さく見えないように）
+ */
+export function isSentenceCard(data: Pick<TopicNodeData, "label" | "parentId">): boolean {
+  return data.parentId !== null && data.label.length > LABEL_FIT_MAX;
 }

@@ -4,7 +4,7 @@ import * as ops from "@/lib/board-ops";
 import { layoutBoard, minNodeGap, placeChildren } from "@/lib/layout";
 import { cellCode, CENTER_CELL_INDEX, familyIndexForGroup } from "@/lib/mandala-ids";
 import { MANDALA_OFFSETS, mandalaOutward, pickMandalaAttachOrigin } from "@/lib/mandala";
-import { GLYPH_PAD, hasGlyphOverlap, normalizePrefs } from "@/lib/node-box";
+import { GLYPH_PAD, hasGlyphOverlap, isSentenceCard, normalizePrefs } from "@/lib/node-box";
 import { emptyBoard } from "@/lib/storage";
 import type { Board } from "@/lib/types";
 
@@ -276,5 +276,18 @@ describe("placeChildren の互換", () => {
       generationLayout: "radial",
     });
     expect(points).toHaveLength(8);
+  });
+});
+
+describe("文のカード（小さめの文字・左寄せ）", () => {
+  it("「具体的にする」の答えでも、短ければふつうのカードと同じ見た目にする", () => {
+    const detailCard = (label: string) => ({ parentId: "r", label, detail: true });
+    expect(isSentenceCard(detailCard("100均の当たりの失敗談"))).toBe(false);
+    expect(isSentenceCard(detailCard("100均で買った収納ケースが思ったより小さくて結局使わなかった話"))).toBe(true);
+  });
+
+  it("長い文は具体化でなくても文のカード。中心のカードは長くても文のカードにしない", () => {
+    expect(isSentenceCard({ parentId: "r", label: "あ".repeat(29) })).toBe(true);
+    expect(isSentenceCard({ parentId: null, label: "あ".repeat(40) })).toBe(false);
   });
 });

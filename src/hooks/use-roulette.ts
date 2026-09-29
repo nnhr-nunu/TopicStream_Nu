@@ -18,6 +18,15 @@ function subscribe(listener: () => void) {
   };
 }
 
+/** ルーレットが止まったカード（止まるまでと、光が消えたあとは null） */
+export function useRouletteLanded(): string | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => (current.landed ? current.id : null),
+    () => null,
+  );
+}
+
 /** このカードがルーレットで光っているか（spin: 回っている途中 / hit: 当たり） */
 export function useRouletteMark(nodeId: string): "spin" | "hit" | null {
   return useSyncExternalStore(

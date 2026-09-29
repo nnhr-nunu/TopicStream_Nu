@@ -22,6 +22,7 @@ import { FlowEdge } from "@/components/flow-edge";
 import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
 import { WaitCritters } from "@/components/wait-critters";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
+import { useRouletteLanded } from "@/hooks/use-roulette";
 import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,16 @@ function canvasFitZoom(overlay: boolean) {
     minZoom: 0.2,
   };
 }
+
+/**
+ * React Flow は fitViewOptions が変わるたびに内部の値を置き換える。描画ごとに新しいオブジェクトを渡すと、
+ * 予約中の fitView（ルーレットの当たり・広げたカードへ寄る）の中身が既定の「全体に合わせる」に上書きされるので、固定の値にしておく
+ */
+const FIT_OPTIONS_BOARD = { padding: 0.22, maxZoom: 1.12 };
+const FIT_OPTIONS_OVERLAY = { padding: 0.16, maxZoom: 1.12 };
+
+/** ルーレットの当たりへ寄るときの最小の倍率（引きすぎて字が読めないときだけ少し寄る） */
+const ROULETTE_MIN_ZOOM = 0.6;
 
 /** マンダラートで開いたマス → 開いた先の3×3の中央コード（例: 1F → 2E）。 */
 function openedCodes(board: Board): Map<string, string> {
@@ -129,7 +140,7 @@ function CanvasInner({
   onCombine?: (sourceId: string, targetId: string) => void;
   children?: ReactNode;
 }) {
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, getZoom, zoomIn, zoomOut } = useReactFlow();
   const coarse = useCoarsePointer();
   const combining = !overlay && Boolean(onCombine);
   const mouseDrag = combining && !coarse;
@@ -248,6 +259,17 @@ function CanvasInner({
     void fitView({ padding: canvasFitPadding(overlay, pinned), duration: first ? 0 : 260, ...canvasFitZoom(overlay) });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ボード・広げかたごとに1回だけ
   }, [nodesInitialized, board.id, layout]);
+
+  // ルーレットが止まったら、当たったカードを画面の真ん中へ（倍率はそのまま）。ピンで並びが変わるのを待ってから動かす
+  const landedId = useRouletteLanded();
+  useEffect(() => {
+    if (!landedId || overlay) return;
+    const timer = window.setTimeout(() => {
+      const zoom = Math.max(getZoom(), ROULETTE_MIN_ZOOM);
+      void fitView({ nodes: [{ id: landedId }], duration: 420, minZoom: zoom, maxZoom: zoom });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [landedId, overlay, fitView, getZoom]);
 
   useEffect(() => {
     if (overlay) return;
@@ -408,7 +430,7 @@ function CanvasInner({
       onPaneClick={() => setPickFrom(null)}
       fitView={false}
       defaultViewport={{ x: 0, y: 0, zoom: 1 }}
-      fitViewOptions={{ padding: overlay ? 0.16 : 0.22, maxZoom: 1.12 }}
+      fitViewOptions={overlay ? FIT_OPTIONS_OVERLAY : FIT_OPTIONS_BOARD}
       minZoom={0.2}
       maxZoom={2.2}
       nodeOrigin={[0.5, 0.5]}

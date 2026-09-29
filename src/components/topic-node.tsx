@@ -56,9 +56,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     setMemo,
     setLabel,
     detailNode,
-    rejectNode,
     explainNode,
-    copyLabel,
     toggleHeart,
     overlay,
     viewer,
@@ -70,7 +68,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     generationLayout,
     expandMode,
   } = useBoardActions();
-  const [copied, setCopied] = useState(false);
   const [editor, setEditor] = useState<"label" | null>(null);
   const [memoOpen, setMemoOpen] = useState(false);
   const memoRef = useRef(data.memo);
@@ -317,7 +314,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       ) : (
         <button
           type="button"
-          className={cn("topic-heart", hearts > 0 && "topic-heart-on", liked && "topic-heart-mine")}
+          className={cn("topic-heart nodrag", hearts > 0 && "topic-heart-on", liked && "topic-heart-mine")}
           aria-label={hearts > 0 ? `ハート ${hearts}（押すと自分のハートを切り替え）` : "ハートを付ける"}
           aria-pressed={liked}
           onPointerDown={(event) => event.stopPropagation()}
@@ -528,7 +525,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
           }
           onOpenChange={menu.setOpen}
           isPinned={isPinned}
-          copied={copied}
           onPin={() => pinNode(id)}
           detailRedo={Boolean(data.expanded)}
           onExpand={
@@ -557,19 +553,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
                   regenerateNode?.(id);
                 }
           }
-          onReject={
-            isRoot || data.expanded || !rejectNode
-              ? undefined
-              : () => {
-                  leaveMenu();
-                  rejectNode(id);
-                }
-          }
-          onCopy={async () => {
-            await copyLabel(id);
-            setCopied(true);
-            window.setTimeout(() => setCopied(false), 1200);
-          }}
           onEditLabel={openLabel}
           onEditMemo={() => {
             leaveMenu();

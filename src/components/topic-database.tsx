@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, Eye, Heart, Search, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, CornerDownRight, Eye, Heart, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdSlot } from "@/components/ad-slot";
 import { BrandMark } from "@/components/brand-mark";
+import { MODE_ICONS } from "@/components/mode-picker";
 import { SiteLinks } from "@/components/site-links";
 import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
   type KnowledgeCounts,
   type KnowledgeSearchHit,
   type KnowledgeStore,
+  type ModeCounts,
 } from "@/lib/topic-knowledge";
 import type { BoardMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ import { splitMix } from "@/lib/combine";
 type Scope = "all" | "mine";
 
 const NO_FAVORITES: string[] = [];
+const NO_COUNTS: ModeCounts = { categories: {}, topics: 0 };
 
 const CHIP =
   "rounded-full border px-3 py-1 text-xs transition hover:border-primary/50 hover:text-foreground disabled:opacity-50";
@@ -55,7 +58,6 @@ export function TopicDatabase() {
   const [shared, setShared] = useState<"loading" | "on" | "off">("loading");
   // みんなの図鑑全体の数（手元には検索に合った分しか届かないので、タグの横の数はこちらも見る）
   const [sharedCounts, setSharedCounts] = useState<KnowledgeCounts | null>(null);
-  const [sharedMode, setSharedMode] = useState<BoardMode | null>(null);
   const favs = useSyncExternalStore(subscribeTopicFavorites, loadFavoriteTopics, () => NO_FAVORITES);
 
   useEffect(() => {
@@ -65,10 +67,7 @@ export function TopicDatabase() {
         const result = await fetchSharedSearch(query, mode);
         if (cancelled) return;
         setShared(result.available ? "on" : "off");
-        if (result.counts) {
-          setSharedCounts(result.counts);
-          setSharedMode(mode);
-        }
+        if (result.counts) setSharedCounts(result.counts);
         setStore(combinedKnowledge());
         setMine(loadLocalKnowledge());
       },
@@ -97,23 +96,24 @@ export function TopicDatabase() {
     return map;
   }, [scoped, scope, sharedCounts]);
   const hits = useMemo(() => searchKnowledge(source, query, category, 60, mode), [source, query, category, mode]);
+  // サーバーは全モードの数を 1 回で返す（無ければ手元の分だけで数える）
+  const sharedForMode = scope === "all" && sharedCounts?.byMode ? (sharedCounts.byMode[mode] ?? NO_COUNTS) : null;
   const counts = useMemo(() => {
     const map = new Map<CategoryId, number>();
     for (const entry of Object.values(source)) map.set(entry.category, (map.get(entry.category) ?? 0) + 1);
-    // 分類の数はモードを切り替えると届き直す。前のモードの数を混ぜない
-    if (scope === "all" && sharedCounts && sharedMode === mode) {
-      for (const [id, count] of Object.entries(sharedCounts.categories) as [CategoryId, number][]) {
-        map.set(id, Math.max(map.get(id) ?? 0, count));
-      }
+    for (const [id, count] of Object.entries(sharedForMode?.categories ?? {}) as [CategoryId, number][]) {
+      map.set(id, Math.max(map.get(id) ?? 0, count));
     }
     return map;
-  }, [source, scope, sharedCounts, sharedMode, mode]);
+  }, [source, sharedForMode]);
   const topicTotal = useMemo(() => {
     const local = Object.values(source).reduce((sum, entry) => sum + Object.keys(entry.topics).length, 0);
-    return scope === "all" && sharedCounts && sharedMode === mode ? Math.max(local, sharedCounts.topics ?? 0) : local;
-  }, [source, scope, sharedCounts, sharedMode, mode]);
+    return Math.max(local, sharedForMode?.topics ?? 0);
+  }, [source, sharedForMode]);
   const seedTotal = modeCounts.get(mode) ?? 0;
   const preset = modePreset(mode);
+  // 最初の読み込みが終わるまで数は出さない（手元の数 → みんなの数へ跳ねて見えないように）
+  const ready = shared !== "loading";
 
   function startBoard(hit: KnowledgeSearchHit) {
     const snapshot = getBoardSnapshot();
@@ -144,10 +144,10 @@ export function TopicDatabase() {
         </p>
         <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="home-stat">
-            <b>{seedTotal.toLocaleString()}</b>お題
+            <b>{ready ? seedTotal.toLocaleString() : "…"}</b>お題
           </span>
           <span className="home-stat">
-            <b>{topicTotal.toLocaleString()}</b>話題
+            <b>{ready ? topicTotal.toLocaleString() : "…"}</b>話題
           </span>
           {shared === "off" ? (
             <span className="text-muted-foreground">この公開版では、はじめから入っている図鑑と自分の記録を表示しています</span>
@@ -188,52 +188,57 @@ export function TopicDatabase() {
         ))}
       </div>
 
-      <div className="mb-2 flex flex-wrap gap-1.5" role="group" aria-label="モード">
-        {MODE_PRESETS.map((item) => {
-          const count = modeCounts.get(item.id) ?? 0;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={mode === item.id}
-              className={cn(
-                CHIP,
-                mode === item.id ? "border-primary/60 bg-primary/10 text-foreground" : "border-border/70 text-muted-foreground",
-              )}
-              onClick={() => {
-                setMode(item.id);
-                setCategory("all");
-              }}
-            >
-              {item.label}
-              <span className="ml-1 opacity-60">{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-1.5" role="group" aria-label="分類">
-        {[{ id: "all" as const, label: "すべて" }, ...CATEGORIES].map((item) => {
-          const count = item.id === "all" ? seedTotal : (counts.get(item.id) ?? 0);
-          if (item.id !== "all" && count === 0) return null;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={category === item.id}
-              className={cn(
-                CHIP,
-                "px-2.5 py-0.5 text-[11px]",
-                category === item.id ? "border-primary/60 bg-primary/10 text-foreground" : "border-border/70 text-muted-foreground",
-              )}
-              onClick={() => setCategory(item.id)}
-            >
-              {item.label}
-              <span className="ml-1 opacity-60">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* モード（親）→ 分類（子）。選んだモードのタブの下に、そのモードの分類の枠をつなげて出す */}
+      <section className="topic-db-filter mb-6" data-mode={mode}>
+        <div className="topic-db-modes" role="group" aria-label="モード">
+          {MODE_PRESETS.map((item) => {
+            const Icon = MODE_ICONS[item.id];
+            return (
+              <button
+                key={item.id}
+                type="button"
+                data-mode={item.id}
+                aria-pressed={mode === item.id}
+                className="topic-db-mode"
+                onClick={() => {
+                  setMode(item.id);
+                  setCategory("all");
+                }}
+              >
+                <Icon className="size-3.5 shrink-0" aria-hidden />
+                {item.label}
+                {ready ? <span className="topic-db-count">{modeCounts.get(item.id) ?? 0}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+        <div className="topic-db-cats" role="group" aria-label={`${preset.label}の分類`}>
+          <span className="topic-db-cats-head">
+            <CornerDownRight className="size-3.5" aria-hidden />
+            {preset.label}の分類
+          </span>
+          {ready ? (
+            [{ id: "all" as const, label: "すべて" }, ...CATEGORIES].map((item) => {
+              const count = item.id === "all" ? seedTotal : (counts.get(item.id) ?? 0);
+              if (item.id !== "all" && count === 0) return null;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={category === item.id}
+                  className="topic-db-cat"
+                  onClick={() => setCategory(item.id)}
+                >
+                  {item.label}
+                  <span className="topic-db-count">{count}</span>
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-[11px] text-muted-foreground">読み込み中…</span>
+          )}
+        </div>
+      </section>
 
       {shared === "loading" && hits.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
