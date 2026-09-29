@@ -12,6 +12,7 @@ import {
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
 import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
+import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
 import { isArchived } from "@/lib/topic-archive";
@@ -141,7 +142,12 @@ async function generate(
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
     // お悩み相談などもモードごとに分けて記録する（公開前提。個人につながりそうな語は記録側で捨てる）
     // 「具体的にする」の答えも記録する（汎用の切り口のカードなら、話の流れの元のお題の下へ）
-    const recordSeed = detail ? detailRecordSeed(seed, context) : isGenericAngle(seed) ? undefined : seed;
+    // 遠い文脈の中で出た切り口・「語：意味」・掛け合わせは、単独のお題としては記録しない（isRecordableSeed）
+    const recordSeed = detail
+      ? detailRecordSeed(seed, context)
+      : isGenericAngle(seed) || !isRecordableSeed(seed, context)
+        ? undefined
+        : seed;
     if (recordSeed) await recordSharedKnowledge(recordSeed, remote.topics, mode);
     const fresh = remote.topics.filter((label) => !isArchived(seed, label));
     return {

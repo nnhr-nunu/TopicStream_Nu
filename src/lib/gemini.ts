@@ -5,6 +5,7 @@ import { isJunkTopic, padTopics, type GeminiWaitStage } from "@/lib/gemini-core"
 import { recordAiUsage } from "@/lib/ai-usage";
 import { splitMix } from "@/lib/combine";
 import { fetchSharedRelated, markFillers, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
+import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
 import type { BoardMode, GenerateResult } from "@/lib/types";
@@ -82,6 +83,8 @@ export async function generateRelatedTopics(options: {
       options.onTopic?.(label);
       await wait(40);
     }
+    // 似たお題から借りた語が混ざるので、図鑑にこのお題の語として無いものは、選ばれても記録しない（markFillers）
+    markFillers(options.seed, recalled.topics, mode);
     return { topics: recalled.topics, source: "knowledge" };
   }
   const mock = padTopics(
@@ -96,7 +99,7 @@ export async function generateRelatedTopics(options: {
     mode,
     mock,
     known: recalled.topics.length,
-    recordSeed: generic ? undefined : options.seed,
+    recordSeed: generic || !isRecordableSeed(options.seed, context) ? undefined : options.seed,
     detail: false,
   });
 }

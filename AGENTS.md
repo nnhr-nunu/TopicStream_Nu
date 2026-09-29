@@ -11,6 +11,7 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | ノード配置・レイアウト計算 | [`layout.ts`](./src/lib/layout.ts) / [`radial-layout.ts`](./src/lib/radial-layout.ts) / [`node-box.ts`](./src/lib/node-box.ts) |
 | Gemini 連携（トピック生成） | [`gemini-core.ts`](./src/lib/gemini-core.ts)（サーバー専用ロジック）→ [`gemini.ts`](./src/lib/gemini.ts)（クライアント呼び出し）→ [`app/api/gemini/`](./src/app/api/gemini/) |
 | トピック図鑑（集合知・AI の結果の再利用） | [`topic-knowledge.ts`](./src/lib/topic-knowledge.ts)（純粋な計算）→ [`knowledge-client.ts`](./src/lib/knowledge-client.ts) / [`knowledge-server.ts`](./src/lib/knowledge-server.ts) → [`topic-database.tsx`](./src/components/topic-database.tsx) / [`app/topics/`](./src/app/topics/) |
+| 図鑑の棚卸し（隠す・分類を直す・初期データ） | [`topic-archive-data.ts`](./src/lib/topic-archive-data.ts)（隠すお題・語、分類の表）→ 仕組みは [`topic-archive.ts`](./src/lib/topic-archive.ts)。同梱の手書きは [`topic-knowledge-seed-data.ts`](./src/lib/topic-knowledge-seed-data.ts)。語・お題の品質判定は [`label-quality.ts`](./src/lib/label-quality.ts) |
 | キー無し時のオフライン生成 | [`mock-topics.ts`](./src/lib/mock-topics.ts) / [`starters.ts`](./src/lib/starters.ts) |
 | ライブチャット連動（YouTube/Twitch） | [`live-chat-dock.tsx`](./src/components/live-chat-dock.tsx) + [`live-store.ts`](./src/lib/live-store.ts) / [`live-pulse.ts`](./src/lib/live-pulse.ts) + [`chat-parse.ts`](./src/lib/chat-parse.ts) |
 | 配信ディレクトリ（community 一覧） | [`stream-directory.ts`](./src/lib/stream-directory.ts) → [`community-catalog.tsx`](./src/components/community-catalog.tsx) / [`app/community/`](./src/app/community/) |

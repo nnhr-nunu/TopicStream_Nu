@@ -14,8 +14,10 @@ import {
   recordTopics,
   relatedEntries,
   searchKnowledge,
+  SIMILAR_THRESHOLD,
   similarity,
   suggestFromKnowledge,
+  topicSimilarity,
   type KnowledgeStore,
 } from "@/lib/topic-knowledge";
 import { LABEL_MAX } from "@/lib/constants";
@@ -40,6 +42,18 @@ describe("classifyTopic", () => {
     expect(classifyTopic("今週の推し活")).toBe("oshi");
   });
 
+  it("お題名を重く見て、語に紛れた言葉には引きずられない", () => {
+    // 語に「配信」が混ざっても、お題が暮らしの話なら暮らしのまま
+    expect(classifyTopic("クリスマスの過ごし方", ["ぼっち配信の同志", "サンタの正体発覚", "予約忘れの悲劇"])).toBe("life");
+    expect(classifyTopic("最近行ったお店", ["推しコラボのカフェ", "予約が取れない", "看板猫がいる"])).toBe("food");
+    expect(classifyTopic("理想の休日デート", ["雨の日の焦り", "お会計の作法", "カフェ巡り"])).toBe("people");
+    expect(classifyTopic("解約し忘れ", ["動画配信サイト", "音楽ストリーミング"])).toBe("shopping");
+  });
+
+  it("お題名に当たる言葉が無いとき、語に1つ当たっただけでは決めない", () => {
+    expect(classifyTopic("あれこれ", ["配信のハプニング", "気ままな散歩道"])).toBe("other");
+  });
+
   it("どれにも当たらなければ other", () => {
     expect(classifyTopic("あいうえお")).toBe("other");
   });
@@ -56,6 +70,57 @@ describe("similarity", () => {
     expect(near).toBeGreaterThan(0.4);
     expect(far).toBeLessThan(0.2);
     expect(similarity("同じ", "同じ")).toBe(1);
+  });
+});
+
+describe("topicSimilarity", () => {
+  it("「〜の思い出」「〜の過ごし方」のような共通の言い回しだけでは、似たお題とみなさない", () => {
+    expect(topicSimilarity("部活の思い出", "給食の思い出")).toBeLessThan(SIMILAR_THRESHOLD);
+    expect(topicSimilarity("好きな季節の過ごし方", "雨の日の過ごし方")).toBeLessThan(SIMILAR_THRESHOLD);
+    expect(topicSimilarity("電車あるある", "一人暮らしあるある")).toBeLessThan(SIMILAR_THRESHOLD);
+    expect(topicSimilarity("最近の小さな幸せ", "最近ちょっと頑張ったこと")).toBeLessThan(SIMILAR_THRESHOLD);
+  });
+
+  it("中身が同じなら、言い回しが違っても似ている", () => {
+    expect(topicSimilarity("カラオケの十八番", "カラオケの十八番、今も同じ？")).toBeGreaterThan(0.6);
+    expect(topicSimilarity("昔ハマってたゲーム", "最近ハマってるゲーム")).toBeGreaterThan(SIMILAR_THRESHOLD);
+    // 中身が丸ごと入っていれば、少し近い
+    expect(topicSimilarity("部活の思い出", "学生のころの部活、今もネタになる？")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
+  });
+
+  it("言い回しだけのお題は、何とも似ていない", () => {
+    expect(topicSimilarity("思い出", "給食の思い出")).toBe(0);
+  });
+});
+
+describe("お題自身の語が十分あるときの借り方", () => {
+  const own = ["宿題は最終日", "ラジオ体操", "花火大会", "おばあちゃんの家", "プールの匂い", "自由研究", "虫取り", "夏祭りの屋台", "日焼けの跡", "大人の夏休み"];
+  const other = ["牛乳の思い出", "好きだった献立", "揚げパン", "残せなかった", "おかわり争奪戦", "給食当番", "デザートじゃんけん", "今も食べたい"];
+
+  it("別のお題（給食の思い出）の語を、共通の言い回しだけで借りない", () => {
+    let store = recordTopics({}, "夏休みの思い出", own, 0, 2);
+    store = recordTopics(store, "給食の思い出", other, 0, 2);
+    for (let i = 0; i < 20; i += 1) {
+      const picked = suggestFromKnowledge(store, "夏休みの思い出", [], 8, () => (i + 0.5) / 20);
+      expect(picked.filter((label) => other.includes(label))).toEqual([]);
+    }
+  });
+
+  it("お題自身の語が候補の数以上あれば、かなり似たお題の語は控えめにしか混ぜない", () => {
+    let store = recordTopics({}, "カラオケの十八番", own, 0, 2);
+    store = recordTopics(store, "カラオケの十八番、今も同じ？", other, 0, 2);
+    let borrowed = 0;
+    for (let i = 0; i < 40; i += 1) {
+      borrowed += suggestFromKnowledge(store, "カラオケの十八番", [], 8, () => (i + 0.5) / 40).filter((label) => other.includes(label)).length;
+    }
+    expect(borrowed / (40 * 8)).toBeLessThan(0.15);
+  });
+
+  it("お題自身の語が足りないときは、似たお題の語で埋める", () => {
+    let store = recordTopics({}, "カラオケの十八番", ["最初に歌う曲", "締めの曲"], 0, 2);
+    store = recordTopics(store, "カラオケの十八番、今も同じ？", other, 0, 2);
+    const picked = suggestFromKnowledge(store, "カラオケの十八番", [], 8, () => 0.5);
+    expect(picked).toHaveLength(8);
   });
 });
 
@@ -179,6 +244,18 @@ describe("knowledge-server", () => {
     expect(cleanForRecord("", ["a"])).toBeNull();
     expect(cleanForRecord("雨", ["雨", "]", "あ".repeat(45)])).toBeNull();
     expect(cleanForRecord("雨", ["雨音", "雨音", "傘"])).toEqual({ seed: "雨", topics: ["雨音", "傘"] });
+  });
+
+  it("途中で切れた語・掛け合わせ・「語：意味」は、単独のお題として記録しない", () => {
+    expect(cleanForRecord("大人になってから気づいた正しい…", ["和菓子の食べ方"])).toBeNull();
+    expect(cleanForRecord("ネットの面白いミーム × ボルゾイ", ["縦長の犬"])).toBeNull();
+    expect(cleanForRecord("わ：津軽弁の一人称", ["な：あなた"])).toBeNull();
+    expect(cleanForRecord("雨", ["見た目と味のギャップがすごかっ…", "雨音"])).toEqual({ seed: "雨", topics: ["雨音"] });
+  });
+
+  it("図鑑から隠したお題は記録しない", () => {
+    expect(cleanForRecord("心が軽くなる瞬間", ["深呼吸できる瞬間"])).toBeNull();
+    expect(cleanForRecord("焼き鳥", ["串から外す論争"])).not.toBeNull();
   });
 
   it("連絡先・URL・@ハンドルは記録しない", () => {

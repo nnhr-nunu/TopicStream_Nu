@@ -52,3 +52,15 @@ describe("オフラインの候補", () => {
     expect(isGenericAngle("焼き鳥")).toBe(false);
   });
 });
+
+describe("オフラインの候補の長さ", () => {
+  it("お題の一覧の長い文も、「…」で切らずにそのまま出すか、出さない", () => {
+    const seen = new Set<string>();
+    for (const seed of ["焼き鳥", "雨の日の過ごし方", "一番の失敗談", "地元に帰ると"]) {
+      for (let i = 0; i < 4; i += 1) for (const label of mockRelatedTopics(seed, [...seen].slice(0, i * 8), 40)) seen.add(label);
+    }
+    expect([...seen].filter((label) => label.includes("…"))).toEqual([]);
+    // お題の一覧（地元のイントネーション、他県だと笑われる？ など）が、切られずに候補に入る
+    expect([...seen].some((label) => label.length > 16)).toBe(true);
+  });
+});

@@ -117,20 +117,32 @@ function withMode(entry: KnowledgeEntry, mode: BoardMode): KnowledgeEntry {
 }
 
 export const CATEGORIES: { id: CategoryId; label: string; words: string[] }[] = [
-  { id: "game", label: "ゲーム", words: ["ゲーム", "RTA", "ガチャ", "ソシャゲ", "攻略", "ボス", "レベル", "プレイ", "対戦", "実況"] },
-  { id: "food", label: "食べもの", words: ["料理", "ご飯", "ごはん", "食べ", "飲み", "レシピ", "鍋", "コンビニ", "スイーツ", "お菓子", "ラーメン", "カフェ", "味", "夜食", "グルメ", "お取り寄せ", "焦げ"] },
-  { id: "oshi", label: "推し活", words: ["推し", "沼", "ライブ", "グッズ", "アイドル", "ファン", "布教", "遠征", "現場"] },
-  { id: "stream", label: "配信", words: ["配信", "リスナー", "コメント", "機材", "マイク", "視聴者", "コラボ", "VTuber", "企画", "照明", "OBS"] },
-  { id: "music", label: "音楽・声", words: ["曲", "歌", "音楽", "カラオケ", "BGM", "バンド", "声", "音", "サビ", "ASMR"] },
-  { id: "media", label: "アニメ・作品", words: ["アニメ", "漫画", "マンガ", "映画", "ドラマ", "小説", "本", "作品", "キャラ", "声優"] },
-  { id: "life", label: "暮らし・季節", words: ["朝", "夜", "睡眠", "眠", "掃除", "洗濯", "生活", "ルーティン", "休日", "天気", "雨", "季節", "夏", "冬", "春", "秋", "部屋"] },
-  { id: "shopping", label: "買い物・お金", words: ["買", "ガジェット", "100均", "節約", "お金", "値段", "高い", "安い", "欲しい", "課金", "セール"] },
-  { id: "memory", label: "思い出・地元", words: ["思い出", "昔", "学生", "部活", "子ども", "子供", "初", "地元", "出身", "卒業", "懐かし", "なつかし", "方言", "イントネーション"] },
-  { id: "hobby", label: "趣味", words: ["趣味", "マイブーム", "コレクション", "旅行", "スポーツ", "運動", "ペット", "ぬいぐるみ", "散歩", "キャンプ"] },
-  { id: "work", label: "仕事・学び", words: ["仕事", "会社", "職場", "上司", "転職", "就活", "働", "勉強", "学校", "資格", "試験", "バイト", "副業", "キャリア", "スキル"] },
-  { id: "people", label: "人間関係", words: ["人間関係", "友達", "友人", "家族", "親", "恋愛", "恋人", "同僚", "先輩", "後輩", "頼", "相手", "距離感"] },
-  { id: "consult", label: "お悩み相談", words: ["悩み", "相談", "困って", "困った", "どうしたら", "モヤモヤ", "不安", "迷って", "やめたい", "向いてない"] },
-  { id: "talk", label: "あるある・もしも", words: ["もし", "あるある", "ルール", "失敗", "ヒヤ", "恥ずかし", "本音", "質問", "秘密", "ゆずれない", "事故"] },
+  { id: "game", label: "ゲーム", words: ["ゲーム", "RTA", "ガチャ", "ソシャゲ", "攻略", "ボス", "レベル", "プレイ", "対戦", "実況", "積みゲー", "RPG", "ホラゲ"] },
+  {
+    id: "food",
+    label: "食べもの",
+    words: ["料理", "ご飯", "ごはん", "食べ", "飲み", "レシピ", "鍋", "コンビニ", "スイーツ", "お菓子", "ラーメン", "カフェ", "味", "夜食", "グルメ", "お取り寄せ", "焦げ", "おやつ", "焼き鳥", "焼肉", "お店", "ドリンク", "パン", "デザート", "居酒屋", "ランチ", "弁当", "おにぎり", "寿司"],
+  },
+  { id: "oshi", label: "推し活", words: ["推し", "沼", "ライブ", "グッズ", "アイドル", "ファン", "布教", "遠征", "現場", "ぬい", "界隈", "聖地"] },
+  { id: "stream", label: "配信", words: ["配信", "リスナー", "コメント", "機材", "マイク", "視聴者", "コラボ", "VTuber", "企画", "照明", "OBS", "初見", "サムネ", "チャンネル", "登録者", "切り抜き"] },
+  { id: "music", label: "音楽・声", words: ["曲", "歌", "音楽", "カラオケ", "BGM", "バンド", "声", "音", "サビ", "ASMR", "プレイリスト", "イントロ", "楽器"] },
+  { id: "media", label: "アニメ・作品", words: ["アニメ", "漫画", "マンガ", "映画", "ドラマ", "小説", "作品", "キャラ", "声優", "読書", "本屋", "ミーム"] },
+  {
+    id: "life",
+    label: "暮らし・季節",
+    words: ["朝", "夜", "睡眠", "眠", "掃除", "洗濯", "生活", "ルーティン", "休日", "天気", "雨", "季節", "夏", "冬", "春", "秋", "部屋", "過ごし方", "習慣", "幸せ", "目標", "誕生日", "クリスマス", "年末年始", "ハロウィン", "片付け", "お風呂", "二度寝", "雪"],
+  },
+  { id: "shopping", label: "買い物・お金", words: ["買", "ガジェット", "100均", "節約", "お金", "値段", "高い", "安い", "欲しい", "課金", "セール", "通販", "サブスク", "ドラッグストア", "解約", "ポイント", "Amazon", "メルカリ", "家電"] },
+  {
+    id: "memory",
+    label: "思い出・地元",
+    words: ["思い出", "昔", "学生", "部活", "子ども", "子供", "初", "地元", "出身", "卒業", "懐かし", "なつかし", "方言", "イントネーション", "通学", "修学旅行", "給食", "上京", "帰省", "習い事", "夏休み", "アルバム", "実家"],
+  },
+  { id: "hobby", label: "趣味", words: ["趣味", "マイブーム", "コレクション", "旅行", "スポーツ", "運動", "ペット", "ぬいぐるみ", "散歩", "キャンプ", "始めた", "ひとり", "放置", "ダイエット", "筋トレ", "写真", "カメラ"] },
+  { id: "work", label: "仕事・学び", words: ["仕事", "会社", "職場", "上司", "転職", "就活", "働", "勉強", "学校", "資格", "試験", "バイト", "副業", "キャリア", "スキル", "面接", "残業", "テスト", "社会人"] },
+  { id: "people", label: "人間関係", words: ["人間関係", "友達", "友人", "家族", "親", "恋愛", "恋人", "同僚", "先輩", "後輩", "頼", "相手", "距離感", "デート", "初対面", "人見知り", "あだ名", "苗字", "自己紹介", "貸し借り", "ありがとう", "連絡"] },
+  { id: "consult", label: "お悩み相談", words: ["悩み", "相談", "困って", "困った", "どうしたら", "モヤモヤ", "不安", "迷って", "やめたい", "向いてない", "しんどい", "つらい", "やる気", "自信", "断れ", "断る"] },
+  { id: "talk", label: "あるある・もしも", words: ["もし", "あるある", "ルール", "失敗", "ヒヤ", "恥ずかし", "本音", "質問", "秘密", "ゆずれない", "事故", "二択", "黒歴史", "笑った", "口癖", "偶然", "やらかし", "萎える", "どっち"] },
   { id: "other", label: "その他", words: [] },
 ];
 
@@ -153,18 +165,40 @@ export function normalizeSeed(seed: string): string {
     .trim();
 }
 
-/** お題とそこから出た語の言葉から、いちばん近い分類を選ぶ（お題の言葉は2倍に数える） */
+/** 言葉が当たったときの点。長い（具体的な）言葉ほど重く、1文字の言葉（朝・夜・初…）は軽い */
+function wordWeight(word: string): number {
+  return Math.min([...word].length, 4);
+}
+
+/** お題名に当たった言葉の点は2倍にする。出てきた語に当たった分は、ここまでしか数えない */
+const SEED_HIT_FACTOR = 2;
+const TOPIC_SCORE_CAP = 4;
+/** お題名に当たる言葉が無い分類は、出てきた語にこれだけ当たらないと候補にしない */
+const TOPIC_ONLY_MIN_HITS = 2;
+
+/**
+ * お題とそこから出た語の言葉から、いちばん近い分類を選ぶ。
+ * 決め手はお題名。出てきた語（AI の返答）の言葉は補助で、お題名に当たらなかった分類は2つ以上当たらないと数えない
+ * （語に「配信」が1つ混ざっただけで、暮らしのお題が「配信」に入る、のようなずれを避けるため）。
+ */
 export function classifyTopic(seed: string, topics: string[] = []): CategoryId {
   const seedText = seed.normalize("NFKC");
   const topicText = topics.join(" ").normalize("NFKC");
   let best: CategoryId = "other";
   let bestScore = 0;
   for (const category of CATEGORIES) {
-    let score = 0;
+    let seedScore = 0;
+    let topicScore = 0;
+    let topicHits = 0;
     for (const word of category.words) {
-      if (seedText.includes(word)) score += 2;
-      if (topicText.includes(word)) score += 1;
+      if (seedText.includes(word)) seedScore += wordWeight(word);
+      if (topicText.includes(word)) {
+        topicScore += wordWeight(word);
+        topicHits += 1;
+      }
     }
+    if (seedScore === 0 && topicHits < TOPIC_ONLY_MIN_HITS) continue;
+    const score = seedScore * SEED_HIT_FACTOR + Math.min(topicScore, TOPIC_SCORE_CAP);
     if (score > bestScore) {
       best = category.id;
       bestScore = score;
@@ -190,6 +224,30 @@ export function similarity(a: string, b: string): number {
   let shared = 0;
   for (const gram of x) if (y.has(gram)) shared += 1;
   return (2 * shared) / (x.size + y.size);
+}
+
+/**
+ * どのお題にも付く言い回し（「〜の思い出」「〜の過ごし方」「〜あるある」「最近〜」など）。
+ * これが同じだけで「似たお題」とみなすと、別のお題の語を借りてしまう（「部活の思い出」に「給食の思い出」の語が混ざる）。
+ */
+const FRAME_PATTERN =
+  /の?思い出話?|の?過ごし方|あるある|(?:の|した|しちゃった)話|について|して(?:る|いる|た|いた)|最近|今週|今月|今年|今日|昔|いちばん|一番|好きな|苦手な|ちょっと(?:した)?|小さな|[、,]?ある$|どっち派/gu;
+
+function topicCore(text: string): string {
+  return normalizeSeed(text).replace(FRAME_PATTERN, "");
+}
+
+/**
+ * お題どうしの近さ（似たお題の語を借りる・検索で使う）。共通の言い回しを除いて比べ、
+ * 一方の中身がもう一方に丸ごと入っているとき（「部活」と「学生のころの部活…」）は、少し近いとみなす。0〜1
+ */
+export function topicSimilarity(a: string, b: string): number {
+  const x = topicCore(a);
+  const y = topicCore(b);
+  if (!x || !y) return 0;
+  const base = similarity(x, y);
+  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
+  return short.length >= 2 && long.includes(short) ? Math.max(base, 0.6) : base;
 }
 
 /** 1つのお題に持たせる語の上限（少ない回数のものから落とす） */
@@ -372,7 +430,7 @@ export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6, m
   const similar: RelatedEntry[] = [];
   for (const [entryKey, entry] of Object.entries(store)) {
     if (entryKey === key || entryMode(entry) !== mode) continue;
-    const base = similarity(seed, entry.seed);
+    const base = topicSimilarity(seed, entry.seed);
     // 同じ分類なら少しだけ近いとみなす（「その他」どうしは除く）
     const score = base + (category !== "other" && entry.category === category ? 0.12 : 0);
     if (score >= SIMILAR_THRESHOLD) similar.push({ entry, score: Math.min(score, 0.95), exact: false });
@@ -394,6 +452,11 @@ export function knowledgeDepth(store: KnowledgeStore, seed: string, mode: BoardM
   return Object.keys(store[knowledgeKey(seed, mode)]?.topics ?? {}).filter(isCardTopic).length;
 }
 
+/** お題自身の語が候補の数以上あるとき／半分以上あるときの、似たお題の語の重み（掛ける数）。深いときは、かなり似たお題だけ使う */
+const BORROW_WHEN_DEEP = 0.25;
+const BORROW_WHEN_HALF = 0.6;
+const BORROW_MIN_SCORE_WHEN_DEEP = 0.5;
+
 /**
  * 図鑑から候補を引く。お題そのものの語を重く、似たお題の語は似ている度合いで軽くして、
  * 重み付きでくじ引きする（毎回同じ並びにならないように）。盤面にある語とお題そのものは出さない。
@@ -408,10 +471,16 @@ export function suggestFromKnowledge(
 ): string[] {
   const banned = new Set([...exclude.map((item) => item.trim()), seed.trim()]);
   const weights = new Map<string, number>();
-  for (const { entry, score, exact } of relatedEntries(store, seed, 6, mode)) {
+  const related = relatedEntries(store, seed, 6, mode);
+  // お題自身の語が十分あるなら、似たお題の語は控えめに（借りた語は、そのお題の話からずれやすい）
+  const own = related.find((item) => item.exact);
+  const ownDepth = own ? Object.keys(own.entry.topics).filter(isCardTopic).length : 0;
+  const borrow = ownDepth >= count ? BORROW_WHEN_DEEP : ownDepth >= Math.ceil(count / 2) ? BORROW_WHEN_HALF : 1;
+  for (const { entry, score, exact } of related) {
+    if (!exact && ownDepth >= count && score < BORROW_MIN_SCORE_WHEN_DEEP) continue;
     for (const label of Object.keys(entry.topics)) {
       if (banned.has(label) || !isCardTopic(label)) continue;
-      const weight = (exact ? 3 : score) * Math.sqrt(topicScore(entry, label));
+      const weight = (exact ? 3 : score * borrow) * Math.sqrt(topicScore(entry, label));
       weights.set(label, (weights.get(label) ?? 0) + weight);
     }
   }
@@ -459,7 +528,7 @@ export function searchKnowledge(
     }
     const seedHit = normalizeSeed(entry.seed).includes(q);
     const matchedTopics = Object.keys(entry.topics).filter((label) => normalizeSeed(label).includes(q));
-    const near = similarity(query, entry.seed);
+    const near = topicSimilarity(query, entry.seed);
     if (!seedHit && matchedTopics.length === 0 && near < SIMILAR_THRESHOLD) continue;
     const score = (seedHit ? 10 : 0) + matchedTopics.length * 2 + near * 5 + popularity * 0.3;
     hits.push({ entry, score, matchedTopics });
