@@ -577,7 +577,8 @@ export function setLabel(
   return maybeLayout(
     touch(board, {
       nodes: board.nodes.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, label: trimmed } } : node,
+        // 文が変わったら別の話題なので、「話した」の印は外す
+        node.id === nodeId ? { ...node, data: { ...node.data, label: trimmed, talkedAt: undefined } } : node,
       ),
     }),
     densityOrPrefs,
@@ -593,9 +594,21 @@ export function pinNode(
 ): Board {
   const nextId = nodeId && board.pinnedNodeId === nodeId ? null : nodeId;
   const prefs = normalizePrefs(densityOrPrefs, overlay);
+  const previous = board.pinnedNodeId;
+  const now = Date.now();
   return maybeLayout(
     touch(board, {
       pinnedNodeId: nextId,
+      pinnedAt: nextId ? now : undefined,
+      // NOW を別のカードへ移した・外した＝前のカードは話し終えた（最初のお題はボードのテーマなので印を付けない）
+      nodes:
+        previous && previous !== nextId
+          ? board.nodes.map((node) =>
+              node.id === previous && !node.data.placeholder && node.data.parentId !== null
+                ? { ...node, data: { ...node.data, talkedAt: now } }
+                : node,
+            )
+          : board.nodes,
     }),
     { ...prefs, pinnedNodeId: nextId },
     overlay,

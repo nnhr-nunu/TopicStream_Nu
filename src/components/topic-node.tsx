@@ -11,6 +11,7 @@ import { StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { usePulsing } from "@/hooks/use-pulse-codes";
+import { useRouletteMark } from "@/hooks/use-roulette";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { appendToMemo } from "@/lib/explain";
 import { fitLabelFontSize } from "@/lib/fit-label";
@@ -120,6 +121,8 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       : "";
   const heartBurst = useChatHearts(code);
   const pulsing = usePulsing(code);
+  const roulette = useRouletteMark(id);
+  const talked = Boolean(data.talkedAt) && !isPinned && !data.placeholder && !isRoot;
   const family = data.familyIndex ?? 0;
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   // 「具体的にする」で出た答えのカードも、ふつうのカードと同じように広げられる
@@ -353,6 +356,12 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         </span>
       ) : null}
 
+      {talked ? (
+        <span className="topic-talked-ribbon" aria-hidden>
+          話した
+        </span>
+      ) : null}
+
       {data.memo && !data.placeholder && !overlay ? (
         <button
           type="button"
@@ -386,6 +395,9 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
           sentence && "topic-chip-detail",
           data.mixedFromId && "topic-chip-mix",
           pulsing && "topic-chip-pulse",
+          talked && "topic-chip-talked",
+          roulette === "spin" && "topic-chip-roulette",
+          roulette === "hit" && "topic-chip-roulette-hit",
         )}
         onPointerDown={(event) => {
           event.stopPropagation();

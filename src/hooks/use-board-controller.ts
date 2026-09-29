@@ -33,6 +33,8 @@ import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { nextBoardName } from "@/lib/ids";
 import { emptyBoard, exportSnapshot, parseImportedBoards } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
+import { pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
+import { setRouletteHighlight } from "@/hooks/use-roulette";
 import { boardMode, DEFAULT_MODE, pickModeStarter, isChatMode, withMode } from "@/lib/modes";
 import type { AppSnapshot, Board, BoardMode, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
 
@@ -170,6 +172,8 @@ export function useBoardController() {
   const [regenReadyAt, setRegenReadyAt] = useState(0);
   /** 「ずれている」の印を付けた語。盤面から消えても、このあと AI・図鑑から出し直さない */
   const rejectedRef = useRef(new Set<string>());
+  const spinningRef = useRef(false);
+  const [spinning, setSpinning] = useState(false);
 
   const persist = useCallback((next: AppSnapshot) => {
     writeBoardSnapshot(next);
@@ -701,6 +705,50 @@ export function useBoardController() {
     (nodeId: string | null) => updateBoard((board) => ops.focusNode(board, nodeId)),
     [updateBoard],
   );
+
+  /**
+   * 話題ルーレット: まだ話していないカードを順に光らせて、止まったカードを NOW にする。
+   * 視聴者のハートが多いカードほど当たりやすい。偶然選んだだけなので、図鑑の票には数えない
+   */
+  const spinRoulette = useCallback(async () => {
+    if (spinningRef.current) return;
+    const board = currentSnapshot().boards.find((item) => item.id === currentSnapshot().activeBoardId);
+    if (!board) return;
+    const candidates = rouletteCandidates(board);
+    const winner = pickWeighted(candidates);
+    if (!winner) {
+      toast.message(board.nodes.length > 1 ? "まだ話していないカードがありません" : "先にお題を広げてください", {
+        description: "カードを広げると、ルーレットで選べる話題が増えます",
+      });
+      return;
+    }
+    spinningRef.current = true;
+    setSpinning(true);
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    try {
+      for (const step of spinSequence(candidates, winner, Math.random, reduced)) {
+        setRouletteHighlight(step.id);
+        if (step.delay > 0) await new Promise((resolve) => window.setTimeout(resolve, step.delay));
+      }
+      setRouletteHighlight(winner.id, true);
+      // 回っている間にカードが消えていたら（戻した・作り直した）何もしない
+      const latest = currentSnapshot().boards.find((item) => item.id === board.id);
+      const landed = latest?.nodes.find((node) => node.id === winner.id);
+      if (!latest || !landed) return;
+      updateBoardById(board.id, (item) =>
+        ops.focusNode(
+          ops.pinNode(item, winner.id, prefsFromSettings(currentSnapshot().settings, false, winner.id)),
+          winner.id,
+        ),
+      );
+      toast.success(`次の話題は「${landed.data.label}」`, { duration: 4_000 });
+      await new Promise((resolve) => window.setTimeout(resolve, 1_600));
+    } finally {
+      setRouletteHighlight(null);
+      spinningRef.current = false;
+      setSpinning(false);
+    }
+  }, [updateBoardById]);
   const syncPositions = useCallback(
     (positions: Record<string, { x: number; y: number }>) =>
       updateBoard((board) => ops.syncPositions(board, positions)),
@@ -985,6 +1033,8 @@ export function useBoardController() {
     setLabel,
     pinNode,
     focusNode,
+    spinRoulette,
+    spinning,
     syncPositions,
     createBoard,
     duplicateBoard,

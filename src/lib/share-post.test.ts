@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import * as ops from "@/lib/board-ops";
 import { normalizePrefs } from "@/lib/node-box";
@@ -29,6 +29,18 @@ describe("X シェアの文面", () => {
   it("文例は話題を 4 つまで並べる", () => {
     const board = expandedBoard(["A", "B", "C", "D", "E", "F", "G", "H"]);
     expect(buildShareExample(board)).toBe("「夏休み」から雑談ネタを広げてみました💬\nA・B・C・D ほか");
+  });
+
+  it("配信で話した話題があれば、話した順に振り返る", () => {
+    let board = expandedBoard(["A", "B", "C", "D", "E"]);
+    const id = (label: string) => board.nodes.find((node) => node.data.label === label)!.id;
+    vi.useFakeTimers();
+    for (const [minute, label] of [[1, "C"], [2, "A"], [3, "E"]] as const) {
+      vi.setSystemTime(new Date(2026, 8, 29, 21, minute));
+      board = ops.pinNode(board, id(label), radial);
+    }
+    vi.useRealTimers();
+    expect(buildShareExample(board)).toBe("「夏休み」で雑談しました💬\n話したこと: C→A");
   });
 
   it("本文が空でもハッシュタグは必ず付く", () => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CircleHelp, Grid3x3, ListChecks } from "lucide-react";
+import { CircleHelp, Dices, Grid3x3, ListChecks } from "lucide-react";
 
 import { UsageGallery } from "@/components/usage-gallery";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,11 +40,16 @@ export function ModeDock({
   mode,
   onChange,
   expanded,
+  onRoulette,
+  spinning = false,
 }: {
   mode: ExpandMode;
   onChange: (mode: ExpandMode) => void;
   /** 一度でも広げたか（広げる前にヒントを出しても、触るカードが無いので） */
   expanded: boolean;
+  /** 話題ルーレット（まだ話していないカードから次の話題を選ぶ） */
+  onRoulette?: () => void;
+  spinning?: boolean;
 }) {
   const coarse = useCoarsePointer();
   const [helpOpen, setHelpOpen] = useState(false);
@@ -93,6 +98,20 @@ export function ModeDock({
             </button>
           ))}
         </div>
+        {onRoulette ? (
+          <button
+            type="button"
+            className="mode-dock-roulette"
+            onClick={onRoulette}
+            disabled={spinning || !expanded}
+            aria-label="話題ルーレット（まだ話していないカードから次の話題を選ぶ）"
+            title={expanded ? "まだ話していないカードから次の話題を選ぶ（N キー）" : "お題を広げると使えます"}
+            data-spinning={spinning || undefined}
+          >
+            <Dices className="size-4" aria-hidden />
+            <span className="mode-dock-roulette-text">ルーレット</span>
+          </button>
+        ) : null}
         <button
           type="button"
           className="mode-dock-help"

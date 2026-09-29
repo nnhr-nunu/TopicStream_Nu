@@ -113,6 +113,49 @@
   }
 }
 
+/* 話題ルーレット: まだ話していないカードから次の話題を選ぶ */
+.mode-dock-roulette {
+  display: inline-flex;
+  height: 2.9rem;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--now) 60%, var(--border));
+  background: color-mix(in oklab, var(--background) 80%, var(--now));
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0 1rem;
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 12%, transparent);
+  backdrop-filter: blur(10px);
+  transition: background 160ms ease;
+}
+.mode-dock-roulette:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--background) 62%, var(--now));
+}
+.mode-dock-roulette:disabled {
+  opacity: 0.55;
+}
+.mode-dock-roulette[data-spinning] svg {
+  animation: mode-dock-roulette-spin 0.5s linear infinite;
+}
+@keyframes mode-dock-roulette-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (max-width: 480px) {
+  .mode-dock-roulette {
+    width: 2.9rem;
+    justify-content: center;
+    padding: 0;
+  }
+  .mode-dock-roulette-text {
+    display: none;
+  }
+}
+
 @media (max-width: 380px) {
   .mode-dock-option {
     padding: 0 0.7rem;

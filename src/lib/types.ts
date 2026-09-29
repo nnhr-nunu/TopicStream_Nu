@@ -41,6 +41,8 @@ export type TopicNodeData = {
   detail?: boolean;
   /** 掛け合わせで作ったカード: 重ねて持ってきた側のカード（親 parentId は重ねた先） */
   mixedFromId?: string;
+  /** 話し終えた時刻（NOW を別のカードへ移した・外したとき）。ルーレットはこのカードを選ばない */
+  talkedAt?: number;
 };
 
 export type TNode = {
@@ -64,6 +66,8 @@ export type Board = {
   edges: TEdge[];
   pinnedNodeId: string | null;
   focusedNodeId: string | null;
+  /** NOW にした時刻（上の帯に「話している時間」を出す） */
+  pinnedAt?: number;
   /** 用途（未設定は雑談）。生成の指示・オフライン候補・図鑑に送るかが変わる */
   mode?: BoardMode;
 };

@@ -79,6 +79,8 @@ function asNode(value: unknown): TNode | null {
         ? node.data.spares.filter((item): item is string => typeof item === "string").slice(0, 12)
         : undefined,
       detail: node.data.detail === true ? true : undefined,
+      talkedAt:
+        typeof node.data.talkedAt === "number" && Number.isFinite(node.data.talkedAt) ? node.data.talkedAt : undefined,
     },
   };
 }
@@ -123,6 +125,8 @@ function asBoard(value: unknown): Board | null {
     nodes,
     edges,
     pinnedNodeId: board.pinnedNodeId && nodeIds.has(board.pinnedNodeId) ? board.pinnedNodeId : null,
+    pinnedAt:
+      board.pinnedNodeId && nodeIds.has(board.pinnedNodeId) && typeof board.pinnedAt === "number" ? board.pinnedAt : undefined,
     focusedNodeId: board.focusedNodeId && nodeIds.has(board.focusedNodeId) ? board.focusedNodeId : null,
     // 雑談（既定）は書かない。知らない値も雑談に戻す
     ...(isBoardMode(board.mode) && board.mode !== DEFAULT_MODE ? { mode: board.mode } : {}),
