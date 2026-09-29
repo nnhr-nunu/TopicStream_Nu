@@ -169,7 +169,7 @@ export function critterPaths(cards: CritterCard[]): CritterPaths {
   const outerX = [left - OUTER_MARGIN, right + OUTER_MARGIN];
   const outerY = [top - OUTER_MARGIN, bottom + OUTER_MARGIN];
   const byCell = new Map(cards.filter((card) => typeof card.cell === "number").map((card) => [card.cell!, card]));
-  if (byCell.size !== 9) return { xs: outerX, ys: outerY };
+  if (byCell.size !== 9) return alignedPaths(cards) ?? { xs: outerX, ys: outerY };
 
   const cellsIn = (pick: (cell: number) => boolean) => [...byCell.entries()].filter(([cell]) => pick(cell)).map(([, card]) => card);
   const between = (a: CritterCard[], b: CritterCard[], axis: "x" | "y") => {
@@ -182,6 +182,42 @@ export function critterPaths(cards: CritterCard[]): CritterPaths {
   return {
     xs: [outerX[0]!, between(column(0), column(1), "x"), between(column(1), column(2), "x"), outerX[1]!],
     ys: [outerY[0]!, between(row(0), row(1), "y"), between(row(1), row(2), "y"), outerY[1]!],
+  };
+}
+
+/** 左端（または上端）がそろったカードを、列（行）ごとにまとめる */
+function lines(cards: CritterCard[], axis: "x" | "y"): CritterCard[][] {
+  const out: CritterCard[][] = [];
+  for (const card of [...cards].sort((a, b) => a[axis] - b[axis])) {
+    const last = out.at(-1);
+    if (last && Math.abs(last[0]![axis] - card[axis]) <= 4) last.push(card);
+    else out.push([card]);
+  }
+  return out;
+}
+
+/**
+ * 3×3 のマス番号が無いカード（ほかの画面のカードの一覧など）でも、行と列がそろって欠けが無ければ、
+ * カードの間の溝と外周を道にする。外周はカードの間の溝の半分だけ離す（隣のカードに乗り上げないように）
+ */
+function alignedPaths(cards: CritterCard[]): CritterPaths | null {
+  const cols = lines(cards, "x");
+  const rows = lines(cards, "y");
+  if (cards.length < 2 || cols.length * rows.length !== cards.length) return null;
+  const between = (groups: CritterCard[][], axis: "x" | "y") =>
+    groups.slice(1).map((group, index) => {
+      const end = Math.max(...groups[index]!.map((card) => (axis === "x" ? card.x + card.w : card.y + card.h)));
+      const start = Math.min(...group.map((card) => card[axis]));
+      return { mid: (end + start) / 2, gap: start - end };
+    });
+  const inX = between(cols, "x");
+  const inY = between(rows, "y");
+  const gaps = [...inX, ...inY].map((item) => item.gap).filter((gap) => gap > 0);
+  const margin = gaps.length > 0 ? Math.min(OUTER_MARGIN, Math.min(...gaps) / 2) : OUTER_MARGIN;
+  const { left, top, right, bottom } = cardsBounds(cards);
+  return {
+    xs: [left - margin, ...inX.map((item) => item.mid), right + margin],
+    ys: [top - margin, ...inY.map((item) => item.mid), bottom + margin],
   };
 }
 

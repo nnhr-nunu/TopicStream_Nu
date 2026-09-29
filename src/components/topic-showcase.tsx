@@ -88,12 +88,12 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
         )}
       </div>
 
-      <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="relative mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-critter-garden>
         {hits.map(({ entry }) => {
           const liked = favs.includes(entry.seed);
           return (
             <li key={entry.seed}>
-              <article className="home-topic-card">
+              <article className="home-topic-card" data-critter-perch>
                 <p className="text-[11px] text-muted-foreground">{categoryLabel(entry.category)}</p>
                 <h3 className="mt-1 text-base leading-6 font-semibold break-words">{entry.seed}</h3>
                 <ul className="mt-2.5 flex flex-wrap gap-1.5">
