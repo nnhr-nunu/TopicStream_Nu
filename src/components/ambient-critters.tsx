@@ -38,8 +38,9 @@ function findSpot(rand: () => number): { garden: HTMLElement; perches: HTMLEleme
 const same = (a: CritterCard[], b: CritterCard[]) =>
   a.length === b.length && a.every((card, index) => Math.abs(card.x - b[index]!.x) + Math.abs(card.y - b[index]!.y) + Math.abs(card.w - b[index]!.w) < 2);
 
-const selectHidden = () => getBoardSnapshot().settings.hiddenCritters;
-const selectServerHidden = () => getServerBoardSnapshot().settings.hiddenCritters;
+// 配列は store の書き込みごとに作り直されることがあるので、文字列にして比べる（変わるたびに来ている子が帰らないように）
+const selectHidden = () => getBoardSnapshot().settings.hiddenCritters.join(",");
+const selectServerHidden = () => getServerBoardSnapshot().settings.hiddenCritters.join(",");
 
 /**
  * トップ・図鑑などのカードの一覧に、時々動物が遊びに来る（かわいい絵だけ。しばらく遊ぶと帰って、少しして別の子が来る）。
@@ -85,10 +86,10 @@ export function AmbientCritters() {
     };
 
     function arrive() {
-      const kind = pinned ?? pickAmbientKind(hidden, rand, last);
+      const kind = pinned ?? pickAmbientKind(hidden.split(","), rand, last);
       const spot = document.hidden || !kind ? null : findSpot(rand);
       if (!kind || !spot) {
-        wait(pinned ? 1000 : 5000, arrive);
+        wait(1000, arrive);
         return;
       }
       last = kind;
