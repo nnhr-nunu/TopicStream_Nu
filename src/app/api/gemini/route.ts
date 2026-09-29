@@ -15,6 +15,7 @@ import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
+import { looksAbusive } from "@/lib/public-text";
 import { isArchived } from "@/lib/topic-archive";
 import type { BoardMode, GeminiDebug, GeminiUsage } from "@/lib/types";
 
@@ -84,6 +85,9 @@ async function generate(
   };
   const mock = () =>
     detail ? mockDetailTopics(seed, existing, count, mode, context) : mockRelatedTopics(seed, existing, count, preferred, { context, mode });
+
+  // 人を傷つける言葉のお題は AI に広げさせず、図鑑にも残さない（ホームでは始める前に止めている）
+  if (looksAbusive(seed)) return { topics: mock(), source: "mock" };
 
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });

@@ -1,6 +1,6 @@
 import type { CatalogBoard } from "@/lib/catalog-data";
 import { LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
-import { looksPersonal } from "@/lib/personal-text";
+import { isPublicSafe } from "@/lib/public-text";
 import type { Board, TEdge, TNode } from "@/lib/types";
 
 /**
@@ -51,19 +51,19 @@ function isDefaultName(name: string): boolean {
   return /^\d{1,2}月\d{1,2}日の雑談$/.test(name) || /^新しいボード/.test(name);
 }
 
-/** 載せられる形にする（メモを外し、個人につながりそうな語があれば載せない） */
+/** 載せられる形にする（メモを外し、個人につながりそうな語・人を傷つける語があれば載せない） */
 export function toCommunityBoard(board: Board, id: string, now = Date.now()): CommunityBoard | null {
   if (!isWellUsed(board)) return null;
   const nodes = realNodes(board).slice(0, NODE_LIMIT);
   const root = nodes.find((node) => node.data.parentId === null);
   if (!root) return null;
-  if (nodes.some((node) => looksPersonal(node.data.label))) return null;
+  if (nodes.some((node) => !isPublicSafe(node.data.label))) return null;
   const ids = new Set(nodes.map((node) => node.id));
   const rootLabel = root.data.label.trim().slice(0, ROOT_LABEL_MAX);
   const name = board.name.trim();
   return {
     id,
-    name: !name || isDefaultName(name) || looksPersonal(name) ? rootLabel : name.slice(0, 40),
+    name: !name || isDefaultName(name) || !isPublicSafe(name) ? rootLabel : name.slice(0, 40),
     root: rootLabel,
     nodes: nodes.map((node) => ({
       id: node.id,
@@ -106,6 +106,8 @@ export function rankCommunityBoards(
   now = Date.now(),
 ): CatalogBoard[] {
   const scored = boards
+    // 判定を強めたあとも、前に載ったボードが出続けないよう読むときにも見る
+    .filter((board) => isPublicSafe(board.name) && board.nodes.every((node) => isPublicSafe(node.data.label)))
     .map((board) => ({ board, favorites: favorites[board.id] ?? 0 }))
     .map((item) => ({ ...item, score: communityScore(item.board, item.favorites, now) }))
     .sort((a, b) => b.score - a.score);

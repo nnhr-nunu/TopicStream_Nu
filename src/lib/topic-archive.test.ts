@@ -30,6 +30,17 @@ describe("topic-archive", () => {
     expect(entry.picks).toBeUndefined();
     expect(Object.values(shown).some((item) => item.seed === "衝動買いしたもの")).toBe(false);
   });
+
+  it("前に記録された、人を傷つける語・個人につながる語も読むときに隠す（重い悩みは残す）", () => {
+    let store = recordTopics({}, "死にたい", ["話を聞いてくれる人", "あいつ死ね"], 0, 1, "advice");
+    store = recordTopics(store, "住所を晒す", ["特定の方法"], 0);
+    store = recordPick(store, "休日の過ごし方", "090-1234-5678", "edit");
+
+    const shown = Object.values(withoutArchived(store));
+    expect(Object.keys(shown.find((item) => item.seed === "死にたい")!.topics)).toEqual(["話を聞いてくれる人"]);
+    expect(shown.some((item) => item.seed === "住所を晒す")).toBe(false);
+    expect(shown.some((item) => item.seed === "休日の過ごし方")).toBe(false);
+  });
 });
 
 describe("図鑑の棚卸し（公開前）", () => {
