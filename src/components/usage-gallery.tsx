@@ -9,14 +9,10 @@ const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 /**
  * できること（操作の説明はしない。触れば分かるので）。
+ * お題を入れるところはホームの見出しと同じ画面なので載せず、始めたあとに起きることだけ見せる。
  * 画像は scripts/capture-guide.mjs で撮り直せる（public/guide/）
  */
 export const USAGE_STEPS = [
-  {
-    image: "start",
-    title: "お題を1つ入れるだけ",
-    body: "話したいことを入れるか、おすすめのお題から選びます。",
-  },
   {
     image: "expand",
     title: "話題が 8 方向に広がる",
