@@ -92,6 +92,8 @@ export type Settings = {
   hiddenCritters: string[];
   /** 待ち時間の動物の絵のタッチ（mix はおまかせ、cute はカードの上や間、real はカードの中） */
   critterStyle: "mix" | "cute" | "real";
+  /** NOW の帯に、その話題を話している時間を出す（既定はオフ） */
+  showElapsed: boolean;
 };
 
 export type ExpandMode = "abstract" | "detail";

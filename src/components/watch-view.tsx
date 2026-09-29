@@ -180,10 +180,7 @@ export function WatchView({ shareId }: { shareId: string }) {
             </Button>
           </div>
         </header>
-        <PinBanner
-          label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""}
-          since={board.pinnedAt}
-        />
+        <PinBanner label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""} />
         <BoardCanvas board={viewBoard} overlay layout={layout} onFocus={setLocalFocus} />
       </div>
     </BoardActionsProvider>
