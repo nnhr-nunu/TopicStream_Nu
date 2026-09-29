@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useSettled } from "@/hooks/use-settled";
 import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import { emitChatHearts } from "@/lib/live-hearts";
@@ -89,8 +90,11 @@ export function LiveChatDock({
     logEnd.current?.scrollIntoView({ block: "end" });
   }, [log, showComments]);
 
+  // URL 欄の入力途中（twitch.tv/n → /nu → …）で毎回つなぎ直さない
+  const connectUrl = useSettled(streamUrl, 700);
+
   useEffect(() => {
-    const ref = parseStreamUrl(streamUrl);
+    const ref = parseStreamUrl(connectUrl);
     if (!ref) return;
     let cancelled = false;
     let timer: number | undefined;
@@ -113,16 +117,19 @@ export function LiveChatDock({
           ws?.send(`JOIN #${ref.channel.toLowerCase()}`);
         };
         ws.onmessage = (event) => {
-          const raw = String(event.data);
-          if (raw.startsWith("PING")) {
-            ws?.send("PONG :tmi.twitch.tv");
-            return;
+          // 1 回の受信に複数のコメント（と PING）が改行区切りで入ってくる
+          for (const line of String(event.data).split(/\r?\n/)) {
+            if (!line) continue;
+            if (line.startsWith("PING")) {
+              ws?.send("PONG :tmi.twitch.tv");
+              continue;
+            }
+            if (/ JOIN #/.test(line) || / 366 /.test(line)) {
+              setLive({ phase: "live", message: `Twitch #${ref.channel} のチャットを読んでいます。` });
+            }
+            const match = line.match(/PRIVMSG #[^ ]+ :(.+)/);
+            if (match?.[1]) applyText(match[1].trim());
           }
-          if (/ JOIN #/.test(raw) || / 366 /.test(raw)) {
-            setLive({ phase: "live", message: `Twitch #${ref.channel} のチャットを読んでいます。` });
-          }
-          const match = raw.match(/PRIVMSG #[^ ]+ :(.+)/);
-          if (match?.[1]) applyText(match[1].trim());
         };
         ws.onclose = () => {
           if (cancelled) return;
@@ -141,17 +148,25 @@ export function LiveChatDock({
     let token = "";
     let liveChatId = "";
     let quotaNoticed = false;
+    // つないだ直後に届くのは過去のコメント。読み直すたびにハートを数え直さないよう、既読にするだけ
+    let primed = false;
     const poll = async () => {
       try {
         const response = await fetch("/api/chat/youtube", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: streamUrl, pageToken: token || undefined, liveChatId: liveChatId || undefined }),
+          body: JSON.stringify({ url: connectUrl, pageToken: token || undefined, liveChatId: liveChatId || undefined }),
+          signal: AbortSignal.timeout(15_000),
         });
         if (cancelled) return;
-        if (!response.ok) {
+        if (response.status === 404 || response.status === 405) {
           // GitHub Pages（静的な公開版）にはサーバーが無い
           setLive({ phase: "error", message: "この公開版では YouTube のチャットを読めません。テストコメントで試せます。" });
+          return;
+        }
+        if (!response.ok) {
+          setLive({ phase: "error", message: "YouTube のチャットを読めませんでした。少しして読み直します。" });
+          later(() => void poll(), response.status === 429 ? 60_000 : 20_000);
           return;
         }
         const json = (await response.json()) as {
@@ -163,6 +178,7 @@ export function LiveChatDock({
           warning?: string;
           retryMs?: number;
         };
+        if (cancelled) return;
         liveChatId = json.liveChatId ?? "";
         if (json.problem) {
           token = "";
@@ -176,11 +192,13 @@ export function LiveChatDock({
         }
         setLive({ phase: "live", message: "YouTube のチャットを読んでいます。" });
         token = json.nextPageToken ?? token;
+        if (seen.current.size > 5_000) seen.current = new Set([...seen.current].slice(-1_000));
         for (const message of json.messages ?? []) {
           if (!message.id || seen.current.has(message.id)) continue;
           seen.current.add(message.id);
-          applyText(message.text);
+          if (primed) applyText(message.text);
         }
+        primed = true;
         later(() => void poll(), json.pollingMs ?? 8_000);
       } catch {
         if (cancelled) return;
@@ -193,7 +211,7 @@ export function LiveChatDock({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [applyText, streamUrl]);
+  }, [applyText, connectUrl]);
 
   const linkedLabel = !streamRef
     ? "配信と連携"

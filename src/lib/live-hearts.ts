@@ -1,12 +1,16 @@
+import { asStringList, createLiveBus } from "@/lib/live-bus";
+
 export type ChatHeartSpark = {
   codes: string[];
   count: number;
-  /** 送ったタブ。同じタブには window イベントで届くので、BroadcastChannel 側では無視する。 */
-  from?: string;
 };
 
-const CHANNEL = "topicstream-nu-hearts";
-const TAB_ID = Math.random().toString(36).slice(2);
+const bus = createLiveBus<ChatHeartSpark>("topicstream-nu-hearts", (data) => {
+  const spark = data as Partial<ChatHeartSpark> | null;
+  const codes = asStringList(spark?.codes);
+  const count = Number(spark?.count);
+  return codes && Number.isFinite(count) && count >= 1 ? { codes, count: Math.min(999, Math.round(count)) } : null;
+});
 
 /** 配信者のハート（クリック）とコメントで届いたハートを1つの数にまとめる。 */
 export function totalHearts(data: { heartCount?: number; frameHearts?: number }): number {
@@ -21,36 +25,10 @@ export function formatHeartCount(total: number): string {
 }
 
 export function emitChatHearts(codes: string[], count = 1) {
-  if (typeof window === "undefined" || codes.length === 0 || count < 1) return;
-  const spark: ChatHeartSpark = { codes, count: Math.round(count), from: TAB_ID };
-  window.dispatchEvent(new CustomEvent("topicstream-hearts", { detail: spark }));
-  try {
-    new BroadcastChannel(CHANNEL).postMessage(spark);
-  } catch {
-    /* ignore */
-  }
+  if (codes.length === 0 || count < 1) return;
+  bus.emit({ codes, count: Math.round(count) });
 }
 
 export function subscribeChatHearts(onSpark: (spark: ChatHeartSpark) => void): () => void {
-  if (typeof window === "undefined") return () => undefined;
-  const local = (event: Event) => {
-    const spark = (event as CustomEvent<ChatHeartSpark>).detail;
-    if (spark?.codes?.length) onSpark(spark);
-  };
-  window.addEventListener("topicstream-hearts", local);
-  let channel: BroadcastChannel | null = null;
-  try {
-    channel = new BroadcastChannel(CHANNEL);
-    channel.onmessage = (event) => {
-      const spark = event.data as ChatHeartSpark;
-      if (spark?.from === TAB_ID) return;
-      if (spark?.codes?.length) onSpark(spark);
-    };
-  } catch {
-    channel = null;
-  }
-  return () => {
-    window.removeEventListener("topicstream-hearts", local);
-    channel?.close();
-  };
+  return bus.subscribe(onSpark);
 }

@@ -77,8 +77,12 @@ export function TopicPreviewDialog({
                 copyLabel: async (id) => {
                   const label = board.nodes.find((node) => node.id === id)?.data.label;
                   if (!label) return;
-                  await navigator.clipboard.writeText(label);
-                  toast.success(`「${label}」をコピーしました`);
+                  try {
+                    await navigator.clipboard.writeText(label);
+                    toast.success(`「${label}」をコピーしました`);
+                  } catch {
+                    toast.error("コピーできませんでした");
+                  }
                 },
                 overlay: true,
                 viewer: true,

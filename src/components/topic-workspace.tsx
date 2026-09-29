@@ -43,6 +43,8 @@ export function TopicWorkspace() {
 
   useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
 
+  // ホーム画面の裏にあるボードをキーで動かさない
+  const onBoard = Boolean(controller.hydrated && board && !atHome && board.nodes.length > 0);
   useHotkeys({
     expand: () => {
       if (focusedId) void controller.expandNode(focusedId);
@@ -61,7 +63,7 @@ export function TopicWorkspace() {
     copy: () => {
       if (focusedId) void controller.copyLabel(focusedId);
     },
-  });
+  }, onBoard);
 
   if (!controller.hydrated || !board || !settings) {
     return (
@@ -133,8 +135,7 @@ export function TopicWorkspace() {
           onDelete={controller.deleteBoard}
           onExport={controller.exportJson}
           onImport={(text) => {
-            setAtHome(false);
-            controller.importJson(text);
+            if (controller.importJson(text)) setAtHome(false);
           }}
           onUndo={controller.undo}
           onRedo={controller.redo}

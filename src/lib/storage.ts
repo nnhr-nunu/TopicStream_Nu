@@ -29,21 +29,24 @@ export function defaultSnapshot(): AppSnapshot {
   };
 }
 
+/** 1 ボードのカードの上限（壊れたデータ・送られてきた巨大なデータで固まらないように） */
+const MAX_NODES = 800;
+
 function asNode(value: unknown): TNode | null {
   if (!value || typeof value !== "object") return null;
   const node = value as TNode;
   if (typeof node.id !== "string" || !node.position || !node.data) return null;
   if (node.data.placeholder) return null;
   return {
-    id: node.id,
+    id: node.id.slice(0, 64),
     position: {
       x: Number(node.position.x) || 0,
       y: Number(node.position.y) || 0,
     },
     data: {
-      label: String(node.data.label ?? ""),
-      memo: String(node.data.memo ?? ""),
-      parentId: node.data.parentId ?? null,
+      label: String(node.data.label ?? "").slice(0, 160),
+      memo: String(node.data.memo ?? "").slice(0, 4000),
+      parentId: typeof node.data.parentId === "string" ? node.data.parentId : null,
       expanded: Boolean(node.data.expanded),
       expanding: false,
       depth: Number(node.data.depth) || 0,
@@ -75,8 +78,21 @@ function asNode(value: unknown): TNode | null {
       spares: Array.isArray(node.data.spares)
         ? node.data.spares.filter((item): item is string => typeof item === "string").slice(0, 12)
         : undefined,
+      detail: node.data.detail === true ? true : undefined,
     },
   };
+}
+
+/**
+ * 広げている途中で閉じた・読み込み直したボードは、空のカード（…）だけが保存されずに消える。
+ * 中身の無い 3×3 の中央（写し）は外し、子の無いカードは「まだ広げていない」に戻す（もう一度広げられるように）
+ */
+function repairUnfinished(nodes: TNode[]): TNode[] {
+  const hasKids = (list: TNode[], id: string) => list.some((node) => node.data.parentId === id && !node.data.mixedFromId);
+  const kept = nodes.filter((node) => !node.data.copiedFromId || hasKids(nodes, node.id));
+  return kept.map((node) =>
+    node.data.expanded && !hasKids(kept, node.id) ? { ...node, data: { ...node.data, expanded: false } } : node,
+  );
 }
 
 function asEdge(value: unknown): TEdge | null {
@@ -90,14 +106,18 @@ function asBoard(value: unknown): Board | null {
   if (!value || typeof value !== "object") return null;
   const board = value as Board;
   if (typeof board.id !== "string" || typeof board.name !== "string") return null;
-  const nodes = (Array.isArray(board.nodes) ? board.nodes : []).map(asNode).filter((node): node is TNode => Boolean(node));
+  const nodes = repairUnfinished(
+    (Array.isArray(board.nodes) ? board.nodes.slice(0, MAX_NODES) : [])
+      .map(asNode)
+      .filter((node): node is TNode => Boolean(node)),
+  );
   const nodeIds = new Set(nodes.map((node) => node.id));
   const edges = (Array.isArray(board.edges) ? board.edges : [])
     .map(asEdge)
     .filter((edge): edge is TEdge => Boolean(edge && nodeIds.has(edge.source) && nodeIds.has(edge.target)));
   return {
-    id: board.id,
-    name: board.name || todayBoardName(),
+    id: board.id.slice(0, 64),
+    name: board.name.slice(0, 60) || todayBoardName(),
     createdAt: Number(board.createdAt) || Date.now(),
     updatedAt: Number(board.updatedAt) || Date.now(),
     nodes,
@@ -165,6 +185,14 @@ export function parseSnapshot(raw: unknown): AppSnapshot {
     activeBoardId,
     settings: asSettings(data.settings, version),
   };
+}
+
+/** 書き出した JSON を読み込む。使えるボードが 1 つも無ければ null（今のボードを消さない） */
+export function parseImportedBoards(raw: unknown): Board[] | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as Partial<AppSnapshot>;
+  const boards = (Array.isArray(data.boards) ? data.boards : []).map(asBoard).filter((board): board is Board => Boolean(board));
+  return boards.length > 0 ? boards : null;
 }
 
 export function loadSnapshot(): AppSnapshot {

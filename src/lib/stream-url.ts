@@ -10,10 +10,33 @@ const YOUTUBE_HOSTS = new Set([
   "studio.youtube.com",
 ]);
 
+/** Twitch のユーザー名は英数字と _ で 4〜25 文字 */
+const TWITCH_CHANNEL = /^[A-Za-z0-9_]{4,25}$/;
+const TWITCH_NESTED = new Set(["popout", "moderator", "embed", "u"]);
+const TWITCH_RESERVED = new Set([
+  "videos",
+  "directory",
+  "settings",
+  "search",
+  "downloads",
+  "subscriptions",
+  "inventory",
+  "wallet",
+  "drops",
+  "friends",
+  "messages",
+  "turbo",
+  "prime",
+  "login",
+  "signup",
+  "following",
+]);
+
 function takeVideoId(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const id = value.split(/[/?#]/)[0];
-  return id && YOUTUBE_VIDEO_ID.test(id) ? id : undefined;
+  // embed/live_stream?channel=… は動画 ID ではない（11 文字なので形だけでは見分けられない）
+  return id && id !== "live_stream" && YOUTUBE_VIDEO_ID.test(id) ? id : undefined;
 }
 
 function youtubeVideoId(url: URL, host: string): string | undefined {
@@ -45,9 +68,11 @@ export function parseStreamUrl(raw: string): StreamRef | null {
     const videoId = youtubeVideoId(url, host);
     if (videoId) return { kind: "youtube", videoId, url: url.toString() };
   }
-  if (host === "twitch.tv" || host === "m.twitch.tv") {
-    const channel = url.pathname.split("/").filter(Boolean)[0];
-    if (channel && !["videos", "directory", "settings"].includes(channel.toLowerCase())) {
+  if (host === "twitch.tv" || host === "m.twitch.tv" || host === "dashboard.twitch.tv") {
+    const parts = url.pathname.split("/").filter(Boolean);
+    // チャットのポップアウト（/popout/名前/chat）・モデレーター画面・埋め込み・配信マネージャー（/u/名前/…）は 2 番目が配信者名
+    const channel = TWITCH_NESTED.has(parts[0]?.toLowerCase() ?? "") ? parts[1] : parts[0];
+    if (channel && TWITCH_CHANNEL.test(channel) && !TWITCH_RESERVED.has(channel.toLowerCase())) {
       return { kind: "twitch", channel, url: url.toString() };
     }
   }

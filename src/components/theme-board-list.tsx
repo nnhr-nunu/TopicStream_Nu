@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, Heart, Search, Share2, Users } from "lucide-react";
 
 import { CatalogPreviewDialog } from "@/components/catalog-preview-dialog";
@@ -35,6 +35,10 @@ export function ThemeBoardList({
   const [loaded, setLoaded] = useState(Boolean(initialBoards));
   // 検索前の件数。0 件なら検索欄を隠し、「これから増えます」の案内だけ出す
   const [total, setTotal] = useState(initialBoards?.length ?? 0);
+  /** 絞り込む前の全件（サーバーに聞けないときは、ここから探す） */
+  const allBoards = useRef<CatalogBoard[]>(initialBoards ?? []);
+  /** 最後に打った検索だけを画面に出す（遅れて届いた古い検索の答えで上書きしない） */
+  const searchSeq = useRef(0);
 
   useEffect(() => {
     if (initialBoards) return;
@@ -44,6 +48,7 @@ export function ThemeBoardList({
       .then((json: { boards?: CatalogBoard[] }) => {
         if (cancelled) return;
         setBoards(json.boards ?? []);
+        allBoards.current = json.boards ?? [];
         setTotal(json.boards?.length ?? 0);
         setLoaded(true);
       })
@@ -61,17 +66,20 @@ export function ThemeBoardList({
 
   async function runSearch(value: string) {
     setQuery(value);
+    const seq = ++searchSeq.current;
     setSearching(true);
-    const fallback = initialBoards ?? boards;
+    // 打っている途中の 1 文字ごとには聞かない
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    if (seq !== searchSeq.current) return;
     try {
       const response = await fetch(`/api/catalog?q=${encodeURIComponent(value)}`);
       if (!response.ok) throw new Error("catalog");
       const json = (await response.json()) as { boards: CatalogBoard[] };
-      setBoards(json.boards);
+      if (seq === searchSeq.current) setBoards(json.boards);
     } catch {
-      setBoards(searchCatalog(fallback, value));
+      if (seq === searchSeq.current) setBoards(searchCatalog(allBoards.current, value));
     } finally {
-      setSearching(false);
+      if (seq === searchSeq.current) setSearching(false);
     }
   }
 

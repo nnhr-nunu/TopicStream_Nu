@@ -295,9 +295,15 @@ function RegenerateButton({
   const [now, setNow] = useState(() => Date.now());
   const cooling = spares === 0 && readyAt > now;
   useEffect(() => {
-    if (!open || spares > 0 || readyAt <= Date.now()) return;
+    if (!open) return;
+    // 開いたときに今の時刻で数え直す（閉じている間に待ちが終わっていることがある）
+    const first = window.setTimeout(() => setNow(Date.now()), 0);
+    if (spares > 0 || readyAt <= Date.now()) return () => window.clearTimeout(first);
     const timer = window.setInterval(() => setNow(Date.now()), 500);
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearTimeout(first);
+      window.clearInterval(timer);
+    };
   }, [open, spares, readyAt]);
   const seconds = Math.max(1, Math.ceil((readyAt - now) / 1000));
   const label = cooling

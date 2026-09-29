@@ -33,7 +33,8 @@ export function StickyNotePanel({
   const [seen, setSeen] = useState({ open, value });
   if (open !== seen.open || value !== seen.value) {
     setSeen({ open, value });
-    if (open) setDraft(value);
+    // 開いたときに今の付箋を読む。開いている間に解説が届いたら、書きかけていなければ差し替える（書きかけは消さない）
+    if (open && (!seen.open || draft === seen.value)) setDraft(value);
   }
 
   function commit() {
@@ -61,7 +62,16 @@ export function StickyNotePanel({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 閉じたときにカードのメニューへフォーカスを戻さない（メニューが開いたまま残るため） */}
-      <DialogContent className="sm:max-w-md" showCloseButton finalFocus={false}>
+      <DialogContent
+        className="sm:max-w-md"
+        showCloseButton
+        finalFocus={false}
+        // 画面の外（body）に出ていても React のイベントはカードへ伝わる。付箋を長押ししても裏のカードを持ち上げない
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
         <DialogHeader>
           <DialogTitle>📝 {title || "付箋"}</DialogTitle>
           <DialogDescription>

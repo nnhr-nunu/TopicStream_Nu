@@ -22,10 +22,37 @@ function load() {
   try {
     const raw = window.localStorage.getItem(KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    if (parsed && typeof parsed === "object") histories = parsed as Record<string, BoardHistory>;
+    if (parsed && typeof parsed === "object") histories = validHistories(parsed as Record<string, unknown>);
   } catch {
     histories = {};
   }
+}
+
+function isEntry(value: unknown): value is HistoryEntry {
+  const entry = value as HistoryEntry | null;
+  return Boolean(
+    entry &&
+      typeof entry.parentId === "string" &&
+      Array.isArray(entry.childIds) &&
+      Array.isArray(entry.edgeIds) &&
+      Array.isArray(entry.nodes) &&
+      Array.isArray(entry.edges) &&
+      (entry.replaced === undefined || isEntry(entry.replaced)),
+  );
+}
+
+/** 壊れた履歴で「戻す」が落ちないよう、形の合わないものは捨てる */
+function validHistories(raw: Record<string, unknown>): Record<string, BoardHistory> {
+  const result: Record<string, BoardHistory> = {};
+  for (const [id, value] of Object.entries(raw)) {
+    const item = value as Partial<BoardHistory> | null;
+    if (!item || typeof item !== "object") continue;
+    result[id] = {
+      undo: Array.isArray(item.undo) ? item.undo.filter(isEntry) : [],
+      redo: Array.isArray(item.redo) ? item.redo.filter(isEntry) : [],
+    };
+  }
+  return result;
 }
 
 /** 大きすぎるときは、どのボードも古い方から半分ずつ捨てていく */
