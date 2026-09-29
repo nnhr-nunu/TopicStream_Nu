@@ -168,6 +168,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
     expandMode: settings.expandMode === "detail" ? "detail" : "abstract",
     hiddenCritters: Array.isArray(settings.hiddenCritters) ? settings.hiddenCritters.filter(isCritterKind) : [],
     critterStyle: settings.critterStyle === "cute" || settings.critterStyle === "real" ? settings.critterStyle : "mix",
+    showElapsed: settings.showElapsed === true,
   };
 }
 

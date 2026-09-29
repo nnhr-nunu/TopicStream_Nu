@@ -191,7 +191,7 @@ export function TopicWorkspace() {
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >
-              <PinBanner label={pinnedLabel} since={board.pinnedAt} />
+              <PinBanner label={pinnedLabel} since={settings.showElapsed ? board.pinnedAt : undefined} />
               <BoardCanvas
                 board={board}
                 layout={settings.generationLayout}

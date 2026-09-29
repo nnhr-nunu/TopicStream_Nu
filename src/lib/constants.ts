@@ -59,6 +59,7 @@ export const DEFAULT_SETTINGS = {
   expandMode: "abstract" as const,
   hiddenCritters: [] as string[],
   critterStyle: "mix" as const,
+  showElapsed: false,
 };
 
 export const RADIUS = {

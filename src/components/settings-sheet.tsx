@@ -22,6 +22,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { loadAiUsage, subscribeAiUsage, type AiUsageDay } from "@/lib/ai-usage";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
@@ -193,6 +194,13 @@ export function SettingsSheet({
           </Section>
 
           <Section icon={<Users />} title="配信" description="配信URLは画面下の「配信と連携」から設定します。">
+            <Row label="経過時間" htmlFor="show-elapsed" hint="NOW の帯に、その話題を話している時間を出します。">
+              <Switch
+                id="show-elapsed"
+                checked={settings.showElapsed}
+                onCheckedChange={(showElapsed) => onPatch({ showElapsed })}
+              />
+            </Row>
             <Row label="コメントの文字">
               <div className="flex items-center gap-2">
                 <Slider
