@@ -246,7 +246,7 @@ export function TopicDatabase() {
             : "見つかりませんでした。別の言葉で探すか、ホームでこのお題を広げてみてください。"}
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="relative grid gap-3 sm:grid-cols-2" data-critter-garden>
           {hits.map((hit) => {
             const topics = rankedTopics(hit.entry, 14);
             const q = normalizeSeed(query);
@@ -254,7 +254,7 @@ export function TopicDatabase() {
             const mix = splitMix(hit.entry.seed);
             return (
               <li key={`${mode}|${hit.entry.seed}`}>
-                <article className="home-topic-card">
+                <article className="home-topic-card" data-critter-perch>
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">
                       {mix ? (

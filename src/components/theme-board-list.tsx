@@ -123,12 +123,12 @@ export function ThemeBoardList({
           該当するボードがありません。別の言葉で探してみてください。
         </p>
       ) : (
-        <ul className={cn("grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")}>
+        <ul className={cn("relative grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")} data-critter-garden>
           {shown.map((board) => {
             const liked = favorites.includes(board.id);
             return (
               <li key={board.id}>
-                <Card className="h-full border-border/70 bg-card/80 shadow-sm">
+                <Card className="h-full border-border/70 bg-card/80 shadow-sm" data-critter-perch>
                   <CardHeader>
                     <CardTitle className="flex items-start justify-between gap-2 text-base">
                       <span>{board.name}</span>

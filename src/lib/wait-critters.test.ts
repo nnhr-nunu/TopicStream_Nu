@@ -174,6 +174,13 @@ describe("道", () => {
     expect(ys).toHaveLength(2);
   });
 
+  it("マス番号が無くても、行と列がそろったカードの一覧なら溝と外周を通る（外周は溝の半分だけ離す）", () => {
+    const list = Array.from({ length: 6 }, (_, index) => ({ x: (index % 3) * 112, y: Math.floor(index / 3) * 92, w: 100, h: 80 }));
+    const { xs, ys } = critterPaths(list);
+    expect(xs).toEqual([-6, 106, 218, 330]);
+    expect(ys).toEqual([-6, 86, 178]);
+  });
+
   it("格子の隣の角へ進み、行き止まりでなければ来た道を戻らない", () => {
     const paths = critterPaths(grid());
     const rand = seeded();

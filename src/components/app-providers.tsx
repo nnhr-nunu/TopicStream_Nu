@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
+import { AmbientCritters } from "@/components/ambient-critters";
 import { ColorThemeSync } from "@/components/color-theme-sync";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -24,6 +25,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
       <ColorThemeSync />
       {children}
       <ThemedToaster />
+      <AmbientCritters />
     </TooltipProvider>
   );
 }
