@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen, Eye } from "lucide-react";
 
 import { HeartButton } from "@/components/heart-button";
 import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
@@ -103,12 +103,13 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
                   </div>
                   <HeartButton liked={liked} count={entryPicks(entry)} onToggle={() => toggleFavoriteTopic(entry.seed)} />
                 </div>
-                {/* 3列のときカードが狭いので、アイコンを減らして2つのボタンを1行に収める */}
-                <div className="mt-auto flex items-center gap-1.5 pt-3">
-                  <Button size="sm" onClick={() => setPreviewing(entry)}>
+                {/* 3列のときカードが狭いので、ボタンの左右を少し詰めて2つを1行に収める（収まらない幅では折り返す） */}
+                <div className="mt-auto flex flex-wrap items-center gap-1 pt-3">
+                  <Button size="sm" className="px-2" onClick={() => setPreviewing(entry)}>
+                    <Eye />
                     見てみる
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onStart(entry.seed)} disabled={busy}>
+                  <Button size="sm" variant="outline" className="px-2" onClick={() => onStart(entry.seed)} disabled={busy}>
                     このお題で始める
                     <ArrowRight />
                   </Button>

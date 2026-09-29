@@ -799,6 +799,10 @@
     translate 140ms ease,
     box-shadow 140ms ease;
 }
+/* ホームは3列で狭いので、「見てみる」「このお題で始める」が1行に収まるよう左右を詰める */
+.home-showcase .home-topic-card {
+  padding-inline: 0.75rem;
+}
 .home-topic-card:hover {
   border-color: color-mix(in oklab, var(--primary) 45%, var(--border));
   box-shadow: 0 8px 24px color-mix(in oklab, black 7%, transparent);
