@@ -9,7 +9,7 @@ export const PREVIEW_TOPIC_COUNT = 8;
 
 /**
  * 図鑑の1つのお題を、見るだけのボード（マンダラートの中央にお題・まわりに人気の語）にする。
- * みんなのトークテーマの「見てみる」と同じ並べ方。取り込む前に「広げるとこんな感じ」を見せるためのもので、保存はしない。
+ * みんなが作った話題マップの「見てみる」と同じ並べ方。始める前に「広げるとこんな感じ」を見せるためのもので、保存はしない。
  */
 export function entryPreviewBoard(entry: KnowledgeEntry): Board | null {
   const labels = rankedTopics(entry, PREVIEW_TOPIC_COUNT);

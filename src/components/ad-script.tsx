@@ -1,7 +1,7 @@
 import { adConfig, adScriptSrc } from "@/lib/ads";
 
 /**
- * AdSense の読み込みタグ。広告を出すページ（ホーム・みんなのトークテーマ・使い方）にだけ置く。
+ * AdSense の読み込みタグ。広告を出すページ（ホーム・みんなが作った話題マップ・使い方）にだけ置く。
  * 配信画面（オーバーレイ・いっしょに見る）には置かない。ID 未設定なら何も出さない。
  */
 export function AdScript() {

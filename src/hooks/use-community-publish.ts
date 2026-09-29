@@ -11,7 +11,7 @@ import type { Board } from "@/lib/types";
 const BOARD_SETTLE_MS = 30_000;
 
 /**
- * ちゃんと使ったボードを「みんなのトークテーマ」へ、連携した配信URLを「このサービスを利用している配信」へ知らせる。
+ * ちゃんと使ったボードを「みんなが作った話題マップ」へ、連携した配信URLを「このサービスを利用している配信」へ知らせる。
  */
 export function useCommunityPublish(board: Board | null, streamUrl: string, watchId?: string) {
   useEffect(() => {

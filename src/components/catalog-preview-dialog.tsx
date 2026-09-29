@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Heart, Share2 } from "lucide-react";
+import { ArrowRight, Copy, Heart } from "lucide-react";
 import { toast } from "sonner";
 
 import { BoardActionsProvider } from "@/components/board-actions";
@@ -13,8 +13,8 @@ import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import type { GenerationLayout } from "@/lib/types";
 
 /**
- * みんなのトークテーマを取り込む前に見るだけの画面。カードは読むだけ（広げる・書き直すはできない）。
- * ここから ♡ を付けたり、気に入ったら取り込んだりできる。
+ * みんなが作った話題マップを、使う前に見るだけの画面。カードは読むだけ（広げる・書き直すはできない）。
+ * ここから ♡ を付けたり、同じお題で始めたり、丸ごとコピーしたりできる。
  */
 export function CatalogPreviewDialog({
   board,
@@ -23,6 +23,7 @@ export function CatalogPreviewDialog({
   onOpenChange,
   onFavorite,
   onImport,
+  onStart,
 }: {
   board: CatalogBoard | null;
   liked: boolean;
@@ -30,6 +31,7 @@ export function CatalogPreviewDialog({
   onOpenChange: (open: boolean) => void;
   onFavorite: (board: CatalogBoard) => void;
   onImport: (board: CatalogBoard) => void;
+  onStart: (board: CatalogBoard) => void;
 }) {
   const preview = useMemo(() => {
     if (!board) return null;
@@ -54,7 +56,7 @@ export function CatalogPreviewDialog({
             <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-3 pr-12">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="truncate text-base">{board.name}</DialogTitle>
-                <DialogDescription className="text-xs">見るだけの画面です。取り込むと自分のボードで広げられます。</DialogDescription>
+                <DialogDescription className="text-xs">見るだけの画面です。コピーすると、このマップの続きを自分のボードで広げられます。</DialogDescription>
               </div>
               <Button
                 size="sm"
@@ -66,9 +68,13 @@ export function CatalogPreviewDialog({
                 <Heart className={liked ? "fill-current" : undefined} />
                 {board.favorites}
               </Button>
+              <Button size="sm" variant="outline" onClick={() => onStart(board)} disabled={busy}>
+                このお題で始める
+                <ArrowRight />
+              </Button>
               <Button size="sm" onClick={() => onImport(board)} disabled={busy}>
-                <Share2 />
-                取り込む
+                <Copy />
+                コピーして使う
               </Button>
             </div>
             <BoardActionsProvider

@@ -244,9 +244,14 @@ export function StartScreen({
 
           <section className="mt-14">
             <div className="mb-4 text-center">
-              <h2 className="text-lg font-semibold">みんなのトークテーマ</h2>
+              <h2 className="text-lg font-semibold">みんなが作った話題マップ</h2>
             </div>
-            <ThemeBoardList onImport={onImport} busy={busy} critterSkip="frog" />
+            <ThemeBoardList
+              onImport={onImport}
+              onStart={(label) => onStart(label, DEFAULT_MODE)}
+              busy={busy}
+              critterSkip="frog"
+            />
           </section>
 
           <StreamDirectory

@@ -4,7 +4,7 @@ import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 
 /**
- * みんなのトークテーマ・配信一覧へ知らせる（クライアント）。
+ * みんなが作った話題マップ・配信一覧へ知らせる（クライアント）。
  * GitHub Pages のようにサーバーが無いときは、最初の失敗で以後送らない。
  */
 
@@ -32,7 +32,7 @@ function post(path: string, body: unknown) {
 
 /** もう一歩広げたボードだけ、使われ具合が変わったときに送る（呼ぶ側で操作が落ち着くまで待つ） */
 export function shareBoardUsage(board: Board) {
-  // 雑談以外のボード（お悩み相談など）は、みんなのトークテーマにも載せない
+  // 雑談以外のボード（お悩み相談など）は、みんなが作った話題マップにも載せない
   if (!isChatMode(board.mode) || !isWellUsed(board)) return;
   const usage = JSON.stringify(boardUsage(board));
   if (sentBoards.get(board.id) === usage) return;

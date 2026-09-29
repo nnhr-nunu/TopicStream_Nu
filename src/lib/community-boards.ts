@@ -4,7 +4,7 @@ import { looksPersonal } from "@/lib/personal-text";
 import type { Board, TEdge, TNode } from "@/lib/types";
 
 /**
- * みんなのトークテーマ（純粋な計算）。利用者がちゃんと使ったボードを、メモを外して一覧に載せる。
+ * みんなが作った話題マップ（純粋な計算）。利用者がちゃんと使ったボードを、メモを外して一覧に載せる。
  * 保存はサーバー（community-server.ts）、送信はクライアント（community-client.ts）。
  */
 
@@ -90,12 +90,13 @@ export function communityScore(board: CommunityBoard, favorites: number, now = D
   return usage * 0.5 ** (hours / HALF_LIFE_HOURS);
 }
 
+/** 最後に使われた時期（カードでは時計のマークと並べるので「使用」は付けない） */
 export function usedAgo(updatedAt: number, now = Date.now()): string {
   const minutes = Math.floor(Math.max(0, now - updatedAt) / 60_000);
-  if (minutes < 60) return minutes < 5 ? "さっき使用" : `${minutes}分前に使用`;
+  if (minutes < 60) return minutes < 5 ? "さっき" : `${minutes}分前`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}時間前に使用`;
-  return `${Math.floor(hours / 24)}日前に使用`;
+  if (hours < 24) return `${hours}時間前`;
+  return `${Math.floor(hours / 24)}日前`;
 }
 
 /** 使われている順に並べ、同じお題のボードはいちばん使われた1枚だけにする */

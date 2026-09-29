@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isWellUsed, rankCommunityBoards, toCommunityBoard, type CommunityBoard } from "@/lib/community-boards";
+import { catalogRoot, catalogStats } from "@/lib/catalog-data";
+import { isWellUsed, rankCommunityBoards, toCommunityBoard, usedAgo, type CommunityBoard } from "@/lib/community-boards";
 import type { Board, TNode } from "@/lib/types";
 
 function card(id: string, label: string, parentId: string | null, expanded = false, memo = ""): TNode {
@@ -31,7 +32,7 @@ function board(opts: { root: string; openChild?: boolean; name?: string; label?:
   };
 }
 
-describe("みんなのトークテーマ", () => {
+describe("みんなが作った話題マップ", () => {
   it("最初の8枚だけのボードは載せず、もう一歩広げたら載せる", () => {
     expect(isWellUsed(board({ root: "休日" }))).toBe(false);
     expect(isWellUsed(board({ root: "休日", openChild: true }))).toBe(true);
@@ -68,5 +69,16 @@ describe("みんなのトークテーマ", () => {
       now,
     );
     expect(ranked.map((item) => item.id)).toEqual(["b", "c", "d"]);
+  });
+
+  it("カードには使った時期・全カード数・展開した数・真ん中のお題を出せる", () => {
+    const now = Date.parse("2026-09-25T12:00:00Z");
+    const entry = toCommunityBoard(board({ root: "休日の過ごし方", name: "休みの日の話", openChild: true }), "cb_1", now - 11 * 3_600_000)!;
+    const [shown] = rankCommunityBoards([entry], {}, now);
+    expect(shown?.tags).toEqual(["11時間前"]);
+    expect(catalogStats(shown!)).toEqual({ cards: 17, expanded: 2 });
+    expect(catalogRoot(shown!)).toBe("休日の過ごし方");
+    expect(usedAgo(now - 60_000, now)).toBe("さっき");
+    expect(usedAgo(now - 3 * 86_400_000, now)).toBe("3日前");
   });
 });

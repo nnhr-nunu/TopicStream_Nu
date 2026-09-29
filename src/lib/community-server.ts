@@ -12,7 +12,7 @@ import { canonicalStreamUrl, type PublicStream } from "@/lib/stream-directory";
 import { parseStreamUrl } from "@/lib/stream-url";
 
 /**
- * みんなのトークテーマと配信一覧の保存先（サーバー専用）。
+ * みんなが作った話題マップと配信一覧の保存先（サーバー専用）。
  * Redis があればそこへ、無ければインスタンスのメモリと一時ファイル（開発用。Vercel では再起動で消える）。
  */
 
@@ -143,18 +143,22 @@ export async function listCommunityCatalog(query = ""): Promise<CatalogBoard[]> 
   return searchCatalog(rankCommunityBoards(Object.values(state.boards), state.favorites), query);
 }
 
-/** ♡。載っていないボードなら null */
-export async function bumpCommunityFavorite(id: string): Promise<number | null> {
+/** ♡（delta が -1 なら外す。0 より下げない）。載っていないボードなら null */
+export async function bumpCommunityFavorite(id: string, delta: 1 | -1 = 1): Promise<number | null> {
   const state = await loadState();
   if (!Object.hasOwn(state.boards, id)) return null;
   const config = redisConfig();
   if (!config) {
-    state.favorites[id] = (state.favorites[id] ?? 0) + 1;
+    state.favorites[id] = Math.max(0, (state.favorites[id] ?? 0) + delta);
     persistMemory();
     return state.favorites[id]!;
   }
   try {
-    const count = Number(await redisCommand(config, ["HINCRBY", KEY_FAVORITES, id, 1]));
+    let count = Number(await redisCommand(config, ["HINCRBY", KEY_FAVORITES, id, delta]));
+    if (count < 0) {
+      await redisCommand(config, ["HSET", KEY_FAVORITES, id, 0]);
+      count = 0;
+    }
     state.favorites[id] = count;
     return count;
   } catch {

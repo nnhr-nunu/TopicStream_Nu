@@ -121,6 +121,19 @@ export function catalogBoardToBoard(catalog: CatalogBoard, name?: string): Board
   return layoutBoard(board, "comfortable");
 }
 
+/** 真ん中のお題（「このお題で始める」で使う） */
+export function catalogRoot(board: CatalogBoard): string {
+  return board.nodes.find((item) => item.data.parentId === null)?.data.label.trim() || board.keywords[0] || board.name;
+}
+
+/** カードの枚数と、広げた（展開した）カードの数。最初のお題を広げたのも 1 回に数える */
+export function catalogStats(board: CatalogBoard): { cards: number; expanded: number } {
+  return {
+    cards: board.nodes.length,
+    expanded: board.nodes.filter((item) => item.data.expanded).length,
+  };
+}
+
 export function searchCatalog(boards: CatalogBoard[], query: string): CatalogBoard[] {
   const q = query.trim().toLowerCase();
   if (!q) return boards;

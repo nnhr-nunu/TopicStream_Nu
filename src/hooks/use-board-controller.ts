@@ -873,7 +873,7 @@ export function useBoardController() {
         boards: [...current.boards, board],
         activeBoardId: board.id,
       });
-      toast.success(`「${board.name}」を取り込みました`);
+      toast.success(`「${board.name}」をコピーしました`, { description: "自分のボードとして、続きから広げられます" });
     },
     [persist],
   );

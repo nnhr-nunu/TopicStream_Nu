@@ -5,7 +5,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { SiteLinks } from "@/components/site-links";
 import { ThemeBoardList } from "@/components/theme-board-list";
 import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
-import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
+import { getBoardSnapshot, requestOpenActiveBoard, requestStartKeyword, writeBoardSnapshot } from "@/lib/board-store";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -20,8 +20,13 @@ export function CommunityCatalog() {
       boards: [...snapshot.boards, next],
       activeBoardId: next.id,
     });
-    toast.success(`「${board.name}」を取り込みました`);
+    toast.success(`「${board.name}」をコピーしました`, { description: "自分のボードとして、続きから広げられます" });
     requestOpenActiveBoard();
+    router.push("/");
+  }
+
+  function startBoard(keyword: string) {
+    requestStartKeyword(keyword);
     router.push("/");
   }
 
@@ -29,10 +34,12 @@ export function CommunityCatalog() {
     <div className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-4 py-8">
       <header className="mb-6">
         <BrandMark onHome={() => router.push("/")} />
-        <h1 className="mt-4 text-2xl font-semibold">みんなのトークテーマ</h1>
-        <p className="mt-1 text-sm text-muted-foreground">最近ちゃんと使われた話題マップが、よく使われた順に並びます。「見てみる」で中身を確かめてから、取り込むと自分のボードに追加されます。</p>
+        <h1 className="mt-4 text-2xl font-semibold">みんなが作った話題マップ</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          最近ちゃんと使われた話題マップが、よく使われた順に並びます。「見てみる」で中身を確かめてから、同じお題で一から始めるか、広げたところまで丸ごとコピーして続きから使えます。
+        </p>
       </header>
-      <ThemeBoardList onImport={importBoard} />
+      <ThemeBoardList onImport={importBoard} onStart={startBoard} />
       <div className="mt-10">
         <AdSlot />
       </div>
