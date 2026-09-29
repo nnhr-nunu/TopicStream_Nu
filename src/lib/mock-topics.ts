@@ -1,5 +1,5 @@
 import { mockMixTopics, splitMix } from "@/lib/combine";
-import { CHILD_COUNT, LABEL_MAX } from "@/lib/constants";
+import { CHILD_COUNT, LABEL_FIT_MAX } from "@/lib/constants";
 import { DEFAULT_MODE, MODE_PRESETS, modePreset, type AngleGroup } from "@/lib/modes";
 import { STARTER_TOPICS } from "@/lib/starters";
 import type { BoardMode } from "@/lib/types";
@@ -7,7 +7,7 @@ import type { BoardMode } from "@/lib/types";
 /** お題ごとの定番の語。オフライン生成と、トピック図鑑の初期データに使う */
 export const THEME_MAP: Record<string, string[]> = {
   最近買ってよかったもの: [
-    "買って後悔したもの",
+    "寝具の当たり",
     "Amazonでの買い物",
     "ドラッグストアの定番",
     "100均の当たり",
@@ -17,7 +17,7 @@ export const THEME_MAP: Record<string, string[]> = {
     "安いのに優秀",
   ],
   ヒヤッとした体験: [
-    "電車でありがちな",
+    "電車で乗り過ごし",
     "深夜の帰り道",
     "配信事故",
     "パスワード忘れ",
@@ -89,7 +89,7 @@ export const THEME_MAP: Record<string, string[]> = {
   "地元のイントネーション、他県だと笑われる？": [
     "無意識に出る",
     "直そうとして失敗",
-    "イントネーション",
+    "マクドかマックか",
     "通じなかった言葉",
     "リスナーの方言",
     "標準語に戻す",
@@ -100,27 +100,27 @@ export const THEME_MAP: Record<string, string[]> = {
     "地元に帰ると",
     "コンビニの違い",
     "電車あるある",
-    "説明が長い",
+    "県民性の話題",
     "空気が変わる",
     "なつかしい店",
     "都会との差",
-    "急に思い出す",
+    "方言が出る瞬間",
   ],
   "最近のマイブーム、まだ人に言ってないやつ": [
     "ひとり趣味",
     "お金が溶ける",
-    "放置してる趣味",
-    "答えに困る",
-    "始めかけ",
+    "こっそり続けてる",
+    "人に言うほどじゃない",
+    "気づけば毎日やってる",
     "黙々とやってる",
     "布教していいか",
     "秘密のルーティン",
   ],
   "学生のころの部活、今もネタになる？": [
-    "部活の思い出",
-    "授業中の内緒",
-    "卒業アルバム",
-    "テスト前の神",
+    "入部した理由",
+    "先輩と後輩",
+    "引退の日",
+    "朝練のつらさ",
     "帰り道の変な話",
     "今もネタになる",
     "サークルの話",
@@ -147,14 +147,14 @@ export const THEME_MAP: Record<string, string[]> = {
     "自分ルール",
   ],
   "もし配信してなかった自分、何してる？": [
-    "名前が変わったら",
-    "そっくりな人",
-    "運と実力",
-    "やり直すなら何日",
-    "偶然を信じたい",
-    "心と体どっち",
-    "声の入れ替わり",
-    "もしもの自分",
+    "普通の会社員",
+    "別の仕事をしてる",
+    "無趣味な毎日",
+    "隠れオタクだった",
+    "地元にいたかも",
+    "出会えなかった人",
+    "空いた時間の使い道",
+    "違う趣味にハマる",
   ],
 };
 
@@ -257,14 +257,14 @@ function shuffle<T>(items: T[], random: () => number): T[] {
   return next;
 }
 
-function clipLabel(label: string): string {
+/** カードに入る長さの語だけ通す。長すぎる語は「…」で切らずに捨てる（切ると、お題の一覧の文などが中途半端な語になる） */
+function fitLabel(label: string): string {
   const trimmed = label.replace(/\s+/g, " ").trim();
-  if (trimmed.length <= LABEL_MAX) return trimmed;
-  return `${trimmed.slice(0, LABEL_MAX - 1)}…`;
+  return trimmed.length <= LABEL_FIT_MAX ? trimmed : "";
 }
 
 function uniquePush(target: string[], value: string, banned: Set<string>) {
-  const label = clipLabel(value);
+  const label = fitLabel(value);
   if (!label || banned.has(label) || target.includes(label)) return;
   target.push(label);
 }

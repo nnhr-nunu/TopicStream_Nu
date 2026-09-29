@@ -9,6 +9,7 @@ import {
 import { redactSecret } from "@/lib/env-secret";
 import { mixOriginNote } from "@/lib/combine";
 import { buildDetailPrompt } from "@/lib/detail-modes";
+import { diversifyLabels, isTruncatedLabel } from "@/lib/label-quality";
 import { buildModePrompt } from "@/lib/modes";
 import type { BoardMode, GeminiDebug } from "@/lib/types";
 
@@ -50,10 +51,15 @@ export function labelLimit(detail = false): number {
   return detail ? DETAIL_LABEL_MAX : LABEL_FIT_MAX;
 }
 
-function clip(label: string, max = LABEL_FIT_MAX): string {
+/**
+ * 上限に収まる語だけ通す。長すぎる語は「…」で切らずに捨てる
+ * （切った語は、カードでも図鑑でも中途半端で、図鑑ではそれが次のお題にまでなっていた）。足りない分は他の候補で埋める。
+ * 「具体的にする」の答え（文）は捨てると中身が無くなるので、上限で切る（図鑑には記録しない）
+ */
+function fit(label: string, max: number, sentence: boolean): string {
   const trimmed = label.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
+  if (sentence) return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max - 1)}…`;
+  return trimmed.length <= max && !isTruncatedLabel(trimmed) ? trimmed : "";
 }
 
 function unwrapFences(raw: string): string {
@@ -122,7 +128,7 @@ export function isJunkTopic(label: string): boolean {
   return letters.length === 0;
 }
 
-export function parseTopics(raw: string, seed: string, existing: string[], detail = false): string[] {
+export function parseTopics(raw: string, seed: string, existing: string[], detail = false, mode: BoardMode = "chat"): string[] {
   const text = unwrapFences(raw);
   const fromJson = tryParseJsonArray(text);
   const quoted = extractQuoted(text, detail);
@@ -140,11 +146,13 @@ export function parseTopics(raw: string, seed: string, existing: string[], detai
   const topics: string[] = [];
   for (const value of values) {
     if (typeof value !== "string") continue;
-    const label = clip(stripDecorations(value, detail), labelLimit(detail));
+    const label = fit(stripDecorations(value, detail), labelLimit(detail), detail);
     if (!label || isJunkTopic(label) || banned.has(label) || topics.includes(label)) continue;
     topics.push(label);
   }
-  return topics;
+  // 答え（文）は書き出しがそろうのがふつうなので、語のときだけ整える。雑談以外は「毎朝10分〇〇」のように型がそろう語も多いので、
+  // 同じ書き出しは数えず、ほぼ同じ語だけ落とす
+  return detail ? topics : diversifyLabels(topics, mode === "chat" ? undefined : Infinity);
 }
 
 export function padTopics(parsed: string[], fallback: string[], count: number, seed: string, detail = false): string[] {
@@ -152,7 +160,7 @@ export function padTopics(parsed: string[], fallback: string[], count: number, s
   const banned = new Set([seed.trim(), ...out]);
   for (const item of fallback) {
     if (out.length >= count) break;
-    const label = clip(stripDecorations(item, detail), labelLimit(detail));
+    const label = fit(stripDecorations(item, detail), labelLimit(detail), detail);
     if (!label || isJunkTopic(label) || banned.has(label)) continue;
     out.push(label);
     banned.add(label);
@@ -746,7 +754,7 @@ export function closedPart(text: string): string {
 async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): Promise<string[]> {
   // 届いた分をその都度パースし、新しい語は onTopic で先に知らせる。必要数そろったら打ち切る。
   const watch = (existing: string[]) => (text: string) => {
-    const topics = parseTopics(closedPart(text), options.seed, existing, options.detail);
+    const topics = parseTopics(closedPart(text), options.seed, existing, options.detail, options.mode);
     // 最後の1語は書きかけかもしれないので、閉じた語だけ知らせる（JSON 配列の途中は quoted で拾える）
     for (const label of topics.slice(0, options.count)) options.onTopic?.(label);
     return topics.length >= options.count;
@@ -756,6 +764,7 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
     options.seed,
     options.existing,
     options.detail,
+    options.mode,
   );
   // 予備（minimum を超える分）が足りないだけなら呼び直さない（呼ぶ回数・枠の節約）
   if (first.length >= (options.minimum ?? options.count) || remaining() < 4_000) return first.slice(0, options.count);
@@ -766,6 +775,7 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
       options.seed,
       seen,
       options.detail,
+      options.mode,
     );
     return mergeParsedTopics(first, retry, options.count);
   } catch {

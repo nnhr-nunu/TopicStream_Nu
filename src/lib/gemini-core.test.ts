@@ -32,6 +32,28 @@ describe("Gemini の返答パース", () => {
     expect(parseTopics('["パッケージの開け方が謎だったお菓子"]', "お題", [])).toEqual(["パッケージの開け方が謎だったお菓子"]);
   });
 
+  it("長すぎる語は「…」で切らずに捨てる（切った語は図鑑に残ってお題にまでなっていた）", () => {
+    const long = "パッケージの開け方が謎だったお菓子のことを友達に説明した話";
+    expect(parseTopics(JSON.stringify(["温泉", long, "旅行"]), "お題", [])).toEqual(["温泉", "旅行"]);
+    expect(padTopics([], [long, "旅行"], 2, "お題")).toEqual(["旅行"]);
+  });
+
+  it("途中で切れた語（末尾が「…」）は取り込まない", () => {
+    expect(parseTopics('["見た目と味のギャップがすごかっ…","温泉"]', "お題", [])).toEqual(["温泉"]);
+  });
+
+  it("雑談では、同じ書き出しの語が並びすぎたら3個目から捨てる。ほかのモードは型がそろう語も残す", () => {
+    const raw = JSON.stringify(["理不尽な叱られ方", "理不尽なルール", "理不尽な減点", "校則の思い出"]);
+    expect(parseTopics(raw, "お題", [])).toEqual(["理不尽な叱られ方", "理不尽なルール", "校則の思い出"]);
+    const actions = JSON.stringify(["毎朝10分英単語", "毎朝10分ストレッチ", "毎朝10分日記"]);
+    expect(parseTopics(actions, "英語", [], false, "goal")).toHaveLength(3);
+  });
+
+  it("「具体的にする」の答え（文）は、長すぎても捨てずに上限で切る", () => {
+    const answer = "あ".repeat(60);
+    expect(parseTopics(JSON.stringify([answer]), "お題", [], true)[0]).toHaveLength(44);
+  });
+
   it("きれいな JSON 配列 [\"a\",\"b\"] を取る", () => {
     expect(parseTopics('["a","b"]', "お題", [])).toEqual(["a", "b"]);
     expect(parseTopics('```json\n["温泉","湯けむり"]\n```', "お題", [])).toEqual(["温泉", "湯けむり"]);
@@ -71,6 +93,13 @@ describe("Gemini への頼み方", () => {
     expect(buildPrompt("一番の失敗談", [], 8, ["焼き鳥"])).toContain("「焼き鳥 → 一番の失敗談」という話の流れ");
     expect(buildPrompt("その瞬間どうした", [], 8, ["一番の失敗談", "焼き鳥"])).toContain("「焼き鳥 → 一番の失敗談 → その瞬間どうした」");
     expect(buildPrompt("焼き鳥", [], 8)).not.toContain("話の流れ");
+  });
+
+  it("雑談では、選べる範囲に偏らず・お題を取り違えず・同じ型の語を並べないよう頼む", () => {
+    const prompt = buildPrompt("好きな季節の過ごし方", [], 8);
+    expect(prompt).toContain("夏の話だけにしない");
+    expect(prompt).toContain("取り違えない");
+    expect(prompt).toContain("3個以上並べない");
   });
 });
 

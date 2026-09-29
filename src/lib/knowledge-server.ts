@@ -9,7 +9,8 @@ const PICK_TOPIC_MAX = DETAIL_LABEL_MAX;
 import { isJunkTopic } from "@/lib/gemini-core";
 import { looksPersonal } from "@/lib/personal-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
-import { isArchived, withoutArchived } from "@/lib/topic-archive";
+import { isRecordableSeed, isTruncatedLabel } from "@/lib/label-quality";
+import { isArchived, isArchivedSeed, withoutArchived } from "@/lib/topic-archive";
 import type { BoardMode } from "@/lib/types";
 import {
   classifyTopic,
@@ -223,7 +224,9 @@ export async function loadSharedFor(seed: string, mode: BoardMode = "chat"): Pro
 /** 記録に値する語だけに絞る（長すぎる・壊れた語・お題そのもの・個人につながりそうな語は入れない） */
 export function cleanForRecord(seed: string, topics: string[]): { seed: string; topics: string[] } | null {
   const trimmed = seed.trim();
-  if (!trimmed || trimmed.length > ROOT_LABEL_MAX || looksPersonal(trimmed)) return null;
+  if (!trimmed || trimmed.length > ROOT_LABEL_MAX || looksPersonal(trimmed) || isArchivedSeed(trimmed)) return null;
+  // 途中で切れたもの・掛け合わせ・「語：意味」は、単独のお題として記録しない（広げても、そのお題の切り口にならない）
+  if (!isRecordableSeed(trimmed)) return null;
   const key = normalizeSeed(trimmed);
   const cleaned = [
     ...new Set(
@@ -234,6 +237,7 @@ export function cleanForRecord(seed: string, topics: string[]): { seed: string; 
             label &&
             label.length <= DETAIL_LABEL_MAX &&
             !isJunkTopic(label) &&
+            !isTruncatedLabel(label) &&
             !looksPersonal(label) &&
             !isArchived(trimmed, label) &&
             normalizeSeed(label) !== key,
@@ -279,8 +283,9 @@ export function cleanPick(pick: SharedPick): SharedPick | null {
   const seed = pick.seed.trim();
   const topic = pick.topic.trim();
   if (!seed || !topic || seed.length > ROOT_LABEL_MAX || topic.length > PICK_TOPIC_MAX) return null;
-  if (isJunkTopic(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
-  if (normalizeSeed(seed) === normalizeSeed(topic) || isArchived(seed, topic)) return null;
+  if (isJunkTopic(topic) || isTruncatedLabel(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
+  if (!isRecordableSeed(seed)) return null;
+  if (normalizeSeed(seed) === normalizeSeed(topic) || isArchivedSeed(seed) || isArchived(seed, topic)) return null;
   return { seed, topic, kind: pick.kind, ...(pick.mode && pick.mode !== "chat" ? { mode: pick.mode } : {}) };
 }
 
