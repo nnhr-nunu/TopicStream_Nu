@@ -26,6 +26,9 @@ import { cellCode } from "@/lib/mandala-ids";
 import { DEFAULT_MODE } from "@/lib/modes";
 import { topicContext } from "@/lib/topic-context";
 
+/** 履歴に積んだ「マップを開いている」の印 */
+const BOARD_HISTORY_KEY = "tsBoard";
+
 export function TopicWorkspace() {
   const controller = useBoardController();
   const board = controller.activeBoard;
@@ -60,6 +63,25 @@ export function TopicWorkspace() {
 
   // ホーム画面の裏にあるボードをキーで動かさない
   const onBoard = Boolean(controller.hydrated && board && !atHome && board.nodes.length > 0);
+
+  // マップを開いたら履歴を1つ積み、ブラウザの「戻る」でホームへ戻す（図鑑から来たときも、図鑑ではなくホームへ）
+  useEffect(() => {
+    // 開き直したとき、前の印が残っていると「戻る」でサイトの外へ出てしまうので消す
+    if (window.history.state?.[BOARD_HISTORY_KEY]) {
+      window.history.replaceState({ ...window.history.state, [BOARD_HISTORY_KEY]: false }, "");
+    }
+    const onPopState = (event: PopStateEvent) => setAtHome(!event.state?.[BOARD_HISTORY_KEY]);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  useEffect(() => {
+    if (!onBoard || window.history.state?.[BOARD_HISTORY_KEY]) return;
+    window.history.pushState({ ...window.history.state, [BOARD_HISTORY_KEY]: true }, "");
+  }, [onBoard]);
+  const goHome = () => {
+    if (window.history.state?.[BOARD_HISTORY_KEY]) window.history.back();
+    else setAtHome(true);
+  };
   useHotkeys({
     expand: () => {
       if (focusedId) void controller.expandNode(focusedId);
@@ -142,7 +164,7 @@ export function TopicWorkspace() {
           canUndo={controller.undoStack.length > 0}
           canRedo={controller.redoStack.length > 0}
           hasNodes={board.nodes.length > 0}
-          onHome={() => setAtHome(true)}
+          onHome={goHome}
           onSwitch={(id) => {
             setAtHome(false);
             controller.switchBoard(id);

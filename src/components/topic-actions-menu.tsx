@@ -70,8 +70,8 @@ export function TopicActionsMenu({
   const items: MenuItem[] = [
     {
       key: "pin",
-      label: isPinned ? "ピンを外す" : "いま話している",
-      short: isPinned ? "ピンを外す" : "いま話している",
+      label: isPinned ? "ピンを外す" : "今の話題にする",
+      short: isPinned ? "ピンを外す" : "今の話題にする",
       icon: <Pin className={cn(isPinned && "fill-current")} />,
       onClick: onPin,
     },
