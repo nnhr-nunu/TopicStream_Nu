@@ -246,7 +246,7 @@ export function StartScreen({
             <div className="mb-4 text-center">
               <h2 className="text-lg font-semibold">みんなのトークテーマ</h2>
             </div>
-            <ThemeBoardList onImport={onImport} busy={busy} />
+            <ThemeBoardList onImport={onImport} busy={busy} critterSkip="frog" />
           </section>
 
           <StreamDirectory

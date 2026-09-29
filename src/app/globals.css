@@ -550,6 +550,9 @@ html.overlay-mode .topic-chip {
 .wait-critter-body svg {
   position: absolute;
   display: block;
+  /* 絵だけ触れる（触るとハートが出る）。まわりはカードの操作を邪魔しない */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .wait-critter-shadow {

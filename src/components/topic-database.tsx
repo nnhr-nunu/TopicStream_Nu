@@ -246,7 +246,7 @@ export function TopicDatabase() {
             : "見つかりませんでした。別の言葉で探すか、ホームでこのお題を広げてみてください。"}
         </p>
       ) : (
-        <ul className="relative grid gap-3 sm:grid-cols-2" data-critter-garden>
+        <ul className="relative grid gap-3 sm:grid-cols-2" data-critter-garden data-critter-skip="frog">
           {hits.map((hit) => {
             const topics = rankedTopics(hit.entry, 14);
             const q = normalizeSeed(query);

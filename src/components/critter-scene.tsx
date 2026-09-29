@@ -265,6 +265,24 @@ export function CritterScene({ kind, style, cards, leaving }: { kind: CritterKin
       item.shadow.style.transform = `translate(-50%, calc(-50% + ${feet}px)) scale(${Math.max(0.45, 1 - lift / 90)})`;
     };
 
+    // 触ると、頭の上に小さなハートがふわっと出る（下のカード・盤面の操作には渡さない）
+    const touches = actors.map((item, index) => {
+      const sprite = Object.values(item.actor.gaits)[0]!.sprite;
+      const tall = spriteSize(sprite).h * sprite.px;
+      const onClick = (event: MouseEvent) => {
+        event.stopPropagation();
+        event.preventDefault();
+        spawn({ kind: "heart", actor: index, dx: (Math.random() - 0.5) * 8, dy: -tall - 2 });
+      };
+      const block = (event: Event) => event.stopPropagation();
+      item.el.addEventListener("click", onClick);
+      item.el.addEventListener("pointerdown", block);
+      return () => {
+        item.el.removeEventListener("click", onClick);
+        item.el.removeEventListener("pointerdown", block);
+      };
+    });
+
     let move: CritterMove = planner.next();
     let startedAt = performance.now();
     let flip = move.flip ?? false;
@@ -344,6 +362,7 @@ export function CritterScene({ kind, style, cards, leaving }: { kind: CritterKin
     raf = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(raf);
+      for (const untouch of touches) untouch();
       for (const id of timers) window.clearTimeout(id);
       fx.replaceChildren();
     };
