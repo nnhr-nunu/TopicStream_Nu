@@ -88,10 +88,13 @@ for i = 2, #ARGV - 3, 4 do
   redis.call('ZADD', 'tsk:uses', 'NX', 1, key)
   redis.call('HSETNX', 'tsk:seed', key, ARGV[i + 1])
   redis.call('HSET', 'tsk:updated', key, now)
-  if weight > 0 and redis.call('HEXISTS', 'tsk:t:' .. key, topic) == 0 then
+  local known = redis.call('HEXISTS', 'tsk:t:' .. key, topic) == 1
+  if weight > 0 and not known and redis.call('HLEN', 'tsk:t:' .. key) < ${TOPIC_LIMIT} then
     redis.call('HSET', 'tsk:t:' .. key, topic, 1)
   end
-  redis.call('HINCRBY', 'tsk:p:' .. key, topic, weight)
+  if redis.call('HEXISTS', 'tsk:p:' .. key, topic) == 1 or redis.call('HLEN', 'tsk:p:' .. key) < ${TOPIC_LIMIT * 2} then
+    redis.call('HINCRBY', 'tsk:p:' .. key, topic, weight)
+  end
   redis.call('ZINCRBY', 'tsk:rank', weight, key)
   n = n + 1
 end

@@ -80,6 +80,16 @@ describe("Gemini の返答パース", () => {
     expect(parseTopics(raw, "お題", [])).toEqual(["温泉旅行", "地元あるある", "深夜のコンビニ", "推しの話"]);
   });
 
+  it("語の頭の数字（3DS・2.5次元・23:00）は番号として外さない", () => {
+    expect(parseTopics('["3DSの思い出","5Gスマホ","2.5次元舞台","23:00の配信","8bit音楽"]', "お題", [])).toEqual([
+      "3DSの思い出",
+      "5Gスマホ",
+      "2.5次元舞台",
+      "23:00の配信",
+      "8bit音楽",
+    ]);
+  });
+
   it("JSON の破片をマスに残さない", () => {
     expect(parseTopics('["a","b"] [', "お題", [])).toEqual(["a", "b"]);
     expect(isJunkTopic("[")).toBe(true);

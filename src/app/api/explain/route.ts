@@ -1,9 +1,8 @@
-import { DEFAULT_MODEL } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import { offlineExplanation, type Explanation } from "@/lib/explain";
 import { geminiUserNotice, GeminiRequestError } from "@/lib/gemini-core";
 import { requestExplanation } from "@/lib/gemini-explain";
-import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
+import { allowedModel, clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { parseMode } from "@/lib/modes";
 
 export const maxDuration = 25;
@@ -43,8 +42,8 @@ export async function POST(request: Request) {
         .slice(0, 3)
     : [];
   const mode = parseMode(body?.mode);
-  const model = typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL;
   const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const model = allowedModel(body?.model, Boolean(override));
   const apiKey = override || readGeminiApiKey();
   const offline = offlineExplanation(label, context);
   const reply = (value: Reply) => Response.json(value);

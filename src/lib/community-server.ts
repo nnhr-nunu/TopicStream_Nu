@@ -146,7 +146,7 @@ export async function listCommunityCatalog(query = ""): Promise<CatalogBoard[]> 
 /** ♡。載っていないボードなら null */
 export async function bumpCommunityFavorite(id: string): Promise<number | null> {
   const state = await loadState();
-  if (!state.boards[id]) return null;
+  if (!Object.hasOwn(state.boards, id)) return null;
   const config = redisConfig();
   if (!config) {
     state.favorites[id] = (state.favorites[id] ?? 0) + 1;

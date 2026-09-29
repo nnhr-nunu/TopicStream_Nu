@@ -105,8 +105,9 @@ function extractQuoted(raw: string, sentences = false): string[] {
 /** 番号・記号・引用符を外す。文（sentences）のときは、文頭・文末の「」は中身の一部なので残す */
 function stripDecorations(value: string, sentences = false): string {
   let text = value.replace(/\s+/g, " ").trim();
-  text = text.replace(/^[0-9]+[A-Ia-i]\s*/, "");
-  text = text.replace(/^[0-9]+[\.\):、]\s*/, "");
+  // 「1A 話題」「1. 話題」の番号だけ外す。「3DSの思い出」「2.5次元舞台」「23:00の配信」の数字は語の一部なので残す
+  text = text.replace(/^[0-9]{1,2}[A-I](?:\s+|[:：.、]\s*)/, "");
+  text = text.replace(/^[0-9]{1,2}[.)）:、](?![0-9])\s*/, "");
   text = text.replace(/^[-*・\u30fb]\s*/, "");
   const head = sentences ? /^[\s\[\]\{\}"'`]+/ : /^[\s\[\]\{\}「『"'`]+/;
   const tail = sentences ? /[\s\[\]\{\}"'`,;]+$/ : /[\s\[\]\{\}」』"'`,;]+$/;
@@ -430,6 +431,8 @@ type GeminiOptions = {
   deadlineMs?: number;
   /** 最初の文字を待つ時間（省くと GEMINI_FIRST_CHUNK_MS）。requestGemini が巡目ごとに決める */
   firstChunkMs?: number;
+  /** 思考・JSON 指定を付けずに頼む（それらを受け付けなかったモデルへの頼み直し） */
+  plain?: boolean;
 };
 
 type Remaining = () => number;
@@ -559,11 +562,11 @@ export async function requestGemini(
   throw lastError ?? new GeminiRequestError("timeout", geminiDebug({ reason: "deadline", model: options.model, tried, attempts }));
 }
 
-function generationConfig(model: string, detail = false): Record<string, unknown> {
+function generationConfig(model: string, detail = false, plain = false): Record<string, unknown> {
   // Gemini 3 系は temperature を 1.0 未満にするとループや劣化が起きると公式に書かれているので、既定のまま送らない。
   // 答え（文）は長いので、途中で切れないよう多めに
   const base: Record<string, unknown> = { maxOutputTokens: detail ? 2048 : 1024 };
-  if (plainModels.has(model)) return base;
+  if (plain || plainModels.has(model)) return base;
   const thinking = thinkingConfigFor(model);
   return {
     ...base,
@@ -659,15 +662,21 @@ async function generateGeminiText(
       },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildPrompt(options.seed, options.existing, options.count, options.context, options.mode, options.detail, options.mixFrom) }] }],
-        generationConfig: generationConfig(options.model, options.detail),
+        generationConfig: generationConfig(options.model, options.detail, options.plain),
       }),
     });
     if (!response.ok) {
       clearTimeout(firstChunkTimer);
       const google = parseGoogleError(await response.json().catch(() => null));
-      // 思考・JSON 指定を知らないモデルなら、付けずにもう一度頼む
-      if (response.status === 400 && google.googleStatus === "INVALID_ARGUMENT" && !plainModels.has(options.model)) {
-        plainModels.add(options.model);
+      // 思考・JSON 指定を知らないモデルなら、付けずにもう一度頼む。
+      // キーの間違いも同じ 400 で返るので、キーの話なら頼み直さない（全員の頼み方を変えてしまわないように）
+      if (
+        response.status === 400 &&
+        google.googleStatus === "INVALID_ARGUMENT" &&
+        !options.plain &&
+        !plainModels.has(options.model) &&
+        !/api[ _]?key/i.test(google.googleMessage ?? "")
+      ) {
         retryPlain = true;
       } else {
         throw new GeminiRequestError(
@@ -716,9 +725,16 @@ async function generateGeminiText(
   } finally {
     clearTimeout(timer);
     clearTimeout(firstChunkTimer);
+    // 読み終わっていない返事（途中で例外になった等）の接続を残さない
+    if (!controller.signal.aborted) controller.abort();
     if (sent) options.onCall?.(result.totalTokens ?? 0);
   }
-  if (retryPlain) return generateGeminiText(options, remaining, progress);
+  if (retryPlain) {
+    const plain = await generateGeminiText({ ...options, plain: true }, remaining, progress);
+    // 付けずに頼んで答えが返ったときだけ、以後もそのモデルは付けずに頼む
+    plainModels.add(options.model);
+    return plain;
+  }
   result.partial = satisfied || timedOut;
   result.totalMs = geminiRetry.now() - started;
   return result;

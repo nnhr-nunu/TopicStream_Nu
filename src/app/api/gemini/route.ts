@@ -1,4 +1,4 @@
-import { CHILD_COUNT, DEFAULT_MODEL, GEMINI_HOST } from "@/lib/constants";
+import { CHILD_COUNT, GEMINI_HOST, ROOT_LABEL_MAX } from "@/lib/constants";
 import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
 import {
   geminiDebug,
@@ -10,7 +10,7 @@ import {
   type GeminiWaitStage,
 } from "@/lib/gemini-core";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
-import { clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
+import { allowedModel, clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
@@ -137,7 +137,8 @@ async function generate(
       onCall,
       onStage,
     });
-    guard.writeCache(cacheKey, remote.topics);
+    // 途中までしか返らなかった答えは使い回さない（30 分間、同じお題が埋め合わせだらけになる）
+    if (remote.topics.length >= (minimum ?? count)) guard.writeCache(cacheKey, remote.topics);
     // みんなのトピック図鑑へ（次から同じ・似たお題は AI を呼ばずに出せる）
     // 汎用の切り口（「一番の失敗談」など）の結果は元のお題しだいなので、このお題の語としてはためない
     // お悩み相談などもモードごとに分けて記録する（公開前提。個人につながりそうな語は記録側で捨てる）
@@ -185,7 +186,7 @@ export async function POST(request: Request) {
     stream?: unknown;
   } | null;
 
-  const seed = typeof body?.seed === "string" ? body.seed.trim() : "";
+  const seed = typeof body?.seed === "string" ? body.seed.trim().slice(0, ROOT_LABEL_MAX) : "";
   if (!seed) {
     return Response.json({ error: "お題が空です" }, { status: 400 });
   }
@@ -194,10 +195,16 @@ export async function POST(request: Request) {
   const input: Input = {
     seed,
     existing: Array.isArray(body?.existing)
-      ? body.existing.filter((item): item is string => typeof item === "string").slice(0, 200)
+      ? body.existing
+          .filter((item): item is string => typeof item === "string")
+          .slice(0, 200)
+          .map((item) => item.slice(0, 80))
       : [],
     preferred: Array.isArray(body?.preferred)
-      ? body.preferred.filter((item): item is string => typeof item === "string")
+      ? body.preferred
+          .filter((item): item is string => typeof item === "string")
+          .slice(0, 50)
+          .map((item) => item.slice(0, 80))
       : [],
     context: Array.isArray(body?.context)
       ? body.context
@@ -217,7 +224,7 @@ export async function POST(request: Request) {
     detail: body?.detail === true,
     count: typeof body?.count === "number" && body.count > 0 ? Math.min(12, Math.round(body.count)) : CHILD_COUNT,
     minimum: typeof body?.minimum === "number" && body.minimum > 0 ? Math.min(12, Math.round(body.minimum)) : undefined,
-    model: typeof body?.model === "string" && body.model.trim() ? body.model.trim() : DEFAULT_MODEL,
+    model: allowedModel(body?.model, Boolean(override)),
     apiKey: override || readGeminiApiKey(),
     clientKey: clientKeyFromHeaders(request.headers),
   };
