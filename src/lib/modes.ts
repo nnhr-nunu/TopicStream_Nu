@@ -1,5 +1,5 @@
 import { combineInstruction } from "@/lib/combine";
-import { LABEL_MAX } from "@/lib/constants";
+import { LABEL_LONG_MAX, LABEL_MAX } from "@/lib/constants";
 import type { Board, BoardMode } from "@/lib/types";
 
 export type { BoardMode };
@@ -427,7 +427,7 @@ ${prompt.rules.map((rule) => `- ${rule}`).join("\n")}
 ${example}
 条件:
 - 日本語のみ
-- 各キーワードは2〜${LABEL_MAX}文字の短い名詞句
+- 各キーワードは短い名詞句（目安は2〜${LABEL_MAX}文字。文脈上どうしても要るなら${LABEL_LONG_MAX}文字くらいまで長くしてよい。無理に縮めて不自然にしない）
 - 番号・箇条書き記号・説明・引用符・Markdown・コードフェンスは付けない
 - お題そのものは繰り返さない
 - 次と重複しない: ${banned}
