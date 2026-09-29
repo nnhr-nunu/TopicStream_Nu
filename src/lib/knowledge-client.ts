@@ -101,6 +101,8 @@ export async function fetchSharedRelated(seed: string, mode: BoardMode = "chat")
   const json = await fetchJson<{ entries?: unknown }>(
     `/api/knowledge?seed=${encodeURIComponent(seed)}&mode=${encodeURIComponent(mode)}`,
   );
+  // 時間切れ・一時的な失敗なら、次に広げたときにもう一度取りに行く
+  if (!json && !sharedUnavailable) fetchedSeeds.delete(key);
   absorbShared(json?.entries);
 }
 
@@ -237,6 +239,10 @@ export function noteTopicPick(seed: string, topic: string, kind: PickKind, mode:
   if (!listening) {
     listening = true;
     window.addEventListener("pagehide", () => flushPicks(true));
+    // スマホはタブを切り替えたまま閉じられることがある（pagehide が来ない）ので、見えなくなったときにも送る
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") flushPicks(true);
+    });
   }
   if (pendingPicks.length >= 50) flushPicks();
   else flushTimer ??= window.setTimeout(() => flushPicks(), FLUSH_MS);

@@ -8,7 +8,7 @@
  * 雑談以外のモード（お悩み相談など）も記録するが、キーにモードを付けて分ける（雑談の候補に相談の語が混ざらないように）。
  */
 
-import { LABEL_MAX } from "@/lib/constants";
+import { LABEL_LONG_MAX } from "@/lib/constants";
 import { isBoardMode } from "@/lib/modes";
 import type { BoardMode } from "@/lib/types";
 
@@ -237,6 +237,9 @@ function topicCore(text: string): string {
   return normalizeSeed(text).replace(FRAME_PATTERN, "");
 }
 
+/** 言い回しを除いたあとに残りがちな、中身の無い語（「好きなこと」→「こと」）。これが入っているだけでは似ていない */
+const HOLLOW_CORES = new Set(["こと", "もの", "とき", "ところ", "はなし", "ひと", "人", "物", "事", "時", "話"]);
+
 /**
  * お題どうしの近さ（似たお題の語を借りる・検索で使う）。共通の言い回しを除いて比べ、
  * 一方の中身がもう一方に丸ごと入っているとき（「部活」と「学生のころの部活…」）は、少し近いとみなす。0〜1
@@ -247,7 +250,7 @@ export function topicSimilarity(a: string, b: string): number {
   if (!x || !y) return 0;
   const base = similarity(x, y);
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
-  return short.length >= 2 && long.includes(short) ? Math.max(base, 0.6) : base;
+  return short.length >= 2 && !HOLLOW_CORES.has(short) && long.includes(short) ? Math.max(base, 0.6) : base;
 }
 
 /** 1つのお題に持たせる語の上限（少ない回数のものから落とす） */
@@ -268,7 +271,14 @@ function trimTopics(
   const entries = Object.entries(topics);
   if (entries.length <= limit) return topics;
   const strength = ([label, count]: [string, number]) => count + (picks?.[label] ?? 0);
-  return Object.fromEntries(entries.sort((a, b) => strength(b) - strength(a)).slice(0, limit));
+  // 同じ強さなら新しく入った語（後ろにある語）を残す。古い語が居座って、新しい語が一度も残らなくなるのを防ぐ
+  const ranked = entries
+    .map((entry, index) => ({ entry, index }))
+    .sort((a, b) => strength(b.entry) - strength(a.entry) || b.index - a.index)
+    .slice(0, limit);
+  const keep = new Set(ranked.map((item) => item.entry[0]));
+  // 並びは入った順のまま（次に足した語が「新しい語」として後ろに来るように）
+  return Object.fromEntries(entries.filter(([label]) => keep.has(label)));
 }
 
 /** お題と、そこから出た語を1回分記録する（元の store は変えない） */
@@ -394,13 +404,14 @@ export function asKnowledgeEntry(value: unknown): KnowledgeEntry | null {
   for (const [label, count] of Object.entries(raw.topics)) {
     if (label.trim() && typeof count === "number" && Number.isFinite(count) && count > 0) topics[label] = count;
   }
-  if (Object.keys(topics).length === 0) return null;
   const picks: Record<string, number> = {};
   if (raw.picks && typeof raw.picks === "object") {
     for (const [label, count] of Object.entries(raw.picks)) {
       if (typeof count === "number" && Number.isFinite(count) && count !== 0) picks[label] = count;
     }
   }
+  // 語がまだ無くても「ずれている」の票（マイナス）だけの行は残す（同梱・みんなの図鑑の語への印が消えないように）
+  if (Object.keys(topics).length === 0 && !Object.values(picks).some((count) => count < 0)) return null;
   const trimmed = trimTopics(topics, picks);
   return withPicks(
     withMode(
@@ -441,10 +452,10 @@ export function relatedEntries(store: KnowledgeStore, seed: string, limit = 6, m
 
 /**
  * カードの候補として使える短い語か。図鑑には「具体的にする」の答え（対応策などの文）もたまるが、
- * ふつうに広げたときの候補は短い切り口だけにする
+ * ふつうに広げたときの候補は短い切り口だけにする（AI に頼む長さの上限まで。読点のある文・言い切りの文は答えとみなす）
  */
 export function isCardTopic(label: string): boolean {
-  return label.length <= LABEL_MAX;
+  return label.length <= LABEL_LONG_MAX && !/[、。]|[！？!?]$/.test(label);
 }
 
 /** そのお題そのものについて、いくつの語（候補に使える短い語）がたまっているか */
@@ -516,6 +527,8 @@ export function searchKnowledge(
   const q = normalizeSeed(query);
   const hits: KnowledgeSearchHit[] = [];
   for (const entry of Object.values(store)) {
+    // 「ずれている」の票だけの行は、一覧には出さない
+    if (Object.keys(entry.topics).length === 0) continue;
     if (mode !== "all" && entryMode(entry) !== mode) continue;
     if (category !== "all" && entry.category !== category) continue;
     // 使われた回数より「選ばれた」ほうを重く見る

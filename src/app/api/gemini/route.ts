@@ -146,7 +146,7 @@ async function generate(
     // 遠い文脈の中で出た切り口・「語：意味」・掛け合わせは、単独のお題としては記録しない（isRecordableSeed）
     const recordSeed = detail
       ? detailRecordSeed(seed, context)
-      : isGenericAngle(seed) || !isRecordableSeed(seed, context)
+      : isGenericAngle(seed, mode) || !isRecordableSeed(seed, context)
         ? undefined
         : seed;
     if (recordSeed) await recordSharedKnowledge(recordSeed, remote.topics, mode);

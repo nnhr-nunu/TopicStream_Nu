@@ -384,16 +384,30 @@ export function fillExpand(
       ),
     });
   }
+  // 語が足りなかった空のカードは「話題 7」のような埋め草にせず、外す（空いたマスは後から広げ直せる）
+  const open = board.nodes.filter((node) => childIds.includes(node.id) && node.data.placeholder).map((node) => node.id);
+  const unfilled = new Set(open.slice(labels.length));
+  const kept = board.nodes.filter((node) => !unfilled.has(node.id));
+  // 3×3 の中央（写し）の周りが全部空いたら、写しも外す
+  const emptyCopies = new Set(
+    kept
+      .filter((node) => childIds.includes(node.id) && node.data.copiedFromId)
+      .filter((node) => !kept.some((child) => child.data.parentId === node.id))
+      .map((node) => node.id),
+  );
+  const drop = new Set([...unfilled, ...emptyCopies]);
+  const remaining = kept.filter((node) => !emptyCopies.has(node.id));
+  const opened = remaining.some((node) => node.data.parentId === parentId && !node.data.mixedFromId);
   let labelIndex = 0;
   return applyLayout(
     touch(board, {
-      nodes: board.nodes.map((node) => {
+      nodes: remaining.map((node) => {
         if (node.id === parentId) {
-          return { ...node, data: { ...node.data, expanding: false, expanded: true, placeholder: false } };
+          return { ...node, data: { ...node.data, expanding: false, expanded: opened, placeholder: false } };
         }
         if (!childIds.includes(node.id)) return node;
         if (!node.data.placeholder) return node;
-        const label = labels[labelIndex] ?? `話題 ${labelIndex + 1}`;
+        const label = labels[labelIndex]!;
         labelIndex += 1;
         return {
           ...node,
@@ -405,6 +419,7 @@ export function fillExpand(
           },
         };
       }),
+      edges: drop.size > 0 ? board.edges.filter((edge) => !drop.has(edge.source) && !drop.has(edge.target)) : board.edges,
     }),
     densityOrPrefs,
     overlay,

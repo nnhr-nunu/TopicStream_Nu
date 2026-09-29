@@ -215,8 +215,12 @@ function angleGroupOf(label: string): AngleGroup | undefined {
  * どのお題にも付く汎用の切り口・深掘りか。これを広げるときは元のお題の文脈が要るし、
  * 結果を図鑑にこのお題の語として残すと、別のお題のときに混ざってしまう。
  */
-export function isGenericAngle(label: string): boolean {
-  return Boolean(angleGroupOf(label));
+export function isGenericAngle(label: string, mode?: BoardMode): boolean {
+  if (!mode) return Boolean(angleGroupOf(label));
+  // 雑談の「睡眠」「食事」のような語は、目標の分解では切り口でも、雑談ではふつうのお題（図鑑にためてよい）
+  const trimmed = label.trim();
+  const groups = mode === DEFAULT_MODE ? ANGLE_GROUPS : [...ANGLE_GROUPS, ...modePreset(mode).angleGroups];
+  return groups.some((group) => group.angles.includes(trimmed) || group.followUps.includes(trimmed));
 }
 
 /** 文脈（近い祖先から順）のうち、汎用の切り口ではない最初のお題 */

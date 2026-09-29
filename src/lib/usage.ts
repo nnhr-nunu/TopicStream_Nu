@@ -22,9 +22,21 @@ function readUsage(): UsageMap {
   }
 }
 
+/** 残しておく語の数（よく使う話題を上に出すためのもので、古いものは要らない） */
+const USAGE_LIMIT = 300;
+
 function writeUsage(map: UsageMap) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(USAGE_KEY, JSON.stringify(map));
+  const entries = Object.entries(map);
+  const kept =
+    entries.length > USAGE_LIMIT
+      ? Object.fromEntries(entries.sort((a, b) => b[1].lastUsed - a[1].lastUsed).slice(0, USAGE_LIMIT))
+      : map;
+  try {
+    window.localStorage.setItem(USAGE_KEY, JSON.stringify(kept));
+  } catch {
+    /* 容量オーバー・保存できない設定でも、広げる操作は止めない */
+  }
 }
 
 export function loadUsage(): UsageMap {
