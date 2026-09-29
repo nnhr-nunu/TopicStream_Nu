@@ -63,6 +63,7 @@ export function TopicWorkspace() {
     copy: () => {
       if (focusedId) void controller.copyLabel(focusedId);
     },
+    roulette: () => void controller.spinRoulette(),
   }, onBoard);
 
   if (!controller.hydrated || !board || !settings) {
@@ -190,7 +191,7 @@ export function TopicWorkspace() {
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >
-              <PinBanner label={pinnedLabel} />
+              <PinBanner label={pinnedLabel} since={board.pinnedAt} />
               <BoardCanvas
                 board={board}
                 layout={settings.generationLayout}
@@ -201,6 +202,8 @@ export function TopicWorkspace() {
                   mode={settings.expandMode}
                   onChange={(expandMode) => controller.patchSettings({ expandMode })}
                   expanded={board.nodes.length > 1}
+                  onRoulette={() => void controller.spinRoulette()}
+                  spinning={controller.spinning}
                 />
               </BoardCanvas>
             </LiveChatDock>

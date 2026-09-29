@@ -35,6 +35,7 @@ export function useHotkeys(
     regenerate?: () => void;
     pin?: () => void;
     copy?: () => void;
+    roulette?: () => void;
   },
   /** false の間（ホーム画面など、盤面が見えていないとき）は何もしない */
   enabled = true,
@@ -90,6 +91,11 @@ export function useHotkeys(
       if (key === "c" && !meta) {
         event.preventDefault();
         current.copy?.();
+        return;
+      }
+      if (key === "n" && !meta && current.roulette) {
+        event.preventDefault();
+        current.roulette();
       }
     };
     window.addEventListener("keydown", onKeyDown);

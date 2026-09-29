@@ -409,6 +409,18 @@
   line-clamp: 2;
 }
 
+/* 話している時間（配信のペース配分の目安） */
+.pin-banner-time {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+}
+
 .overlay-mode .pin-banner {
   top: 1rem;
 }

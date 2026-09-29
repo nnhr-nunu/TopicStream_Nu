@@ -92,6 +92,8 @@ const FAQS: { q: string; a: string }[] = [
 
 const SHORTCUTS: [string, string][] = [
   ["E", "選んだ話題を展開する"],
+  ["N", "話題ルーレット（まだ話していないカードから次の話題を選ぶ）"],
+  ["P", "選んだ話題を NOW（いま話している）にする"],
   ["G", "そのマスの文だけ作り直す"],
   ["Z / Y", "ひとつ戻る / 進む"],
   ["+ / -", "拡大 / 縮小"],
@@ -130,6 +132,11 @@ export default function GuidePage() {
             話したい話題に <Term>ピン</Term> や <Term>付箋</Term> を付けて、配信で使う
           </li>
         </ol>
+        <p className="text-muted-foreground">
+          次に何を話すか迷ったら、左下の <Term>ルーレット</Term>（N キー）。まだ話していないカードの中から 1 枚を選んで
+          NOW にします。コメントでハートが多く付いたカードほど当たりやすくなります。NOW を別のカードへ移すと、前のカードには{" "}
+          <Term>話した</Term> の印が付き、上の帯には今の話題を話している時間が出ます。
+        </p>
         <p className="text-muted-foreground">
           カードのメニュー（スマホは長押し）には、ピン・📝（付箋）・作り直し・<Term>解説</Term>
           （言葉の短い解説を付箋に貼る）などがあります。

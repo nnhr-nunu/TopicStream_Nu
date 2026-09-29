@@ -180,6 +180,65 @@
   pointer-events: none;
 }
 
+/* 話し終えたカード: 少し控えめにして、下に「話した」の札（ルーレットでは選ばない） */
+.topic-chip-talked:not(.topic-chip-now) {
+  opacity: 0.62;
+  filter: saturate(0.7);
+}
+.topic-talked-ribbon {
+  position: absolute;
+  left: 50%;
+  bottom: -0.6rem;
+  z-index: 7;
+  translate: -50% 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 16%, transparent);
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 0.2rem 0.55rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.topic-talked-ribbon::before {
+  content: "✓ ";
+}
+
+/* 話題ルーレット: 回っている間は光が移り、止まったカードは弾む */
+.topic-chip-roulette {
+  opacity: 1;
+  filter: none;
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--now) 85%, white),
+    0 10px 28px color-mix(in oklab, var(--now) 45%, transparent);
+  scale: 1.06;
+  transition: none;
+}
+.topic-chip-roulette-hit {
+  box-shadow:
+    0 0 0 5px var(--now),
+    0 14px 36px color-mix(in oklab, var(--now) 55%, transparent);
+  animation: topic-roulette-hit 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) 1;
+}
+@keyframes topic-roulette-hit {
+  0% {
+    scale: 1;
+  }
+  35% {
+    scale: 1.14;
+  }
+  100% {
+    scale: 1;
+  }
+}
+.react-flow__node:has(.topic-chip-roulette),
+.react-flow__node:has(.topic-chip-roulette-hit) {
+  z-index: 12 !important;
+}
+
 /* ボードの最初のお題: 線をたどる起点なので、下に「はじまり」の札と、まわりに淡い輪を付ける */
 .topic-root-ribbon {
   position: absolute;

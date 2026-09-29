@@ -25,6 +25,16 @@ export function boardTopics(board: Board): { theme: string; topics: string[] } {
 export function buildShareExample(board: Board): string {
   const { theme, topics } = boardTopics(board);
   if (!theme) return "配信の雑談ネタをマインドマップで広げてみました💬";
+  // 配信で話した話題（NOW にしたカード）があれば、その順で振り返る
+  const talked = board.nodes
+    .filter((node) => node.data.talkedAt && node.data.parentId !== null && !node.data.placeholder)
+    .sort((a, b) => (a.data.talkedAt ?? 0) - (b.data.talkedAt ?? 0))
+    .map((node) => node.data.label.trim())
+    .filter(Boolean);
+  if (talked.length > 0) {
+    const shown = talked.slice(0, 5).join("→");
+    return `「${theme}」で雑談しました💬\n話したこと: ${shown}${talked.length > 5 ? " ほか" : ""}`;
+  }
   const head = `「${theme}」から雑談ネタを広げてみました💬`;
   if (topics.length === 0) return head;
   const shown = topics.slice(0, 4).join("・");
