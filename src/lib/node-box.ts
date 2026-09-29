@@ -1,4 +1,4 @@
-import { LABEL_MAX } from "@/lib/constants";
+import { LABEL_FIT_MAX } from "@/lib/constants";
 import type { Density, LayoutPrefs, TNode, TopicNodeData } from "@/lib/types";
 
 export type Point = { x: number; y: number };
@@ -259,5 +259,5 @@ export function splitGloss(label: string): { term: string; meaning: string } | n
 }
 
 export function isSentenceCard(data: Pick<TopicNodeData, "detail" | "label" | "parentId">): boolean {
-  return data.parentId !== null && (Boolean(data.detail) || data.label.length > LABEL_MAX);
+  return data.parentId !== null && (Boolean(data.detail) || data.label.length > LABEL_FIT_MAX);
 }
