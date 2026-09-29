@@ -2,7 +2,9 @@
 
 import { useEffect } from "react";
 
+import { useSettled } from "@/hooks/use-settled";
 import { announceStream, shareBoardUsage, STREAM_HEARTBEAT_MS } from "@/lib/community-client";
+import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 
 /** 操作が落ち着いてからボードを送る（広げている最中に何度も送らない） */
@@ -19,10 +21,13 @@ export function useCommunityPublish(board: Board | null, streamUrl: string, watc
   }, [board]);
 
   const inUse = Boolean(board && board.nodes.length > 0);
+  // URL を打っている途中（twitch.tv/n → /nu → …）の名前を一覧に載せない
+  const settledUrl = useSettled(streamUrl.trim(), 3_000);
+  const announceUrl = parseStreamUrl(settledUrl) ? settledUrl : "";
   useEffect(() => {
-    if (!streamUrl.trim() || !inUse) return;
-    announceStream(streamUrl, watchId);
-    const timer = window.setInterval(() => announceStream(streamUrl, watchId), STREAM_HEARTBEAT_MS);
+    if (!announceUrl || !inUse) return;
+    announceStream(announceUrl, watchId);
+    const timer = window.setInterval(() => announceStream(announceUrl, watchId), STREAM_HEARTBEAT_MS);
     return () => window.clearInterval(timer);
-  }, [inUse, streamUrl, watchId]);
+  }, [inUse, announceUrl, watchId]);
 }

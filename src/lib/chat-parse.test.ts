@@ -44,7 +44,42 @@ describe("コメントのID", () => {
   });
 });
 
+describe("コードと紛れる書き方", () => {
+  it("時間・単位・URL の中の英数字はコードにしない", () => {
+    expect(parseChatComment("3h待った").codes).toEqual([]);
+    expect(parseChatComment("2d前に見た").codes).toEqual([]);
+    expect(parseChatComment("https://example.com/tag/3d/ 見て").codes).toEqual([]);
+    expect(parseChatComment("@user_1e こんばんは").codes).toEqual([]);
+    expect(parseChatComment("clover").hasHeart).toBe(false);
+    expect(parseChatComment("love").hasHeart).toBe(true);
+  });
+
+  it("小文字でも、コードだけ・助詞やハートが続くときは拾う", () => {
+    expect(parseChatComment("1e").codes).toEqual(["1E"]);
+    expect(parseChatComment("1eが聞きたい").codes).toEqual(["1E"]);
+    expect(parseChatComment("2f ❤").heartCodes).toEqual(["2F"]);
+  });
+
+  it("「1Eｗｗ」「1E2F」も読む", () => {
+    expect(parseChatComment("1Eｗｗｗ").codes).toEqual(["1E"]);
+    expect(parseChatComment("1E2F").codes).toEqual(["1E", "2F"]);
+  });
+});
+
 describe("配信URL", () => {
+  it("Twitch のポップアウト・配信マネージャーから配信者名を取り、名前でないものは弾く", () => {
+    expect(parseStreamUrl("https://www.twitch.tv/popout/nunuhara/chat?popout=")).toMatchObject({
+      kind: "twitch",
+      channel: "nunuhara",
+    });
+    expect(parseStreamUrl("https://dashboard.twitch.tv/u/nunuhara/stream-manager")).toMatchObject({
+      channel: "nunuhara",
+    });
+    expect(parseStreamUrl("twitch.tv/n")).toBeNull();
+    expect(parseStreamUrl("https://www.twitch.tv/directory")).toBeNull();
+    expect(parseStreamUrl("https://www.youtube.com/embed/live_stream?channel=UCxxxx")).toBeNull();
+  });
+
   it("YouTubeとTwitchを読み取る", () => {
     expect(parseStreamUrl("https://www.youtube.com/watch?v=jfKfPfyJRdk")).toEqual({
       kind: "youtube",

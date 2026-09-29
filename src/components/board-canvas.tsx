@@ -257,6 +257,8 @@ function CanvasInner({
         const tag = target.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
       }
+      // Ctrl+F（ページ内検索）・Ctrl+0 / Ctrl+± （ブラウザの拡大縮小）はブラウザに任せる
+      if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || event.defaultPrevented) return;
       if (event.key === "+" || event.key === "=") {
         event.preventDefault();
         void zoomIn({ duration: 160 });

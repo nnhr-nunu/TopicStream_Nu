@@ -42,7 +42,8 @@ export function CatalogPreviewDialog({
       converted,
       prefsFromSettings({ density: "comfortable", fontScale: 1, generationLayout: layout }, false, converted.pinnedNodeId),
     );
-    return { board: { ...laidOut, pinnedNodeId: null }, layout };
+    // ♡ で一覧が読み直されても同じボードとして扱う（id が変わると拡大・位置が戻ってしまう）
+    return { board: { ...laidOut, id: `preview-${board.id}`, pinnedNodeId: null }, layout };
   }, [board]);
 
   return (
@@ -78,8 +79,12 @@ export function CatalogPreviewDialog({
                 copyLabel: async (id) => {
                   const label = preview.board.nodes.find((node) => node.id === id)?.data.label;
                   if (!label) return;
-                  await navigator.clipboard.writeText(label);
-                  toast.success(`「${label}」をコピーしました`);
+                  try {
+                    await navigator.clipboard.writeText(label);
+                    toast.success(`「${label}」をコピーしました`);
+                  } catch {
+                    toast.error("コピーできませんでした");
+                  }
                 },
                 overlay: true,
                 viewer: true,

@@ -10,7 +10,7 @@ import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/top
 import { StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
-import { usePulseCodes } from "@/hooks/use-pulse-codes";
+import { usePulsing } from "@/hooks/use-pulse-codes";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { appendToMemo } from "@/lib/explain";
 import { fitLabelFontSize } from "@/lib/fit-label";
@@ -79,7 +79,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
   const combine = useCombine();
-  const pulses = usePulseCodes();
   const suppressClick = useRef(false);
   const holdTimer = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -120,6 +119,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       ? cellCode(data.groupId, data.cellIndex)
       : "";
   const heartBurst = useChatHearts(code);
+  const pulsing = usePulsing(code);
   const family = data.familyIndex ?? 0;
   const role = data.role ?? (data.cellIndex === 4 ? "source" : "keyword");
   // 「具体的にする」で出た答えのカードも、ふつうのカードと同じように広げられる
@@ -143,7 +143,6 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   const liked = (data.heartCount ?? 0) > 0;
   // 自分のハート1つだけのときは数字を出さない。コメントのハートがあれば累計を出す。
   const showCount = hearts > 1 || (data.frameHearts ?? 0) > 0;
-  const pulsing = Boolean(code && pulses.includes(code));
   // 空のカードに語が入った瞬間だけ、カードの色の花を咲かせる（key を変えてアニメーションをかけ直す）
   const [wasPlaceholder, setWasPlaceholder] = useState(Boolean(data.placeholder));
   const [bloom, setBloom] = useState(0);
@@ -194,6 +193,8 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       return;
     }
     clearHold();
+    // 長押しのあとに click が来ない端末（Android の長押しなど）で、次のタップが無視されないように
+    suppressClick.current = false;
     touch.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, phase: "down" };
     holdTimer.current = window.setTimeout(() => {
       holdTimer.current = null;

@@ -45,25 +45,45 @@ export function WatchView({ shareId }: { shareId: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
+    let lastUpdated = -1;
     async function load() {
       if (!shareId) {
         if (!cancelled) setError("共有IDがありません。配信者のリンクから開き直してください。");
         return;
       }
-      const response = await fetch(`/api/share/${shareId}`, { cache: "no-store" });
-      if (!response.ok) {
-        if (!cancelled) setError("この共有リンクは見つかりません。配信者がまだ公開していないか、リンクが間違っている可能性があります。");
-        return;
-      }
-      const json = (await response.json()) as { board: Board; nickname: string };
-      if (!cancelled) {
+      // 見ていないタブでは読まない・前の読み込みが終わるまで重ねない
+      if (inFlight || (lastUpdated >= 0 && document.hidden)) return;
+      inFlight = true;
+      try {
+        const response = await fetch(`/api/share/${encodeURIComponent(shareId)}`, {
+          cache: "no-store",
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (cancelled) return;
+        if (!response.ok) {
+          // 一度見えていたら、一時的な失敗で盤面を消さない
+          if (response.status === 404 && lastUpdated < 0) {
+            setError("この共有リンクは見つかりません。配信者がまだ公開していないか、リンクが間違っている可能性があります。");
+          }
+          return;
+        }
+        const json = (await response.json()) as { board: Board; nickname: string };
+        if (cancelled || !json.board) return;
+        const updated = typeof json.board.updatedAt === "number" ? json.board.updatedAt : Date.now();
+        if (updated === lastUpdated) return;
+        lastUpdated = updated;
         setBoard(json.board);
         setNickname(json.nickname);
         setError(null);
+      } catch {
+        /* 通信の途切れは次の読み込みで取り戻す */
+      } finally {
+        inFlight = false;
       }
     }
     void load();
-    const timer = window.setInterval(() => void load(), 2000);
+    const timer = window.setInterval(() => void load(), 2500);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -106,8 +126,12 @@ export function WatchView({ shareId }: { shareId: string }) {
         copyLabel: async (id) => {
           const label = viewBoard.nodes.find((node) => node.id === id)?.data.label;
           if (!label) return;
-          await navigator.clipboard.writeText(label);
-          toast.success(`「${label}」をコピーしました`);
+          try {
+            await navigator.clipboard.writeText(label);
+            toast.success(`「${label}」をコピーしました`);
+          } catch {
+            toast.error("コピーできませんでした");
+          }
         },
         overlay: true,
         viewer: true,
@@ -130,8 +154,12 @@ export function WatchView({ shareId }: { shareId: string }) {
               disabled={!focusedLabel}
               onClick={async () => {
                 if (!focusedLabel) return;
-                await navigator.clipboard.writeText(focusedLabel);
-                toast.success("コピーしました");
+                try {
+                  await navigator.clipboard.writeText(focusedLabel);
+                  toast.success("コピーしました");
+                } catch {
+                  toast.error("コピーできませんでした");
+                }
               }}
             >
               <Copy />

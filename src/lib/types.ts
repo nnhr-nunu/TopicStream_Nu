@@ -105,6 +105,8 @@ export type HistoryEntry = {
   edgeIds: string[];
   nodes: TNode[];
   edges: TEdge[];
+  /** 作り直し（「具体的にする」で周りの 8 枚を差し替えた等）: 戻すときに、差し替える前の子をこれで戻す */
+  replaced?: HistoryEntry;
 };
 
 export type UndoAction = HistoryEntry;
