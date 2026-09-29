@@ -13,7 +13,6 @@ import { combinedKnowledge, fetchSharedSearch } from "@/lib/knowledge-client";
 import {
   CATEGORIES,
   categoryLabel,
-  rankedTopics,
   searchKnowledge,
   type CategoryId,
   type KnowledgeEntry,
@@ -21,7 +20,8 @@ import {
 } from "@/lib/topic-knowledge";
 import { cn } from "@/lib/utils";
 
-const SHOWN = 6;
+/** 3列×3行。周りの語はカードに出さず「見てみる」で見せるので、そのぶんお題を多く並べる */
+const SHOWN = 9;
 const NO_FAVORITES: string[] = [];
 /** ホームで出す分類（多すぎると選びにくいので主なものだけ） */
 const HOME_CATEGORIES: CategoryId[] = ["consult", "life", "food", "people", "work", "shopping", "game", "oshi", "memory", "hobby", "talk"];
@@ -90,10 +90,11 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
       </div>
 
       <ul className="relative mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-critter-garden data-critter-skip="frog">
-        {hits.map(({ entry }) => {
+        {hits.map(({ entry }, index) => {
           const liked = favs.includes(entry.seed);
           return (
-            <li key={entry.seed}>
+            // 2列のときは9枚目が1枚だけ余るので隠す
+            <li key={entry.seed} className={cn(index === SHOWN - 1 && "sm:max-lg:hidden")}>
               <article className="home-topic-card" data-critter-perch>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -102,21 +103,6 @@ export function TopicShowcase({ onStart, busy }: { onStart: (keyword: string) =>
                   </div>
                   <HeartButton liked={liked} count={entryPicks(entry)} onToggle={() => toggleFavoriteTopic(entry.seed)} />
                 </div>
-                <ul className="mt-2.5 flex flex-wrap gap-1.5">
-                  {rankedTopics(entry, 6).map((label) => (
-                    <li key={label}>
-                      <button
-                        type="button"
-                        className="home-topic-chip"
-                        title={`「${label}」から始める`}
-                        onClick={() => onStart(label)}
-                        disabled={busy}
-                      >
-                        {label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
                 <div className="mt-auto flex flex-wrap items-center gap-2 pt-3">
                   <Button size="sm" onClick={() => setPreviewing(entry)}>
                     <Eye />
