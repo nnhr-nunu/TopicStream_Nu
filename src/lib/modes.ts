@@ -1,5 +1,6 @@
 import { combineInstruction } from "@/lib/combine";
 import { LABEL_LONG_MAX, LABEL_MAX } from "@/lib/constants";
+import { PROMPT_SAFETY_RULE } from "@/lib/public-text";
 import type { Board, BoardMode } from "@/lib/types";
 
 export type { BoardMode };
@@ -434,6 +435,7 @@ ${example}
 - 番号・箇条書き記号・説明・引用符・Markdown・コードフェンスは付けない
 - お題そのものは繰り返さない
 - 次と重複しない: ${banned}
+${PROMPT_SAFETY_RULE}
 
 出力は JSON 配列だけ。要素はちょうど${count}個。前後に文字を付けない。
 例: ["キーワード1","キーワード2","キーワード3","キーワード4","キーワード5","キーワード6","キーワード7","キーワード8"]`;

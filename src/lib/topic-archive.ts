@@ -1,3 +1,4 @@
+import { isPublicSafe } from "@/lib/public-text";
 import { ANYWHERE, ARCHIVED_SEEDS, BY_SEED, CATEGORY_FIXES } from "@/lib/topic-archive-data";
 import { normalizeSeed, type KnowledgeEntry, type KnowledgeStore } from "@/lib/topic-knowledge";
 
@@ -9,6 +10,7 @@ import { normalizeSeed, type KnowledgeEntry, type KnowledgeStore } from "@/lib/t
  * - BY_SEED: そのお題の下でだけ語を隠す（お題に合っていない・広がりにくい語）
  * - ANYWHERE: どのお題の下でも語を隠す（文として壊れている語）
  * - CATEGORY_FIXES: 分類の付け直し
+ * 個人につながる語・人を傷つける語（public-text.ts）も、記録した時期に関係なくここで隠す。
  */
 
 const archivedSeeds = new Set(ARCHIVED_SEEDS.map(normalizeSeed));
@@ -28,7 +30,7 @@ export function isArchived(seed: string, topic: string): boolean {
 }
 
 function withoutArchivedEntry(entry: KnowledgeEntry): KnowledgeEntry {
-  const keep = (label: string) => !isArchived(entry.seed, label);
+  const keep = (label: string) => !isArchived(entry.seed, label) && isPublicSafe(label);
   const topics = Object.fromEntries(Object.entries(entry.topics).filter(([label]) => keep(label)));
   const next: KnowledgeEntry = { ...entry, topics };
   const category = categoryFixes.get(normalizeSeed(entry.seed));
@@ -39,11 +41,11 @@ function withoutArchivedEntry(entry: KnowledgeEntry): KnowledgeEntry {
   return next;
 }
 
-/** アーカイブしたお題・語を除き、分類を直した図鑑（語が1つも残らないお題は出さない） */
+/** アーカイブしたお題・語と公開に向かない語を除き、分類を直した図鑑（語が1つも残らないお題は出さない） */
 export function withoutArchived(store: KnowledgeStore): KnowledgeStore {
   const out: KnowledgeStore = {};
   for (const [key, entry] of Object.entries(store)) {
-    if (isArchivedSeed(entry.seed)) continue;
+    if (isArchivedSeed(entry.seed) || !isPublicSafe(entry.seed)) continue;
     const next = withoutArchivedEntry(entry);
     if (Object.keys(next.topics).length > 0) out[key] = next;
   }

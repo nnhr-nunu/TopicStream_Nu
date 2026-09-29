@@ -1,6 +1,6 @@
 import { clientKeyFromHeaders } from "@/lib/gemini-guard";
 import { bumpTopic, TOPIC_EVENT_KINDS } from "@/lib/live-store";
-import { looksPersonal } from "@/lib/personal-text";
+import { isPublicSafe } from "@/lib/public-text";
 import { createRateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 const perMinute = createRateLimit(60, 60_000);
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as { label?: unknown; kind?: unknown } | null;
   const label = typeof body?.label === "string" ? body.label.trim() : "";
   const kind = typeof body?.kind === "string" && (TOPIC_EVENT_KINDS as readonly string[]).includes(body.kind) ? body.kind : "expands";
-  if (!label || label.length > 40 || looksPersonal(label)) return Response.json({ ok: false }, { status: 400 });
+  if (!label || label.length > 40 || !isPublicSafe(label)) return Response.json({ ok: false }, { status: 400 });
   if (perLabel(`${client}|${label}`)) bumpTopic(label, kind);
   return Response.json({ ok: true });
 }

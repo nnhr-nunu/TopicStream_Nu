@@ -17,6 +17,7 @@ import type { CatalogBoard } from "@/lib/catalog-data";
 import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
 import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
 import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
+import { looksAbusive } from "@/lib/public-text";
 import type { Board, BoardMode } from "@/lib/types";
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
@@ -67,6 +68,8 @@ export function StartScreen({
 }) {
   const [keyword, setKeyword] = useState("");
   const [mode, setMode] = useState<BoardMode>(DEFAULT_MODE);
+  // 暴言・晒しの呼びかけ・差別語は始める前に止める（重い悩みは止めない。判定は public-text.ts）
+  const abusive = looksAbusive(keyword);
   const preset = modePreset(mode);
   const isChat = mode === DEFAULT_MODE;
   const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 12));
@@ -113,7 +116,7 @@ export function StartScreen({
               data-mode={mode}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (keyword.trim()) onStart(keyword.trim(), mode);
+                if (keyword.trim() && !abusive) onStart(keyword.trim(), mode);
               }}
             >
               <Input
@@ -121,6 +124,8 @@ export function StartScreen({
                 onChange={(event) => setKeyword(event.target.value)}
                 placeholder={preset.placeholder}
                 aria-label="開始キーワード"
+                aria-invalid={abusive || undefined}
+                aria-describedby={abusive ? "home-start-abusive" : undefined}
                 className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
                 autoFocus={recent.length === 0}
               />
@@ -139,11 +144,16 @@ export function StartScreen({
               >
                 <Dices />
               </Button>
-              <Button type="submit" size="lg" className="h-11 shrink-0 rounded-xl px-5" disabled={busy || !keyword.trim()}>
+              <Button type="submit" size="lg" className="h-11 shrink-0 rounded-xl px-5" disabled={busy || !keyword.trim() || abusive}>
                 始める
                 <ArrowRight />
               </Button>
             </form>
+            {abusive ? (
+              <p id="home-start-abusive" role="alert" className="mt-2 text-xs text-destructive">
+                人を傷つける言葉が入っているので、このお題では始められません。
+              </p>
+            ) : null}
 
             {isChat ? (
               <div className="mt-4 w-full max-w-2xl">

@@ -2,6 +2,7 @@ import { combineInstruction } from "@/lib/combine";
 import { DETAIL_LABEL_MAX } from "@/lib/constants";
 import { isGenericAngle, topicAnchor } from "@/lib/mock-topics";
 import { divisionInstruction, isDivisionLabel } from "@/lib/modes";
+import { PROMPT_SAFETY_RULE } from "@/lib/public-text";
 import type { BoardMode } from "@/lib/types";
 
 /**
@@ -211,6 +212,7 @@ ${flow ? "- このカードは元のお題の中の1つの切り口。答えは�
 - 文のときは、読みやすいように区切りに読点「、」を入れる（文末の「。」は付けない）
 - 番号・箇条書き記号・引用符・かぎかっこ・Markdown・コードフェンスは付けない
 - 次と重複しない: ${banned}
+${PROMPT_SAFETY_RULE}
 
 出力は JSON 配列だけ。要素はちょうど${count}個。前後に文字を付けない。`;
 }

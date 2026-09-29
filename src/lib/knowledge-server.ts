@@ -7,7 +7,7 @@ import { DETAIL_LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 /** 票で入る語の長さの上限（自分で書き直した語は少し長いこともある） */
 const PICK_TOPIC_MAX = DETAIL_LABEL_MAX;
 import { isJunkTopic } from "@/lib/gemini-core";
-import { looksPersonal } from "@/lib/personal-text";
+import { isPublicSafe, looksPersonal } from "@/lib/public-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
 import { isRecordableSeed, isTruncatedLabel } from "@/lib/label-quality";
 import { isArchived, isArchivedSeed, withoutArchived } from "@/lib/topic-archive";
@@ -224,10 +224,10 @@ export async function loadSharedFor(seed: string, mode: BoardMode = "chat"): Pro
   }
 }
 
-/** 記録に値する語だけに絞る（長すぎる・壊れた語・お題そのもの・個人につながりそうな語は入れない） */
+/** 記録に値する語だけに絞る（長すぎる・壊れた語・お題そのもの・個人につながりそうな語・人を傷つける語は入れない） */
 export function cleanForRecord(seed: string, topics: string[]): { seed: string; topics: string[] } | null {
   const trimmed = seed.trim();
-  if (!trimmed || trimmed.length > ROOT_LABEL_MAX || looksPersonal(trimmed) || isArchivedSeed(trimmed)) return null;
+  if (!trimmed || trimmed.length > ROOT_LABEL_MAX || !isPublicSafe(trimmed) || isArchivedSeed(trimmed)) return null;
   // 途中で切れたもの・掛け合わせ・「語：意味」は、単独のお題として記録しない（広げても、そのお題の切り口にならない）
   if (!isRecordableSeed(trimmed)) return null;
   const key = normalizeSeed(trimmed);
@@ -241,7 +241,7 @@ export function cleanForRecord(seed: string, topics: string[]): { seed: string; 
             label.length <= DETAIL_LABEL_MAX &&
             !isJunkTopic(label) &&
             !isTruncatedLabel(label) &&
-            !looksPersonal(label) &&
+            isPublicSafe(label) &&
             !isArchived(trimmed, label) &&
             normalizeSeed(label) !== key,
         ),
@@ -281,12 +281,12 @@ export async function recordSharedKnowledge(seed: string, topics: string[], mode
 
 export type SharedPick = { seed: string; topic: string; kind: PickKind; mode?: BoardMode };
 
-/** 票として受け付ける形にそろえる（長すぎる語・個人につながりそうな語は捨てる） */
+/** 票として受け付ける形にそろえる（長すぎる語・個人につながりそうな語・人を傷つける語は捨てる） */
 export function cleanPick(pick: SharedPick): SharedPick | null {
   const seed = pick.seed.trim();
   const topic = pick.topic.trim();
   if (!seed || !topic || seed.length > ROOT_LABEL_MAX || topic.length > PICK_TOPIC_MAX) return null;
-  if (isJunkTopic(topic) || isTruncatedLabel(topic) || looksPersonal(seed) || looksPersonal(topic)) return null;
+  if (isJunkTopic(topic) || isTruncatedLabel(topic) || !isPublicSafe(seed) || !isPublicSafe(topic)) return null;
   if (!isRecordableSeed(seed)) return null;
   if (normalizeSeed(seed) === normalizeSeed(topic) || isArchivedSeed(seed) || isArchived(seed, topic)) return null;
   return { seed, topic, kind: pick.kind, ...(pick.mode && pick.mode !== "chat" ? { mode: pick.mode } : {}) };
