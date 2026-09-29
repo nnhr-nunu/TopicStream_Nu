@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { markDetail } from "@/lib/board-ops";
-import { DETAIL_LABEL_MAX, LABEL_MAX } from "@/lib/constants";
+import { DETAIL_LABEL_MAX, LABEL_FIT_MAX, LABEL_MAX } from "@/lib/constants";
 import { detailRecordSeed, isWordTopic, mockDetailTopics } from "@/lib/detail-modes";
 import { buildPrompt, padTopics, parseTopics } from "@/lib/gemini-core";
 import { cleanForRecord } from "@/lib/knowledge-server";
@@ -15,7 +15,7 @@ describe("具体的にする", () => {
     expect(parseTopics(JSON.stringify([answer]), "本当はどうしたい？", [], true)).toEqual([answer]);
     // 途中までしか届いていない配列でも、かぎかっこの中身だけを語として拾わない
     expect(parseTopics(`["${answer}", "書きかけ`, "お題", [], true)).toEqual([answer]);
-    expect(parseTopics(JSON.stringify([answer]), "お題", [])[0]!.length).toBeLessThanOrEqual(LABEL_MAX);
+    expect(parseTopics(JSON.stringify([answer]), "お題", [])[0]!.length).toBeLessThanOrEqual(LABEL_FIT_MAX);
   });
 
   it("長すぎる答えは上限で切る", () => {

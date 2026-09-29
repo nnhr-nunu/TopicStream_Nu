@@ -3,7 +3,7 @@ import {
   DEFAULT_MODEL,
   GEMINI_FALLBACK_MODELS,
   GEMINI_HOST,
-  LABEL_MAX,
+  LABEL_FIT_MAX,
   RETIRED_GEMINI_MODELS,
 } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
@@ -47,10 +47,10 @@ export function anchorInstruction(mode: BoardMode, seed: string, context: string
 
 /** 語の長さの上限。「具体的にする」の答えは文なので長め */
 export function labelLimit(detail = false): number {
-  return detail ? DETAIL_LABEL_MAX : LABEL_MAX;
+  return detail ? DETAIL_LABEL_MAX : LABEL_FIT_MAX;
 }
 
-function clip(label: string, max = LABEL_MAX): string {
+function clip(label: string, max = LABEL_FIT_MAX): string {
   const trimmed = label.trim();
   if (trimmed.length <= max) return trimmed;
   return `${trimmed.slice(0, max - 1)}…`;

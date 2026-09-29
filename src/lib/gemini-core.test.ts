@@ -28,6 +28,10 @@ describe("Gemini の返答パース", () => {
     expect(topics).toEqual(["温泉"]);
   });
 
+  it("16文字を少し超える語も切らずに残す", () => {
+    expect(parseTopics('["パッケージの開け方が謎だったお菓子"]', "お題", [])).toEqual(["パッケージの開け方が謎だったお菓子"]);
+  });
+
   it("きれいな JSON 配列 [\"a\",\"b\"] を取る", () => {
     expect(parseTopics('["a","b"]', "お題", [])).toEqual(["a", "b"]);
     expect(parseTopics('```json\n["温泉","湯けむり"]\n```', "お題", [])).toEqual(["温泉", "湯けむり"]);
