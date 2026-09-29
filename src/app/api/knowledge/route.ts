@@ -8,7 +8,16 @@ import {
 import { clientKeyFromHeaders } from "@/lib/gemini-guard";
 import { isBoardMode, parseMode } from "@/lib/modes";
 import { createRateLimit, readJsonBody, tooManyRequests } from "@/lib/rate-limit";
-import { isCategoryId, isPickKind, knowledgeCounts, relatedEntries, searchKnowledge } from "@/lib/topic-knowledge";
+import { withoutArchived } from "@/lib/topic-archive";
+import {
+  isCategoryId,
+  isPickKind,
+  knowledgeCounts,
+  mergeStores,
+  relatedEntries,
+  searchKnowledge,
+} from "@/lib/topic-knowledge";
+import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
 /**
  * みんなの図鑑の口。
@@ -43,8 +52,9 @@ export async function GET(request: Request) {
     {
       entries: hits.map((hit) => hit.entry),
       total: Object.keys(shared).length,
-      // 返すのは検索に合った分だけなので、タグの横の数は図鑑全体から数えて別に返す
-      counts: knowledgeCounts(shared, mode),
+      // 返すのは検索に合った分だけなので、タグの横の数は図鑑全体から数えて別に返す。
+      // 画面は同梱の初期データも重ねて見せるので、数にも入れる（入れないと、取ってきた分が増えるたびに数が揺れる）
+      counts: knowledgeCounts(withoutArchived(mergeStores(seedKnowledge(), shared)), mode),
       backend: knowledgeBackend(),
     },
     { headers },

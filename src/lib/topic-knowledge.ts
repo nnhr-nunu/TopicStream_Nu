@@ -549,26 +549,35 @@ export function searchKnowledge(
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-export type KnowledgeCounts = {
-  /** モードごとのお題の数 */
-  modes: Partial<Record<BoardMode, number>>;
-  /** 指定したモードの中の、分類ごとのお題の数 */
+export type ModeCounts = {
+  /** 分類ごとのお題の数 */
   categories: Partial<Record<CategoryId, number>>;
-  /** 指定したモードの中の、話題（語）の数 */
+  /** 話題（語）の数 */
   topics: number;
 };
 
-/** 図鑑ページのタグの横に出す数（検索結果の件数ではなく、図鑑全体の数） */
+export type KnowledgeCounts = ModeCounts & {
+  /** モードごとのお題の数 */
+  modes: Partial<Record<BoardMode, number>>;
+  /** 全モードの分類・話題の数（モードのタブを切り替えても、数が届き直すまで揺れないように） */
+  byMode: Partial<Record<BoardMode, ModeCounts>>;
+};
+
+/**
+ * 図鑑ページのタグの横に出す数（検索結果の件数ではなく、図鑑全体の数）。
+ * categories / topics は指定したモードの分（byMode を読まない古い画面のために残す）
+ */
 export function knowledgeCounts(store: KnowledgeStore, mode: BoardMode = "chat"): KnowledgeCounts {
-  const counts: KnowledgeCounts = { modes: {}, categories: {}, topics: 0 };
+  const modes: KnowledgeCounts["modes"] = {};
+  const byMode: KnowledgeCounts["byMode"] = {};
   for (const entry of Object.values(store)) {
     const entryModeId = entryMode(entry);
-    counts.modes[entryModeId] = (counts.modes[entryModeId] ?? 0) + 1;
-    if (entryModeId !== mode) continue;
+    modes[entryModeId] = (modes[entryModeId] ?? 0) + 1;
+    const counts = (byMode[entryModeId] ??= { categories: {}, topics: 0 });
     counts.categories[entry.category] = (counts.categories[entry.category] ?? 0) + 1;
     counts.topics += Object.keys(entry.topics).length;
   }
-  return counts;
+  return { modes, byMode, ...(byMode[mode] ?? { categories: {}, topics: 0 }) };
 }
 
 /** 強い順（出た回数 + 選ばれた重み）の語 */

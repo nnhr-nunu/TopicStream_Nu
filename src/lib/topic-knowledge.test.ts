@@ -410,6 +410,17 @@ describe("図鑑ページのタグの数", () => {
     expect(counts.topics).toBe(5);
     expect(knowledgeCounts(store, "idea").topics).toBe(2);
   });
+
+  it("全モードの分類の数も1回で返す（タブを切り替えても数が届き直すまで揺れない）", () => {
+    let store: KnowledgeStore = {};
+    store = recordTopics(store, "ラーメン", ["味噌", "醤油", "豚骨"], 1, 1, "chat");
+    store = recordTopics(store, "配信のネタ切れ", ["企画会議", "視聴者に聞く"], 1, 1, "idea");
+    const counts = knowledgeCounts(store, "chat");
+    expect(counts.byMode.chat).toEqual({ categories: counts.categories, topics: 3 });
+    expect(counts.byMode.idea?.topics).toBe(2);
+    expect(Object.values(counts.byMode.idea?.categories ?? {}).reduce((sum, value) => sum + (value ?? 0), 0)).toBe(1);
+    expect(counts.byMode.advice).toBeUndefined();
+  });
 });
 
 describe("公開前の見直し", () => {
