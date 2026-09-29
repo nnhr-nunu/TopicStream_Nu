@@ -84,6 +84,31 @@ describe("展開のやり直し", () => {
     expect(redone.edges).toHaveLength(0);
   });
 
+  it("語が足りなかったマスは「話題 N」で埋めずに外す", () => {
+    const prefs = normalizePrefs({ generationLayout: "mandala" });
+    let board = ops.createRootBoard(emptyBoard("test"), "根", prefs);
+    const rootId = board.nodes[0]!.id;
+    const started = ops.beginExpand(board, rootId, 8, prefs)!;
+    board = ops.fillExpand(started.board, rootId, started.childIds, ["A", "B", "C"], prefs);
+    expect(labelsOf(board)).toEqual(["A", "B", "C", "根"]);
+    expect(board.nodes.some((node) => node.data.placeholder)).toBe(false);
+    expect(board.nodes.find((node) => node.id === rootId)?.data.expanded).toBe(true);
+  });
+
+  it("新しい 3×3 で語が 1 つも無ければ、中央の写しも外して広げる前に戻す", () => {
+    const prefs = normalizePrefs({ generationLayout: "mandala" });
+    let board = ops.createRootBoard(emptyBoard("test"), "根", prefs);
+    const rootId = board.nodes[0]!.id;
+    const first = ops.beginExpand(board, rootId, 8, prefs)!;
+    board = ops.fillExpand(first.board, rootId, first.childIds, ["A", "B", "C", "D", "E", "F", "G", "H"], prefs);
+    const cellId = board.nodes.find((node) => node.data.label === "A")!.id;
+    const second = ops.beginExpand(board, cellId, 8, prefs)!;
+    board = ops.fillExpand(second.board, cellId, second.childIds, [], prefs);
+    expect(board.nodes).toHaveLength(9);
+    expect(board.edges).toHaveLength(0);
+    expect(board.nodes.find((node) => node.id === cellId)?.data.expanded).toBe(false);
+  });
+
   it("ハートはトグルと加算ができる", () => {
     const prefs = normalizePrefs({ generationLayout: "mandala" });
     let board = ops.createRootBoard(emptyBoard("test"), "根", prefs);

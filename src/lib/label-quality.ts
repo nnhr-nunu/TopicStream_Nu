@@ -39,7 +39,8 @@ export function isNearDuplicate(a: string, b: string): boolean {
   if (x === y) return true;
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
   if (short.length >= 4 && long.includes(short)) return true;
-  return similarity(x, y) >= 0.8;
+  // 「朝のルーティン」と「夜のルーティン」のような対になる語（0.83）は別の語として残す
+  return similarity(x, y) >= 0.86;
 }
 
 /**

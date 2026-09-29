@@ -63,3 +63,10 @@ describe("isRecordableSeed", () => {
     expect(isRecordableSeed("秋", ["夏と冬どっち派"])).toBe(false);
   });
 });
+
+describe("対になる語", () => {
+  it("「朝の〜」「夜の〜」のような対は別の語として残す", () => {
+    expect(isNearDuplicate("朝のルーティン", "夜のルーティン")).toBe(false);
+    expect(isNearDuplicate("昔の朝ごはん", "今の朝ごはん")).toBe(false);
+  });
+});

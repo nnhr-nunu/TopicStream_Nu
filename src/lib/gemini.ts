@@ -58,7 +58,7 @@ export async function generateRelatedTopics(options: {
     return requestTopics(options, { count, context, mode, mock, known: 0, recordSeed: detailRecordSeed(options.seed, context), detail: true });
   }
   // 「一番の失敗談」のような汎用の切り口は、図鑑にもこのお題としてはためない（別のお題の話が混ざる）
-  const generic = isGenericAngle(options.seed);
+  const generic = isGenericAngle(options.seed, mode);
   // 図鑑はモードごとに分かれている（お悩み相談の語が雑談の候補に混ざらない）
   const anchor = mode === "chat" ? topicAnchor(context) : undefined;
   // みんなの図鑑は待ちすぎない。間に合わなければ手元の分で進め、届いた分は次から使う

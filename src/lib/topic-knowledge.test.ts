@@ -411,3 +411,25 @@ describe("図鑑ページのタグの数", () => {
     expect(knowledgeCounts(store, "idea").topics).toBe(2);
   });
 });
+
+describe("公開前の見直し", () => {
+  it("「ずれている」の票だけのお題も、読み込み直して消えない（一覧には出さない）", () => {
+    const store = recordPick({}, "夜食", "カップ麺", "wrong", 1);
+    const key = Object.keys(store)[0]!;
+    const reloaded = asKnowledgeEntry(JSON.parse(JSON.stringify(store[key])));
+    expect(reloaded?.picks?.["カップ麺"]).toBeLessThan(0);
+    expect(searchKnowledge({ [key]: reloaded! }, "", "all", 10)).toEqual([]);
+  });
+
+  it("語がいっぱいのお題にも、新しく出た語が入れ替わりで残る", () => {
+    const old = Array.from({ length: 40 }, (_, index) => `古い語${index}`);
+    let store = recordTopics({}, "夜食", old, 1);
+    store = recordTopics(store, "夜食", ["新しい語"], 2);
+    expect(Object.keys(Object.values(store)[0]!.topics)).toContain("新しい語");
+    expect(Object.keys(Object.values(store)[0]!.topics)).toHaveLength(40);
+  });
+
+  it("「こと」「もの」が共通なだけのお題は似ているとみなさない", () => {
+    expect(topicSimilarity("好きなこと", "最近あったいいこと")).toBeLessThan(0.6);
+  });
+});
