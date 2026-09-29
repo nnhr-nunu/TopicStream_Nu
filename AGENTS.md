@@ -17,6 +17,8 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | 配信ディレクトリ（community 一覧） | [`stream-directory.ts`](./src/lib/stream-directory.ts) → [`community-catalog.tsx`](./src/components/community-catalog.tsx) / [`app/community/`](./src/app/community/) |
 | オーバーレイ（OBS用） | [`app/overlay/`](./src/app/overlay/) + [`overlay-workspace.tsx`](./src/components/overlay-workspace.tsx) |
 | お気に入り・付箋 | [`favorites.ts`](./src/lib/favorites.ts) / [`sticky-note-panel.tsx`](./src/components/sticky-note-panel.tsx) |
+| 話題ルーレット・「話した」の印・NOW の経過時間 | [`roulette.ts`](./src/lib/roulette.ts)（選び方）→ `use-board-controller.ts` の `spinRoulette` / [`use-roulette.ts`](./src/hooks/use-roulette.ts)（光らせる）/ [`pin-banner.tsx`](./src/components/pin-banner.tsx) |
+| 公開 API の守り（回数制限・共有リンクの鍵） | [`rate-limit.ts`](./src/lib/rate-limit.ts) / [`live-store.ts`](./src/lib/live-store.ts) の `saveShare` |
 | ショートカット | [`use-hotkeys.ts`](./src/hooks/use-hotkeys.ts) |
 | 未完了タスク | [`task.md`](./task.md) |
 | セットアップ・キー・公開URL | [`README.md`](./README.md) |

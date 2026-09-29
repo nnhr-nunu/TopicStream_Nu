@@ -2,6 +2,16 @@
 
 完了の詳細は `git log`。制約はエージェント用の [`AGENTS.md`](./AGENTS.md)。
 
+## 残り: 公開前の総点検の続き（2026-09-29）
+
+済: 全体のバグ調査と修正（ライブチャット・ショートカット・戻す/進む・保存/読み込み・サーバーの守り・図鑑の精度）、話題ルーレット（N キー）・「話した」の印・NOW の経過時間、共有カード画像（`src/app/opengraph-image.png`、元の HTML はコミットしていない）・404/エラー画面・robots/sitemap。いっしょに見るリンクは作った人だけが持つ鍵で書き換える（`live-store.ts` の `saveShare`）。
+
+- YouTube のチャット読み込みは 8 秒おき。`liveChatMessages.list` が 1 回 5 ユニットなら、1 日 1 万ユニットで配信 4 時間ほどしか持たない。公開後に使う人が増えるなら、間隔を延ばす（`MIN_POLL_MS`）か、Google に枠の増加を申請する
+- 公開 API の回数制限（[`rate-limit.ts`](./src/lib/rate-limit.ts)）はインスタンスごとのメモリ。荒らしが来たら Redis で全インスタンス共有にする
+- 共有カード画像は X の Card Validator などで、本番ドメインで実際に出るか確認する（`NEXT_PUBLIC_SITE_URL` で基準の URL を変えられる）
+- 小さな残り: 文の編集を閉じたあと PC でメニューが開いたまま残ることがある（`useMenuHold` の locked）、雑談以外のモードをキー無しで深く広げると 3×3 が埋まりきらない（候補の数が少ない。今は空けておく）、`TopicShowcase` の件数が全モード分、ラジオの矢印キー操作
+- ルーレットの演出は盤面の中だけ。いっしょに見る画面・オーバーレイでも回る様子を見せるなら、共有ボードに「回した」を載せる
+
 ## 残り: 公開前の図鑑の棚卸しの続き（2026-09-29）
 
 済: 本番の共有図鑑（Redis、388 お題）を棚卸しして、開発中の深掘りで残ったカード文のお題・他モードの試し打ちなど 189 お題を隠し、残したお題のずれた語も語ごとに隠した。分類は表で固定（[`topic-archive-data.ts`](./src/lib/topic-archive-data.ts) の `ARCHIVED_SEEDS` / `BY_SEED` / `CATEGORY_FIXES`。Redis からは消さず、読むときに外す）。同梱の初期データ（[`topic-knowledge-seed-data.ts`](./src/lib/topic-knowledge-seed-data.ts)）は、ずれた語の差し替え・ホームのスターター全部の専用データ・薄い分類のお題・雑談以外のモードのスターター（`SEED_MODE_TOPICS`）を足した。調べて分かった生成の問題は、コード側でも防いだ（[`label-quality.ts`](./src/lib/label-quality.ts): 「…」で切った語を捨てる・同じ書き出しの語を並べない・遠い文脈のお題を記録しない、`topicSimilarity`: 共通の言い回しで似たお題とみなさない、`classifyTopic`: お題名を重く見る）。
