@@ -99,6 +99,11 @@ describe("topicSimilarity", () => {
     expect(topicSimilarity("旅行", "温泉旅行")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
     expect(topicSimilarity("ゲーム実況", "ゲーム配信")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
   });
+
+  it("向きが逆のお題（好きな／苦手な）は、中身が同じでも似たお題とみなさない", () => {
+    expect(topicSimilarity("好きな食べ物", "苦手な食べ物")).toBe(0);
+    expect(topicSimilarity("好きな食べ物", "好きな食べ物、いま一番は？")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
+  });
 });
 
 describe("お題自身の語が十分あるときの借り方", () => {

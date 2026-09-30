@@ -171,8 +171,8 @@ export function WatchView({ shareId }: { shareId: string }) {
               disabled={!focusedLabel}
               onClick={() => {
                 if (!focusedLabel) return;
-                toggleFavoriteTopic(focusedLabel);
-                toast.success("お気に入りに残しました");
+                const kept = toggleFavoriteTopic(focusedLabel).includes(focusedLabel);
+                toast.success(kept ? "お気に入りに残しました" : "お気に入りから外しました");
               }}
             >
               <Heart className={focusedLabel && favs.includes(focusedLabel) ? "fill-current" : undefined} />
