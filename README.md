@@ -83,7 +83,7 @@ AI が出した話題を「お題 → 出てきた語（回数つき）」の形
 | `CRON_SECRET` | トピック図鑑の自動育成（`/api/knowledge/grow`）を呼ぶための合言葉。Vercel Cron が自動で付ける |
 | `KV_REST_API_URL` / `KV_REST_API_TOKEN` | みんなのトピック図鑑・みんなが作った話題マップ・配信一覧の保存先（Upstash Redis）。Vercel の Storage → Marketplace で Upstash Redis をつなぐと自動で入る。`UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` でも可 |
 
-キーはサーバーの環境変数だけで使います（手元は `.env.local`）。利用者が画面で入力する欄はありません。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
+キーはサーバーの環境変数で使います（手元は `.env.local`）。みんなで分け合う枠が尽きたときのために、利用者は設定の「自分の AI キー」に自分の Gemini のキーを入れることもできます（そのブラウザにだけ保存し、サーバーには保存しません。作り方は使い方ページ）。別の端末への引き継ぎ（引き継ぎコード）も、この Redis に暗号文を 15 分だけ預けます。マップ下の「配信と連携」に YouTube / Twitch の配信リンクやチャットURLを貼ります。
 
 ## 使用量の監視
 

@@ -51,17 +51,28 @@ export function loadFavoriteTopics(): string[] {
   }
 }
 
+function saveFavoriteTopics(next: string[]) {
+  if (typeof window === "undefined") return;
+  const raw = JSON.stringify(next);
+  window.localStorage.setItem(TOPIC_FAV_KEY, raw);
+  topicFavRaw = raw;
+  topicFavCache = next;
+  for (const listener of topicFavListeners) listener();
+}
+
 export function toggleFavoriteTopic(label: string): string[] {
   const current = loadFavoriteTopics();
   const next = current.includes(label)
     ? current.filter((item) => item !== label)
     : [...current, label];
-  if (typeof window !== "undefined") {
-    const raw = JSON.stringify(next);
-    window.localStorage.setItem(TOPIC_FAV_KEY, raw);
-    topicFavRaw = raw;
-    topicFavCache = next;
-    for (const listener of topicFavListeners) listener();
-  }
+  saveFavoriteTopics(next);
   return next;
+}
+
+/** 別の端末から受け取った ♡ を足す（すでにあるものはそのまま）。新しく足した数を返す */
+export function addFavoriteTopics(labels: string[]): number {
+  const current = loadFavoriteTopics();
+  const fresh = [...new Set(labels)].filter((label) => !current.includes(label));
+  if (fresh.length > 0) saveFavoriteTopics([...current, ...fresh]);
+  return fresh.length;
 }
