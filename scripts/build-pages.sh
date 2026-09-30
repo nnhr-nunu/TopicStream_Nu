@@ -23,5 +23,8 @@ if [ -d src/app/watch/'[id]' ]; then
   mv src/app/watch/'[id]' "$WATCH_ID_BACKUP/[id]"
   WATCH_ID_BACKUP="$WATCH_ID_BACKUP/[id]"
 fi
+# 開発サーバーが作った型の一覧（.next/dev/types）には、退避した api・watch/[id] への参照が残っている。
+# 残したままだと型チェックで「モジュールが無い」と落ちるので消す（次に開発サーバーを動かせば作り直される）
+rm -rf .next/dev/types
 export STATIC_EXPORT=1
 npx next build
