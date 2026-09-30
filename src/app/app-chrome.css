@@ -225,6 +225,10 @@
     max-width: none;
     margin-left: 0;
   }
+  /* コメント欄も配信連携も使っていない間は、試し打ちの欄をしまって下の帯を 1 段にする */
+  .map-test-comment-idle {
+    display: none;
+  }
 }
 
 /* ヘッダー: 左に「ホーム › ボード名」、右に操作 */
@@ -282,6 +286,8 @@
 
 .app-crumb-board {
   min-width: 0;
+  /* 狭い画面では右の操作に重ならないよう、名前を「…」で切って縮める（ボタンの既定は縮まない） */
+  flex-shrink: 1;
   height: 2rem;
   border-radius: 0.7rem;
   font-size: 0.85rem;
@@ -363,7 +369,10 @@
   top: 4.6rem;
   z-index: 15;
   display: flex;
-  justify-content: center;
+  /* 帯の下に、始めたときの注意書きを並べる */
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0 0.75rem;
 }
 
@@ -883,19 +892,17 @@
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
 }
 
-/* 新しいボードを始めたときの注意書き: ふわっと出て、数秒でふわっと消える */
+/*
+ * 新しいボードを始めたときの注意書き: ふわっと出て、数秒でふわっと消える。
+ * NOW の帯の下に並べる（画面の下に固定すると、左下の切り替え・ルーレットに重なる）
+ */
 .privacy-notice {
   pointer-events: none;
-  position: fixed;
-  left: 50%;
-  bottom: 4.5rem;
-  z-index: 60;
   display: flex;
-  max-width: calc(100vw - 2rem);
+  max-width: 100%;
   align-items: center;
   gap: 0.5rem;
-  translate: -50% 0;
-  border-radius: 999px;
+  border-radius: 1.2rem;
   border: 1px solid color-mix(in oklab, var(--now) 55%, var(--border));
   background: color-mix(in oklab, var(--background) 86%, var(--now));
   color: var(--foreground);

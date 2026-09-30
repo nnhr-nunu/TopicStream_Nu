@@ -103,7 +103,8 @@ export function AppToolbar({
               <BookOpen className="size-4" />
               <span className="max-sm:hidden">トピック</span>図鑑
             </Link>
-            <Link href="/guide/" className="app-bar-link max-sm:hidden">
+            {/* .app-bar-link の display（レイヤー外の CSS）が Tailwind の hidden に勝つので、! を付けて隠す */}
+            <Link href="/guide/" className="app-bar-link max-sm:hidden!">
               使い方
             </Link>
             <span className="app-bar-divider" aria-hidden />

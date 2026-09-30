@@ -216,14 +216,19 @@ function bigrams(text: string): Set<string> {
   return out;
 }
 
+/** 2文字ずつに切ったとき、両方にある組の数 */
+function sharedBigrams(x: Set<string>, y: Set<string>): number {
+  let shared = 0;
+  for (const gram of x) if (y.has(gram)) shared += 1;
+  return shared;
+}
+
 /** 2文字ずつの重なり（Dice 係数）。日本語でも形態素解析なしでそこそこ効く。0〜1 */
 export function similarity(a: string, b: string): number {
   const x = bigrams(a);
   const y = bigrams(b);
   if (x.size === 0 || y.size === 0) return 0;
-  let shared = 0;
-  for (const gram of x) if (y.has(gram)) shared += 1;
-  return (2 * shared) / (x.size + y.size);
+  return (2 * sharedBigrams(x, y)) / (x.size + y.size);
 }
 
 /**
@@ -242,7 +247,9 @@ const HOLLOW_CORES = new Set(["こと", "もの", "とき", "ところ", "はな
 
 /**
  * お題どうしの近さ（似たお題の語を借りる・検索で使う）。共通の言い回しを除いて比べ、
- * 一方の中身がもう一方に丸ごと入っているとき（「部活」と「学生のころの部活…」）は、少し近いとみなす。0〜1
+ * 一方の中身がもう一方に丸ごと入っているとき（「部活」と「学生のころの部活…」）は、少し近いとみなす。
+ * 2文字が1か所重なっただけ（「食べ歩き」と「食べ物」、「夏休み」と「冬休み」）では、短いお題どうしだと点が高く出るが、
+ * 話の中身は別なので似ていないとする（「食べ歩き」に「苦手な食べ物」の語が混ざる）。0〜1
  */
 export function topicSimilarity(a: string, b: string): number {
   const x = topicCore(a);
@@ -250,7 +257,8 @@ export function topicSimilarity(a: string, b: string): number {
   if (!x || !y) return 0;
   const base = similarity(x, y);
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
-  return short.length >= 2 && !HOLLOW_CORES.has(short) && long.includes(short) ? Math.max(base, 0.6) : base;
+  if (short.length >= 2 && !HOLLOW_CORES.has(short) && long.includes(short)) return Math.max(base, 0.6);
+  return sharedBigrams(bigrams(x), bigrams(y)) >= 2 ? base : 0;
 }
 
 /** 1つのお題に持たせる語の上限（少ない回数のものから落とす） */

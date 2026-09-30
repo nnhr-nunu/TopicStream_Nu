@@ -8,6 +8,7 @@ import { HeartButton } from "@/components/heart-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { fetchCatalog } from "@/lib/catalog-client";
 import { catalogRoot, catalogStats, searchCatalog, type CatalogBoard } from "@/lib/catalog-data";
 import { loadFavoriteBoardIds, toggleFavoriteBoard } from "@/lib/favorites";
 import { cn } from "@/lib/utils";
@@ -50,9 +51,8 @@ export function ThemeBoardList({
   useEffect(() => {
     if (initialBoards) return;
     let cancelled = false;
-    void fetch("/api/catalog")
-      .then((response) => response.json())
-      .then((json: { boards?: CatalogBoard[] }) => {
+    void fetchCatalog()
+      .then((json) => {
         if (cancelled) return;
         setBoards(json.boards ?? []);
         allBoards.current = json.boards ?? [];

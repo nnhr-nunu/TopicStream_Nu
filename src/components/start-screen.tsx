@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowRight, Dices, History, ShieldAlert } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { CatalogBoard } from "@/lib/catalog-data";
 import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
+import { fetchCatalog } from "@/lib/catalog-client";
 import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
 import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
 import { looksAbusive } from "@/lib/public-text";
@@ -31,6 +32,20 @@ function formatUpdated(ms: number): string {
 
 function rootLabel(board: Board): string {
   return board.nodes.find((node) => node.data.parentId === null)?.data.label ?? "";
+}
+
+/** 入力欄が狭くて、案内の文（「…、または 🎲 でランダム」「…（例: …）」）が途中で切れる幅 */
+const NARROW_QUERY = "(max-width: 639px)";
+
+function subscribeNarrow(onChange: () => void) {
+  const media = window.matchMedia(NARROW_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+/** 狭い画面では、案内の文の前半（「話したいお題を入力」）だけにする */
+function shortPlaceholder(text: string): string {
+  return text.split(/[、（]/u)[0] ?? text;
 }
 
 function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
@@ -72,6 +87,11 @@ export function StartScreen({
   const abusive = looksAbusive(keyword);
   const preset = modePreset(mode);
   const isChat = mode === DEFAULT_MODE;
+  const narrow = useSyncExternalStore(
+    subscribeNarrow,
+    () => window.matchMedia(NARROW_QUERY).matches,
+    () => false,
+  );
   const [popular, setPopular] = useState<PopularTopic[]>(SEED_TOPIC_SCORES.slice(0, 12));
   const recent = boards
     .filter((board) => board.nodes.length > 0)
@@ -79,9 +99,8 @@ export function StartScreen({
     .slice(0, 3);
 
   useEffect(() => {
-    void fetch("/api/catalog")
-      .then((response) => response.json())
-      .then((json: { popular?: PopularTopic[] }) => {
+    void fetchCatalog()
+      .then((json) => {
         setPopular(mergePopularTopics(json.popular ?? []));
       })
       .catch(() => setPopular(mergePopularTopics()));
@@ -122,11 +141,11 @@ export function StartScreen({
               <Input
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
-                placeholder={preset.placeholder}
+                placeholder={narrow ? shortPlaceholder(preset.placeholder) : preset.placeholder}
                 aria-label="開始キーワード"
                 aria-invalid={abusive || undefined}
                 aria-describedby={abusive ? "home-start-abusive" : undefined}
-                className="h-12 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0"
+                className="h-12 min-w-0 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0 max-sm:placeholder:text-sm"
                 autoFocus={recent.length === 0}
               />
               <Button
@@ -208,7 +227,8 @@ export function StartScreen({
                   続きから
                 </span>
               </SectionTitle>
-              <ul className="grid gap-2">
+              {/* grid-cols-1（minmax(0,1fr)）にしないと、長い名前のぶんだけ列が広がってスマホで右にはみ出す */}
+              <ul className="grid grid-cols-1 gap-2">
                 {recent.map((board, index) => (
                   <li key={board.id}>
                     <button

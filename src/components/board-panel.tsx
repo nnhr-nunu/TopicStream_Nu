@@ -214,7 +214,7 @@ export function BoardPanel({
       >
         {atHome ? <LayoutGrid className="size-3.5 shrink-0 opacity-70" /> : null}
         <span className="truncate font-semibold">{atHome ? `ボード一覧（${boards.length}）` : activeBoard.name}</span>
-        {atHome ? null : <ModeBadge mode={activeBoard.mode} className="max-sm:hidden" />}
+        {atHome ? null : <ModeBadge mode={activeBoard.mode} className="max-sm:hidden!" />}
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </SheetTrigger>
       <SheetContent side="left" className="w-[min(100%,24rem)] gap-0">
