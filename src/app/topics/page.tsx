@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AdScript } from "@/components/ad-script";
 import { TopicDatabase } from "@/components/topic-database";
+import { TopicPageIndex } from "@/components/topic-page-index";
 
 export const metadata: Metadata = {
   title: "トピック図鑑 | TopicStream(ぬ)",
@@ -13,7 +14,9 @@ export default function TopicsPage() {
   return (
     <>
       <AdScript />
-      <TopicDatabase />
+      <TopicDatabase>
+        <TopicPageIndex />
+      </TopicDatabase>
     </>
   );
 }

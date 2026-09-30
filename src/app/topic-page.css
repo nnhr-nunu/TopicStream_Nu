@@ -1,0 +1,181 @@
+/* お題ごとのページ（/topics/[slug]）: 3×3 の見本・始めるボタン・話題の一覧 */
+
+.topic-page-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-inline: auto;
+  width: 100%;
+  max-width: 34rem;
+}
+@media (min-width: 640px) {
+  .topic-page-grid {
+    gap: 0.6rem;
+  }
+}
+
+/* ボードのカード（マンダラート）と同じ色の決め方。系統の色は globals.css の .topic-node[data-family] と同じ値 */
+.topic-page-cell {
+  --family-strong: var(--chip-fill);
+  --family-line: var(--primary);
+  display: flex;
+  min-height: 4.4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--family-line) 42%, transparent);
+  background: color-mix(in oklab, var(--family-strong) 38%, white);
+  color: oklch(0.25 0.02 260);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  padding: 0.4rem 0.45rem;
+  cursor: pointer;
+  transition:
+    translate 140ms ease,
+    box-shadow 140ms ease,
+    border-color 140ms ease;
+}
+@media (min-width: 640px) {
+  .topic-page-cell {
+    min-height: 5.25rem;
+    font-size: 0.92rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
+.topic-page-cell:hover,
+.topic-page-cell:focus-visible {
+  translate: 0 -2px;
+  border-color: var(--family-line);
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--family-line) 22%, transparent);
+  outline: none;
+}
+.topic-page-center {
+  --family-strong: oklch(0.9 0.055 155);
+  --family-line: oklch(0.55 0.1 155);
+  border-width: 3px;
+  border-color: var(--family-line);
+  background: var(--family-strong);
+  font-weight: 700;
+  outline: 3px solid var(--family-line);
+  outline-offset: -1px;
+}
+.topic-page-center:focus-visible {
+  outline: 3px solid var(--family-line);
+}
+html[data-theme="stream"] .topic-page-cell:not(.topic-page-center),
+.dark .topic-page-cell:not(.topic-page-center) {
+  background: color-mix(in oklab, var(--family-strong) 48%, black);
+  color: oklch(0.96 0.01 260);
+}
+
+.topic-page-cell[data-family="0"] {
+  --family-strong: oklch(0.9 0.055 155);
+  --family-line: oklch(0.55 0.1 155);
+}
+.topic-page-cell[data-family="1"] {
+  --family-strong: oklch(0.9 0.05 220);
+  --family-line: oklch(0.52 0.09 220);
+}
+.topic-page-cell[data-family="2"] {
+  --family-strong: oklch(0.92 0.055 95);
+  --family-line: oklch(0.62 0.08 85);
+}
+.topic-page-cell[data-family="3"] {
+  --family-strong: oklch(0.9 0.045 180);
+  --family-line: oklch(0.5 0.08 180);
+}
+.topic-page-cell[data-family="4"] {
+  --family-strong: oklch(0.91 0.05 280);
+  --family-line: oklch(0.52 0.09 280);
+}
+.topic-page-cell[data-family="5"] {
+  --family-strong: oklch(0.91 0.05 145);
+  --family-line: oklch(0.5 0.09 145);
+}
+.topic-page-cell[data-family="6"] {
+  --family-strong: oklch(0.92 0.055 50);
+  --family-line: oklch(0.6 0.08 50);
+}
+.topic-page-cell[data-family="7"] {
+  --family-strong: oklch(0.9 0.04 250);
+  --family-line: oklch(0.5 0.07 250);
+}
+
+.topic-page-cta {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.9rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 0.6rem 1.5rem;
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--primary) 28%, transparent);
+  cursor: pointer;
+  transition:
+    translate 140ms ease,
+    opacity 140ms ease;
+}
+.topic-page-cta:hover {
+  translate: 0 -1px;
+  opacity: 0.92;
+}
+.topic-page-cta svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* 話題の一覧: 番号つきの 2 列（狭い画面は 1 列） */
+.topic-page-list {
+  display: grid;
+  gap: 0.4rem;
+  counter-reset: topic;
+}
+@media (min-width: 640px) {
+  .topic-page-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.topic-page-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 0.9rem;
+  padding: 0.55rem 0.8rem;
+  counter-increment: topic;
+}
+.topic-page-list li::before {
+  content: counter(topic);
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-page-cell,
+  .topic-page-cta {
+    transition: none;
+  }
+  .topic-page-cell:hover,
+  .topic-page-cta:hover {
+    translate: none;
+  }
+}
