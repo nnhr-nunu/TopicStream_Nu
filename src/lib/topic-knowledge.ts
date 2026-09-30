@@ -242,6 +242,16 @@ function topicCore(text: string): string {
   return normalizeSeed(text).replace(FRAME_PATTERN, "");
 }
 
+/**
+ * 向きが逆の言い回し。言い回しを除くと「好きな食べ物」と「苦手な食べ物」は同じ中身（食べ物）になるが、
+ * 出てくる語は正反対（食感がダメ・こっそり残す…）なので、似たお題とみなさない
+ */
+const OPPOSITE_FRAMES: [RegExp, RegExp][] = [[/好きな|得意な/u, /苦手な|嫌いな/u]];
+
+function oppositeFrames(a: string, b: string): boolean {
+  return OPPOSITE_FRAMES.some(([one, other]) => (one.test(a) && other.test(b)) || (other.test(a) && one.test(b)));
+}
+
 /** 言い回しを除いたあとに残りがちな、中身の無い語（「好きなこと」→「こと」）。これが入っているだけでは似ていない */
 const HOLLOW_CORES = new Set(["こと", "もの", "とき", "ところ", "はなし", "ひと", "人", "物", "事", "時", "話"]);
 
@@ -254,7 +264,7 @@ const HOLLOW_CORES = new Set(["こと", "もの", "とき", "ところ", "はな
 export function topicSimilarity(a: string, b: string): number {
   const x = topicCore(a);
   const y = topicCore(b);
-  if (!x || !y) return 0;
+  if (!x || !y || oppositeFrames(a, b)) return 0;
   const base = similarity(x, y);
   const [short, long] = x.length <= y.length ? [x, y] : [y, x];
   if (short.length >= 2 && !HOLLOW_CORES.has(short) && long.includes(short)) return Math.max(base, 0.6);

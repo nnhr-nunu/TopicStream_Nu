@@ -979,7 +979,11 @@ export function useBoardController() {
         description: "リンクを知っている人はボードを見られます。個人情報は書かないでください。",
       });
     } catch {
-      toast.message(url);
+      // コピーできない環境（権限が無い・古いブラウザ）では、リンクを読める形で長めに出す
+      toast.message("いっしょに見るリンクを作りました（自動でコピーできなかったので、下のリンクを写してください）", {
+        description: url,
+        duration: 20_000,
+      });
     }
   }, [shareId]);
 
