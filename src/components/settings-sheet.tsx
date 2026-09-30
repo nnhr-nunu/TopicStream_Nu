@@ -6,7 +6,9 @@ import { Activity, Palette, PawPrint, Settings, Users } from "lucide-react";
 import { AiKeySettings } from "@/components/ai-key-settings";
 import { Button } from "@/components/ui/button";
 import { CritterSettings } from "@/components/critter-settings";
+import { DeviceTransfer } from "@/components/device-transfer";
 import { Row, Section } from "@/components/settings-section";
+import { TalkSummary } from "@/components/talk-summary";
 import {
   Select,
   SelectContent,
@@ -172,11 +174,15 @@ export function SettingsSheet({
             </Row>
           </Section>
 
+          <TalkSummary />
+
           <AiKeySettings
             apiKey={settings.geminiApiKey}
             model={settings.geminiModel}
             onChange={(geminiApiKey) => onPatch({ geminiApiKey })}
           />
+
+          <DeviceTransfer />
 
           <AiUsagePanel />
 

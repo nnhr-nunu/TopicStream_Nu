@@ -14,6 +14,7 @@ import { StartScreen } from "@/components/start-screen";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useTalkLog } from "@/hooks/use-talk-log";
 import { spareCount } from "@/lib/board-spares";
 import {
   clearOpenActiveBoardRequest,
@@ -61,6 +62,8 @@ export function TopicWorkspace() {
   }, [hydrated, startWithKeyword]);
 
   useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
+  // NOW にした話題の履歴（設定の「話した話題のまとめ」）。読み込みが終わってから追い始める
+  useTalkLog(hydrated ? (board ?? null) : null);
 
   // ホーム画面の裏にあるボードをキーで動かさない
   const onBoard = Boolean(controller.hydrated && board && !atHome && board.nodes.length > 0);

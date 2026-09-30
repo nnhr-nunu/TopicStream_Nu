@@ -16,6 +16,10 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | ライブチャット連動（YouTube/Twitch） | [`live-chat-dock.tsx`](./src/components/live-chat-dock.tsx) + [`live-store.ts`](./src/lib/live-store.ts) / [`live-pulse.ts`](./src/lib/live-pulse.ts) + [`chat-parse.ts`](./src/lib/chat-parse.ts) |
 | 配信ディレクトリ（community 一覧） | [`stream-directory.ts`](./src/lib/stream-directory.ts) → [`community-catalog.tsx`](./src/components/community-catalog.tsx) / [`app/community/`](./src/app/community/) |
 | オーバーレイ（OBS用） | [`app/overlay/`](./src/app/overlay/) + [`overlay-workspace.tsx`](./src/components/overlay-workspace.tsx) |
+| お題ごとの静的なページ（検索の入口） | [`topic-pages.ts`](./src/lib/topic-pages.ts)（同梱のお題 → URL・近いお題）→ [`app/topics/[slug]/`](./src/app/topics/%5Bslug%5D/page.tsx) / [`topic-page-start.tsx`](./src/components/topic-page-start.tsx)。sitemap と図鑑の下の一覧（[`topic-page-index.tsx`](./src/components/topic-page-index.tsx)）にも出る |
+| 話した話題のまとめ（NOW の履歴・タイムスタンプ） | [`talk-log.ts`](./src/lib/talk-log.ts)（ボードをまたいで 1 本の時系列）→ [`use-talk-log.ts`](./src/hooks/use-talk-log.ts)（記録）/ [`talk-summary.tsx`](./src/components/talk-summary.tsx)（設定画面） |
+| 自分の AI キー（利用者が入れる Gemini のキー） | [`ai-key-settings.tsx`](./src/components/ai-key-settings.tsx) + [`ai-key.ts`](./src/lib/ai-key.ts)（接続テストの文）/ [`ai-key-steps.tsx`](./src/components/ai-key-steps.tsx)（作り方。使い方ページと共用）。サーバー側は `api/gemini` の `ownKey` |
+| 別の端末へ引き継ぐ（引き継ぎコード） | [`transfer.ts`](./src/lib/transfer.ts)（コードで暗号化・受け取ったボードの足し方）→ [`transfer-client.ts`](./src/lib/transfer-client.ts) / [`transfer-store.ts`](./src/lib/transfer-store.ts) + [`app/api/transfer/`](./src/app/api/transfer/) / [`device-transfer.tsx`](./src/components/device-transfer.tsx) |
 | お気に入り・付箋 | [`favorites.ts`](./src/lib/favorites.ts) / [`sticky-note-panel.tsx`](./src/components/sticky-note-panel.tsx) |
 | 話題ルーレット・「話した」の印・NOW の経過時間 | [`roulette.ts`](./src/lib/roulette.ts)（選び方）→ `use-board-controller.ts` の `spinRoulette` / [`use-roulette.ts`](./src/hooks/use-roulette.ts)（光らせる）/ [`pin-banner.tsx`](./src/components/pin-banner.tsx) |
 | 公開 API の守り（回数制限・共有リンクの鍵） | [`rate-limit.ts`](./src/lib/rate-limit.ts) / [`live-store.ts`](./src/lib/live-store.ts) の `saveShare` |
@@ -57,6 +61,7 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 - Twitch は匿名でブラウザから公開チャットを読むだけ。トークンを要求する実装にしない
 - 実キー（`GEMINI_API_KEY` 等）はコミットしない。`.env.example` のみ更新
 - キー無しでも動くこと（オフライン生成・テストコメント）が前提。新機能もこのフォールバックを維持する
+- 公開が前提。「みんなに共有しない」の設定は入れない（2026-09-30 に決定）。付箋だけは自分用なので、読める形ではサーバーへ送らない（引き継ぎはブラウザで暗号化してから預ける）
 
 ## Git
 
