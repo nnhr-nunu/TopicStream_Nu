@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Activity, Palette, PawPrint, Settings, Users } from "lucide-react";
 
+import { AiKeySettings } from "@/components/ai-key-settings";
 import { Button } from "@/components/ui/button";
 import { CritterSettings } from "@/components/critter-settings";
-import { Label } from "@/components/ui/label";
+import { Row, Section } from "@/components/settings-section";
 import {
   Select,
   SelectContent,
@@ -32,55 +33,6 @@ const LAYOUT_ITEMS = [
   { value: "mandala", label: "マンダラート（3×3）" },
   { value: "radial", label: "放射（マインドマップ）" },
 ] as const;
-
-function Row({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-2">
-        <Label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">
-          {label}
-        </Label>
-        <div className="min-w-0">{children}</div>
-      </div>
-      {hint ? <p className="pl-[6rem] text-[11px] leading-4 text-muted-foreground/80">{hint}</p> : null}
-    </div>
-  );
-}
-
-function Section({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: ReactNode;
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-3">
-      <div>
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold [&_svg]:size-4 [&_svg]:text-primary">
-          {icon}
-          {title}
-        </h3>
-        {description ? <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{description}</p> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 /** 設定の一番下にそれとなく出す、この端末からの今日の AI 利用（開発中の目安） */
 function AiUsagePanel() {
@@ -219,6 +171,12 @@ export function SettingsSheet({
               </div>
             </Row>
           </Section>
+
+          <AiKeySettings
+            apiKey={settings.geminiApiKey}
+            model={settings.geminiModel}
+            onChange={(geminiApiKey) => onPatch({ geminiApiKey })}
+          />
 
           <AiUsagePanel />
 

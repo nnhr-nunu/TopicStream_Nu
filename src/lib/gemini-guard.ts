@@ -18,11 +18,14 @@ export const GUARD_LIMITS = {
   cacheEntries: 200,
 };
 
+/** 自分のキーを入れた人の上限。開発者の枠は減らないので広めにする（サーバーを連打で使われないための歯止めだけ） */
+export const OWN_KEY_LIMITS: typeof GUARD_LIMITS = { ...GUARD_LIMITS, perMinute: 30, perHour: 600 };
+
 type Clock = () => number;
 
 export type GuardDecision = { ok: true; release: () => void } | { ok: false; reason: "rate" | "busy"; retryInMs: number };
 
-export function createGeminiGuard(now: Clock = Date.now) {
+export function createGeminiGuard(now: Clock = Date.now, limits: typeof GUARD_LIMITS = GUARD_LIMITS) {
   const history = new Map<string, number[]>();
   let active = 0;
   const cache = new Map<string, { topics: string[]; at: number }>();
@@ -31,13 +34,13 @@ export function createGeminiGuard(now: Clock = Date.now) {
     const t = now();
     const recent = (history.get(clientKey) ?? []).filter((at) => t - at < 60 * 60_000);
     const lastMinute = recent.filter((at) => t - at < 60_000);
-    if (lastMinute.length >= GUARD_LIMITS.perMinute) {
+    if (lastMinute.length >= limits.perMinute) {
       return { ok: false, reason: "rate", retryInMs: 60_000 - (t - lastMinute[0]!) };
     }
-    if (recent.length >= GUARD_LIMITS.perHour) {
+    if (recent.length >= limits.perHour) {
       return { ok: false, reason: "rate", retryInMs: 60 * 60_000 - (t - recent[0]!) };
     }
-    if (active >= GUARD_LIMITS.concurrent) {
+    if (active >= limits.concurrent) {
       return { ok: false, reason: "busy", retryInMs: 3_000 };
     }
     recent.push(t);
@@ -70,7 +73,7 @@ export function createGeminiGuard(now: Clock = Date.now) {
     if (!key) return null;
     const hit = cache.get(key);
     if (!hit) return null;
-    if (now() - hit.at > GUARD_LIMITS.cacheMs) {
+    if (now() - hit.at > limits.cacheMs) {
       cache.delete(key);
       return null;
     }
@@ -80,7 +83,7 @@ export function createGeminiGuard(now: Clock = Date.now) {
   function writeCache(key: string | null, topics: string[]) {
     if (!key || topics.length === 0) return;
     cache.set(key, { topics, at: now() });
-    if (cache.size > GUARD_LIMITS.cacheEntries) {
+    if (cache.size > limits.cacheEntries) {
       const oldest = cache.keys().next().value;
       if (oldest !== undefined) cache.delete(oldest);
     }

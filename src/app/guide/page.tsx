@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { AdScript } from "@/components/ad-script";
 import { AdSlot } from "@/components/ad-slot";
+import { AiKeySteps } from "@/components/ai-key-steps";
 import { SiteLinks } from "@/components/site-links";
 import { UsageGallery } from "@/components/usage-gallery";
 
@@ -13,9 +14,12 @@ export const metadata: Metadata = {
     "TopicStream(ぬ)の使い方。キーワードを1つ入れるだけで、雑談配信のネタが3×3のマップで広がります。コメント連動やOBS表示の方法も。",
 };
 
-function Card({ children }: { children: ReactNode }) {
+function Card({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground">
+    <section
+      id={id}
+      className="scroll-mt-6 space-y-3 rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground"
+    >
       {children}
     </section>
   );
@@ -83,6 +87,10 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "話題はどうやって作られていますか？",
     a: "AI（Gemini）で作っています。AI が使えないときは、あらかじめ用意した話題から自動で作るので、止まることはありません。",
+  },
+  {
+    q: "「AI の利用上限に達しました」と出ます。",
+    a: "AI はみんなで 1 つの無料枠を分け合っているので、混む時間は使い切ってしまうことがあります。時間を置くか、このページの「自分の AI キーを入れる」の手順で自分のキー（無料）を入れると、自分の枠で続けられます。",
   },
   {
     q: "個人情報を書いても大丈夫ですか？",
@@ -163,6 +171,19 @@ export default function GuidePage() {
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card id="ai-key">
+        <Heading>自分の AI キーを入れる（無料）</Heading>
+        <p>
+          話題を作る AI（Google の Gemini）は、TopicStream を使うみんなで 1 つの無料枠を分け合っています。
+          使う人が多い時間は枠が尽きて、「AI の利用上限に達しました」と出ることがあります。
+        </p>
+        <p>
+          そんなときは、自分用のキー（API キー）を作って入れると、自分だけの枠で使えます。作るのは無料で、5
+          分ほどです。入れなくても、これまでどおり使えます。
+        </p>
+        <AiKeySteps detailed />
       </Card>
 
       <Card>
