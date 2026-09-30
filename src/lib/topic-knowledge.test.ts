@@ -91,6 +91,14 @@ describe("topicSimilarity", () => {
   it("言い回しだけのお題は、何とも似ていない", () => {
     expect(topicSimilarity("思い出", "給食の思い出")).toBe(0);
   });
+
+  it("2文字が1か所重なっただけの短いお題どうしは、似たお題とみなさない", () => {
+    expect(topicSimilarity("食べ歩き", "苦手な食べ物")).toBe(0);
+    expect(topicSimilarity("夏休みの思い出", "冬休み")).toBe(0);
+    // 丸ごと入っているとき・2か所以上重なるときは、今までどおり似ている
+    expect(topicSimilarity("旅行", "温泉旅行")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
+    expect(topicSimilarity("ゲーム実況", "ゲーム配信")).toBeGreaterThanOrEqual(SIMILAR_THRESHOLD);
+  });
 });
 
 describe("お題自身の語が十分あるときの借り方", () => {

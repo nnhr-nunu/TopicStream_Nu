@@ -28,7 +28,8 @@ export function HeartButton({
       disabled={disabled}
     >
       <Heart className={cn("size-3.5", liked && "fill-current")} />
-      <span className="tabular-nums">{count}</span>
+      {/* 0 は出さない（まだ誰も押していないお題が「0」だらけに見えるので、♡ だけにする） */}
+      {count > 0 ? <span className="tabular-nums">{count}</span> : null}
     </button>
   );
 }

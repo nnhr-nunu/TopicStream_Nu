@@ -343,7 +343,8 @@ export function LiveChatDock({
         </button>
 
         <form
-          className="map-test-comment"
+          // スマホでは、コメント欄を開くか配信と連携するまで出さない（2 段になって盤面が狭くなるので）
+          className={cn("map-test-comment", !showComments && !linked && "map-test-comment-idle")}
           onSubmit={(event) => {
             event.preventDefault();
             const text = draft.trim();

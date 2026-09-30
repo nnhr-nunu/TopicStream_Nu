@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /** 話している時間（m:ss。1 時間を超えたら h:mm:ss） */
 export function formatElapsed(ms: number): string {
@@ -24,15 +24,28 @@ function Elapsed({ since }: { since: number }) {
   );
 }
 
-export function PinBanner({ label, since }: { label: string; since?: number }) {
-  if (!label.trim()) return null;
+export function PinBanner({
+  label,
+  since,
+  children,
+}: {
+  label: string;
+  since?: number;
+  /** 帯のすぐ下に並べるお知らせ（帯が 2 行になっても重ならず、左下の操作にもかぶらない） */
+  children?: ReactNode;
+}) {
+  const shown = Boolean(label.trim());
+  if (!shown && !children) return null;
   return (
-    <div className="pin-banner" role="status">
-      <div className="pin-banner-inner" title={label}>
-        <span className="pin-banner-now">NOW</span>
-        <p className="pin-banner-text">{label}</p>
-        {since ? <Elapsed key={since} since={since} /> : null}
-      </div>
+    <div className="pin-banner">
+      {shown ? (
+        <div className="pin-banner-inner" role="status" title={label}>
+          <span className="pin-banner-now">NOW</span>
+          <p className="pin-banner-text">{label}</p>
+          {since ? <Elapsed key={since} since={since} /> : null}
+        </div>
+      ) : null}
+      {children}
     </div>
   );
 }

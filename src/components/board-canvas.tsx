@@ -11,6 +11,7 @@ import {
   useNodesInitialized,
   useReactFlow,
   useStore,
+  useStoreApi,
   type Edge,
   type NodeChange,
   type OnNodeDrag,
@@ -36,18 +37,24 @@ const FLOW_EDGE_STYLE = {
   strokeOpacity: 0.7,
 };
 
-function canvasFitPadding(overlay: boolean, pinned = false) {
-  if (overlay) return 0.16;
+/** 盤面の端に空ける余白（px）。ヘッダー・ピン留めの帯・左下の切り替えにカードが隠れないように */
+function canvasFitInsets(pinned = false) {
   const narrow = typeof window !== "undefined" && window.innerWidth < 720;
-  const px = (value: number): `${number}px` => `${value}px`;
   // ピン留めの帯（ヘッダーの下）がある間は、その分だけ上を空ける
   const banner = pinned ? (narrow ? 76 : 96) : 0;
   return {
-    top: px((narrow ? 108 : 88) + banner),
-    bottom: px(narrow ? 96 : 86),
-    left: px(narrow ? 12 : 28),
-    right: px(narrow ? 12 : 28),
+    top: (narrow ? 108 : 88) + banner,
+    bottom: narrow ? 96 : 86,
+    left: narrow ? 12 : 28,
+    right: narrow ? 12 : 28,
   };
+}
+
+function canvasFitPadding(overlay: boolean, pinned = false) {
+  if (overlay) return 0.16;
+  const px = (value: number): `${number}px` => `${value}px`;
+  const inset = canvasFitInsets(pinned);
+  return { top: px(inset.top), bottom: px(inset.bottom), left: px(inset.left), right: px(inset.right) };
 }
 
 function canvasFitZoom(overlay: boolean) {
@@ -67,6 +74,26 @@ const FIT_OPTIONS_OVERLAY = { padding: 0.16, maxZoom: 1.12 };
 
 /** ルーレットの当たりへ寄るときの最小の倍率（引きすぎて字が読めないときだけ少し寄る） */
 const ROULETTE_MIN_ZOOM = 0.6;
+
+/** ボードを開いたとき、全体を入れるとこれより小さくなる（字が読めない）なら、続きの場所だけを映す */
+const READABLE_ZOOM = 0.6;
+
+/**
+ * ボードを開き直したときに映す「続きの場所」。選んでいた（無ければ NOW の、それも無ければ最初の）カードの周り。
+ * マンダラートは同じ 3×3、放射はそのカードと親・子
+ */
+function resumeCluster(board: Board, layout: GenerationLayout): string[] {
+  const focusId = board.focusedNodeId ?? board.pinnedNodeId;
+  const focus =
+    board.nodes.find((node) => node.id === focusId) ?? board.nodes.find((node) => node.data.parentId === null);
+  if (!focus) return [];
+  const near =
+    layout === "mandala" && typeof focus.data.groupId === "number"
+      ? (node: Board["nodes"][number]) => node.data.groupId === focus.data.groupId
+      : (node: Board["nodes"][number]) =>
+          node.id === focus.id || node.data.parentId === focus.id || node.id === focus.data.parentId;
+  return board.nodes.filter(near).map((node) => node.id);
+}
 
 /** マンダラートで開いたマス → 開いた先の3×3の中央コード（例: 1F → 2E）。 */
 function openedCodes(board: Board): Map<string, string> {
@@ -140,7 +167,8 @@ function CanvasInner({
   onCombine?: (sourceId: string, targetId: string) => void;
   children?: ReactNode;
 }) {
-  const { fitView, getZoom, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, getNodesBounds, getZoom, zoomIn, zoomOut } = useReactFlow();
+  const store = useStoreApi();
   const coarse = useCoarsePointer();
   const combining = !overlay && Boolean(onCombine);
   const mouseDrag = combining && !coarse;
@@ -185,6 +213,34 @@ function CanvasInner({
     [fitView, overlay, pinned],
   );
 
+  /**
+   * ボードを開いたとき・広げかたを変えたときの合わせ方。ふだんは全体を入れる。
+   * 何度も広げたボードは全体を入れると字が読めないので、続きの場所（選んでいたカードの周り）だけを映す（0 / F キーで全体）
+   */
+  const fitBoard = useCallback(
+    (target: Board, duration: number) => {
+      const options = { padding: canvasFitPadding(overlay, pinned), duration, ...canvasFitZoom(overlay) };
+      if (!overlay) {
+        const { width, height } = store.getState();
+        const bounds = getNodesBounds(target.nodes.map((node) => node.id));
+        const inset = canvasFitInsets(pinned);
+        const scale = Math.min(
+          (width - inset.left - inset.right) / bounds.width,
+          (height - inset.top - inset.bottom) / bounds.height,
+        );
+        const ids = Number.isFinite(scale) && scale < READABLE_ZOOM ? resumeCluster(target, layout) : [];
+        if (ids.length > 0 && ids.length < target.nodes.length) {
+          void fitView({ ...options, nodes: ids.map((id) => ({ id })) }).then((ok) => {
+            if (!ok) void fitView(options);
+          });
+          return;
+        }
+      }
+      void fitView(options);
+    },
+    [fitView, getNodesBounds, layout, overlay, pinned, store],
+  );
+
   const idsKey = board.nodes.map((node) => node.id).join(",");
 
   useEffect(() => {
@@ -224,7 +280,7 @@ function CanvasInner({
           fitCluster(clusterRef.current, graph);
           return;
         }
-        void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 240, ...canvasFitZoom(overlay) });
+        fitBoard(board, 240);
       });
     }
 
@@ -243,7 +299,7 @@ function CanvasInner({
 
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- idsKey is the node-identity key; listing board.nodes spreads and changes dep count
-  }, [board.id, fitCluster, fitView, idsKey, overlay, pinned]);
+  }, [board.id, fitBoard, fitCluster, idsKey]);
 
   // 非表示のタブで開いたときなど、最初の fit の時点でカードの寸法が測れていないことがある。
   // 寸法が取れた最初のタイミングで、そのボードを一度だけ画面に合わせ直す。
@@ -256,7 +312,7 @@ function CanvasInner({
     if (initialFitBoard.current === key) return;
     const first = initialFitBoard.current === null;
     initialFitBoard.current = key;
-    void fitView({ padding: canvasFitPadding(overlay, pinned), duration: first ? 0 : 260, ...canvasFitZoom(overlay) });
+    fitBoard(board, first ? 0 : 260);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ボード・広げかたごとに1回だけ
   }, [nodesInitialized, board.id, layout]);
 

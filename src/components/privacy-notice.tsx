@@ -7,17 +7,23 @@ export const PRIVACY_NOTICE = "ボードや入力したお題・話題は公開�
 
 const SHOW_MS = 6_500;
 
+/** 最後まで出し終えた trigger。ホームへ戻ってマップを開き直しても（作り直されても）、同じ注意書きをもう一度出さない */
+let shownTrigger = 0;
+
 /**
- * 新しいボードを始めたときに、ふわっと出てふわっと消える注意書き。
+ * 新しいボードを始めたときに、ふわっと出てふわっと消える注意書き。NOW の帯の下（PinBanner の中）に置く。
  * `trigger` が変わるたびに出し直す（0 のときは出さない）。
  */
 export function PrivacyNotice({ trigger }: { trigger: number }) {
   const [visibleFor, setVisibleFor] = useState(0);
 
   useEffect(() => {
-    if (!trigger) return;
+    if (!trigger || trigger === shownTrigger) return;
     const show = window.setTimeout(() => setVisibleFor(trigger), 0);
-    const hide = window.setTimeout(() => setVisibleFor(0), SHOW_MS);
+    const hide = window.setTimeout(() => {
+      shownTrigger = trigger;
+      setVisibleFor(0);
+    }, SHOW_MS);
     return () => {
       window.clearTimeout(show);
       window.clearTimeout(hide);
