@@ -494,6 +494,32 @@ describe("利用者へのお知らせ", () => {
     expect(geminiUserNotice(new GeminiRequestError("timeout", geminiDebug({ reason: "timeout", model: "x" }))).kind).toBe("slow");
     expect(geminiUserNotice(new Error("x")).kind).toBe("unavailable");
   });
+
+  it("みんなの枠が尽きたときは、自分のキーを入れる道を案内する", () => {
+    const quota = new GeminiRequestError(
+      "http",
+      geminiDebug({ reason: "http-429", httpStatus: 429, googleMessage: "Quota exceeded. limit: 0", model: "x" }),
+    );
+    expect(geminiUserNotice(quota).message).toContain("自分の AI キー");
+  });
+
+  it("自分のキーで失敗したときは、キーのせいだと分かる文にする", () => {
+    const invalid = new GeminiRequestError(
+      "http",
+      geminiDebug({ reason: "http-400", httpStatus: 400, googleMessage: "API key not valid. Please pass a valid API key.", model: "x" }),
+    );
+    expect(geminiUserNotice(invalid, true)).toMatchObject({ kind: "key" });
+    expect(geminiUserNotice(invalid, true).message).toContain("接続テスト");
+    // みんなのキーでの 400 は利用者のせいではないので、キーの話はしない
+    expect(geminiUserNotice(invalid).kind).toBe("unavailable");
+
+    const quota = new GeminiRequestError(
+      "http",
+      geminiDebug({ reason: "http-429", httpStatus: 429, googleMessage: "Quota exceeded", model: "x" }),
+    );
+    expect(geminiUserNotice(quota, true).kind).toBe("quota");
+    expect(geminiUserNotice(quota, true).message).toContain("自分の AI キーの利用上限");
+  });
 });
 
 describe("1つずつ届ける", () => {

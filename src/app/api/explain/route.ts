@@ -18,6 +18,7 @@ type Reply = Explanation & { warning?: string };
 
 const NOTICE = {
   quota: "AI の利用上限に達したので、いまは解説を出せません。",
+  key: "自分の AI キーが使えなかったので、解説を出せません。設定で接続テストをしてみてください。",
   busy: "AI が混み合っていて、解説を出せませんでした。",
   slow: "AI の応答が遅くて、解説を出せませんでした。",
   unavailable: "AI を使えなかったので、解説を出せませんでした。",
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     return reply({ ...offline, text, source: "gemini" });
   } catch (error) {
     if (error instanceof GeminiRequestError) console.info("[explain]", JSON.stringify(error.debug));
-    return reply({ ...offline, warning: NOTICE[geminiUserNotice(error).kind] });
+    return reply({ ...offline, warning: NOTICE[geminiUserNotice(error, Boolean(override)).kind] });
   } finally {
     slot.release();
   }

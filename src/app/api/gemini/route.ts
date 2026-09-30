@@ -10,7 +10,7 @@ import {
   type GeminiWaitStage,
 } from "@/lib/gemini-core";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
-import { allowedModel, clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
+import { allowedModel, clientKeyFromHeaders, createGeminiGuard, OWN_KEY_LIMITS } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
@@ -24,6 +24,8 @@ export const maxDuration = 60;
 
 /** インスタンスが生きている間だけ効く交通整理（回数制限・同時実行・書き出しの使い回し） */
 const guard = createGeminiGuard();
+/** 自分のキーを入れた人は、回数の上限だけ別に数える（みんなの枠を使わないので広め。書き出しの使い回しは guard と共通） */
+const ownKeyGuard = createGeminiGuard(Date.now, OWN_KEY_LIMITS);
 
 const MISSING_KEY_HINT =
   "Vercel の GEMINI_API_KEY が空です。いまの長い *-projects.vercel.app は Preview 用なので、環境変数は Production だけでなく Preview にも入れてください。変えたあとは再デプロイが必要です。";
@@ -69,6 +71,8 @@ type Input = {
   minimum?: number;
   model: string;
   apiKey: string;
+  /** apiKey が、利用者が自分で入れたキーかどうか */
+  ownKey: boolean;
   clientKey: string;
 };
 
@@ -104,7 +108,7 @@ async function generate(
     return { topics: padTopics(fresh, mock(), count, seed, detail), source: "gemini", aiCount: Math.min(fresh.length, count) };
   }
 
-  const slot = guard.acquire(input.clientKey);
+  const slot = (input.ownKey ? ownKeyGuard : guard).acquire(input.clientKey);
   if (!slot.ok) {
     const debug = geminiDebug({ reason: `guard-${slot.reason}`, model });
     logDebug(debug);
@@ -134,6 +138,7 @@ async function generate(
       mode,
       detail,
       apiKey,
+      ownKey: input.ownKey,
       model,
       count,
       minimum,
@@ -167,7 +172,7 @@ async function generate(
     logDebug(debug);
     // 技術的な詳細（試したモデル・Google の返事）はサーバーログへ。利用者には短いお知らせだけ返す
     console.warn("[gemini]", geminiFailureWarning(error));
-    const notice = geminiUserNotice(error);
+    const notice = geminiUserNotice(error, input.ownKey);
     return { topics: mock(), source: "mock", warning: notice.message, noticeKind: notice.kind, debug, usage };
   } finally {
     slot.release();
@@ -230,6 +235,7 @@ export async function POST(request: Request) {
     minimum: typeof body?.minimum === "number" && body.minimum > 0 ? Math.min(12, Math.round(body.minimum)) : undefined,
     model: allowedModel(body?.model, Boolean(override)),
     apiKey: override || readGeminiApiKey(),
+    ownKey: Boolean(override),
     clientKey: clientKeyFromHeaders(request.headers),
   };
 

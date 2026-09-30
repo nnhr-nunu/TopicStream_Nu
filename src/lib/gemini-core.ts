@@ -287,17 +287,30 @@ export function geminiFailureWarning(error: unknown): string {
   return `Gemini に届きませんでした（${reason}・${GEMINI_HOST}・${model}）。${tail}`;
 }
 
-export type GeminiNoticeKind = "quota" | "busy" | "slow" | "unavailable";
+/** key = 利用者が自分で入れたキーを Google が受け付けなかった */
+export type GeminiNoticeKind = "quota" | "busy" | "slow" | "unavailable" | "key";
 
 /**
  * 利用者に見せる短いお知らせ。モデル名や試した順番などの技術的な中身は出さない
  * （それは debug とサーバーログに残す）。
+ * ownKey: 利用者が自分で入れたキーで呼んだとき。枠切れ・キーの誤りは本人が直せるので、そう分かる文にする
  */
-export function geminiUserNotice(error: unknown): { kind: GeminiNoticeKind; message: string } {
+export function geminiUserNotice(error: unknown, ownKey = false): { kind: GeminiNoticeKind; message: string } {
   const debug = error instanceof GeminiRequestError ? error.debug : undefined;
   const reason = debug?.reason ?? "network";
   if (isQuotaError(debug)) {
-    return { kind: "quota", message: "AI の利用上限に達しました。しばらくはオフラインの候補で広げます。" };
+    return {
+      kind: "quota",
+      message: ownKey
+        ? "自分の AI キーの利用上限に達しました。今回はオフラインの候補で広げました（時間を置くと戻ります）。"
+        : "みんなで分け合っている AI の利用上限に達しました。設定の「自分の AI キー」に無料のキーを入れると、自分の枠で続けられます。今回はオフラインの候補で広げました。",
+    };
+  }
+  if (ownKey && (debug?.httpStatus === 400 || debug?.httpStatus === 401 || debug?.httpStatus === 403)) {
+    return {
+      kind: "key",
+      message: "自分の AI キーが使えませんでした。設定の「自分の AI キー」で接続テストをしてみてください。今回はオフラインの候補で広げました。",
+    };
   }
   if (reason === "http-429" || reason === "http-503" || debug?.googleStatus === "UNAVAILABLE" || debug?.googleStatus === "RESOURCE_EXHAUSTED") {
     return { kind: "busy", message: "AI が混み合っているので、今回はオフラインの候補で広げました。" };
@@ -433,6 +446,8 @@ type GeminiOptions = {
   firstChunkMs?: number;
   /** 思考・JSON 指定を付けずに頼む（それらを受け付けなかったモデルへの頼み直し） */
   plain?: boolean;
+  /** 利用者が自分で入れたキー。混雑の記録（モデルの後回し）は、みんなのキーの分と混ぜない */
+  ownKey?: boolean;
 };
 
 type Remaining = () => number;
@@ -481,7 +496,7 @@ export async function requestGemini(
   const remaining: Remaining = () => deadline - (geminiRetry.now() - started);
   const tried: string[] = [];
   const attempts: string[] = [];
-  const models = orderByCooldown(fallbackModels(options.model));
+  const models = options.ownKey ? fallbackModels(options.model) : orderByCooldown(fallbackModels(options.model));
   const collected: string[] = [];
   const minimum = Math.min(options.count, Math.max(1, options.minimum ?? options.count));
   let lastError: GeminiRequestError | undefined;
@@ -500,7 +515,7 @@ export async function requestGemini(
     failed.debug.tried = [...tried];
     failed.debug.attempts = [...attempts];
     if (isQuotaError(failed.debug)) quotaError ??= failed;
-    noteModelBusy(failed, model);
+    if (!options.ownKey) noteModelBusy(failed, model);
     return failed;
   };
 

@@ -285,6 +285,9 @@ export function useBoardController() {
         const result = await generateRelatedTopics({
           seed: parent.data.label,
           existing: existingLabels,
+          // 設定に自分の AI キーがあれば、みんなの枠ではなくそのキーで頼む
+          apiKey: current.settings.geminiApiKey,
+          model: current.settings.geminiModel,
           count: slots + SPARE_COUNT,
           // カードの分だけそろえばよい。予備が足りないだけで AI を呼び直さない
           minimum: slots,
@@ -618,6 +621,8 @@ export function useBoardController() {
           generateRelatedTopics({
             seed,
             existing: [...board.nodes.map((item) => item.data.label), ...rejectedRef.current],
+            apiKey: currentSnapshot().settings.geminiApiKey,
+            model: currentSnapshot().settings.geminiModel,
             count: 1 + SPARE_COUNT,
             minimum: 1,
             preferred: detail ? [] : preferredForSeed(seed),

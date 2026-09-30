@@ -107,8 +107,13 @@ export async function generateRelatedTopics(options: {
 type RequestOptions = Parameters<typeof generateRelatedTopics>[0];
 
 /** AI が答えず、図鑑の語も足りなかったときのお知らせ（定型の候補は出さずに、再試行をお願いする） */
-export function retryLaterMessage(kind: string | undefined): string {
-  if (kind === "quota") return "AI の利用上限に達しました。時間を置いてから、もう一度お試しください。";
+export function retryLaterMessage(kind: string | undefined, ownKey = false): string {
+  if (kind === "key") return "自分の AI キーが使えませんでした。設定の「自分の AI キー」で接続テストをしてみてください。";
+  if (kind === "quota") {
+    return ownKey
+      ? "自分の AI キーの利用上限に達しました。時間を置いてから、もう一度お試しください。"
+      : "みんなで分け合っている AI の利用上限に達しました。時間を置くか、設定の「自分の AI キー」に無料のキーを入れると続けられます。";
+  }
   if (kind === "rate") return "続けてたくさん広げたので、少し時間を置いてから、もう一度お試しください。";
   return "AI から返事がありませんでした。しばらく時間を置いてから、もう一度お試しください。";
 }
@@ -117,9 +122,9 @@ export function retryLaterMessage(kind: string | undefined): string {
  * AI を呼んだのに語が1つも取れず（キーが無いだけの公開版は除く）、図鑑の語も必要な数に届かないなら、
  * 定型の組み合わせで埋めずに諦める（意味の薄い候補を並べるより、再試行してもらう方がよい）
  */
-function withRetryLater(result: GenerateResult, known: number, need: number): GenerateResult {
+function withRetryLater(result: GenerateResult, known: number, need: number, ownKey: boolean): GenerateResult {
   if (result.source !== "mock" || !result.warning || known >= need) return result;
-  return { ...result, retryLater: true, warning: retryLaterMessage(result.noticeKind) };
+  return { ...result, retryLater: true, warning: retryLaterMessage(result.noticeKind, ownKey) };
 }
 
 /** サーバーに頼む本体。届いた語は onTopic で先に知らせ、足りない分は mock で埋める */
@@ -163,6 +168,7 @@ async function requestTopics(
       },
       known,
       need,
+      Boolean(override),
     );
     recordAiUsage(result);
     return result;
@@ -234,6 +240,7 @@ async function requestTopics(
       },
       known,
       need,
+      Boolean(override),
     );
   }
 }
