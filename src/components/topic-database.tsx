@@ -1,24 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, BookOpen, CornerDownRight, Eye, Heart, Search, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, CornerDownRight, Eye, Heart, Search, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdSlot } from "@/components/ad-slot";
 import { BrandMark } from "@/components/brand-mark";
-import { MODE_ICONS } from "@/components/mode-picker";
+import { MODE_ICONS, ModeBadge } from "@/components/mode-picker";
 import { SiteLinks } from "@/components/site-links";
 import { entryPicks, TopicPreviewDialog } from "@/components/topic-preview-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getBoardSnapshot, requestOpenActiveBoard, writeBoardSnapshot } from "@/lib/board-store";
-import { boardFromTopics } from "@/lib/catalog-data";
+import { openBoardFromTopics } from "@/lib/board-start";
+import { requestStartKeyword } from "@/lib/board-store";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
-import { combinedKnowledge, fetchSharedSearch, loadLocalKnowledge } from "@/lib/knowledge-client";
-import { layoutBoard, prefsFromSettings } from "@/lib/layout";
-import { MODE_PRESETS, modePreset, withMode } from "@/lib/modes";
+import { combinedKnowledge, fetchSharedRelated, fetchSharedSearch, loadLocalKnowledge } from "@/lib/knowledge-client";
+import { MODE_PRESETS, modePreset } from "@/lib/modes";
 import {
   CATEGORIES,
   categoryLabel,
@@ -32,11 +31,15 @@ import {
   type KnowledgeStore,
   type ModeCounts,
 } from "@/lib/topic-knowledge";
+import { topicPageHref } from "@/lib/topic-pages";
 import type { BoardMode } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { splitMix } from "@/lib/combine";
 
-type Scope = "all" | "mine";
+type Scope = "all" | "mine" | "fav";
+
+/** ♡ タブを開いたとき、手元に無いお題をみんなの図鑑へ探しに行く数の上限 */
+const FAV_LOOKUPS = 12;
 
 const NO_FAVORITES: string[] = [];
 const NO_COUNTS: ModeCounts = { categories: {}, topics: 0 };
@@ -44,8 +47,11 @@ const NO_COUNTS: ModeCounts = { categories: {}, topics: 0 };
 const CHIP =
   "rounded-full border px-3 py-1 text-xs transition hover:border-primary/50 hover:text-foreground disabled:opacity-50";
 
-/** トピック図鑑: みんなと自分が広げた話題を、お題ごとに探せるページ */
-export function TopicDatabase() {
+/**
+ * トピック図鑑: みんなと自分が広げた話題を、お題ごとに探せるページ。
+ * children は一覧の下に置く（サーバー側で書き出す、お題ごとのページへのリンク集）
+ */
+export function TopicDatabase({ children }: { children?: ReactNode }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CategoryId | "all">("all");
@@ -110,18 +116,47 @@ export function TopicDatabase() {
     const local = Object.values(source).reduce((sum, entry) => sum + Object.keys(entry.topics).length, 0);
     return Math.max(local, sharedForMode?.topics ?? 0);
   }, [source, sharedForMode]);
+  // ♡ タブ: ♡ したお題（モードは問わない）と、図鑑に見つからない ♡（いっしょに見る画面で ♡ したカードの語など）
+  const favHits = useMemo(() => {
+    const liked = Object.fromEntries(Object.entries(store).filter(([, entry]) => favs.includes(entry.seed)));
+    return searchKnowledge(liked, query, "all", 200, "all");
+  }, [store, favs, query]);
+  const favLoose = useMemo(() => {
+    const found = new Set(Object.values(store).map((entry) => entry.seed));
+    const q = normalizeSeed(query);
+    return favs.filter((label) => !found.has(label) && (!q || normalizeSeed(label).includes(q))).reverse();
+  }, [store, favs, query]);
+  // ♡ タブを開いたら、手元に無い ♡ のお題をみんなの図鑑へ探しに行く（前に ♡ したお題の語も見られるように）
+  useEffect(() => {
+    if (scope !== "fav") return;
+    let cancelled = false;
+    const known = new Set(Object.values(combinedKnowledge()).map((entry) => entry.seed));
+    const missing = loadFavoriteTopics()
+      .filter((label) => !known.has(label))
+      .slice(-FAV_LOOKUPS);
+    if (missing.length === 0) return;
+    void Promise.all(missing.map((label) => fetchSharedRelated(label))).then(() => {
+      if (!cancelled) setStore(combinedKnowledge());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [scope]);
+  const shown = scope === "fav" ? favHits : hits;
   const seedTotal = modeCounts.get(mode) ?? 0;
   const preset = modePreset(mode);
   // 最初の読み込みが終わるまで数は出さない（手元の数 → みんなの数へ跳ねて見えないように）
   const ready = shared !== "loading";
 
   function startBoard(hit: KnowledgeSearchHit) {
-    const snapshot = getBoardSnapshot();
-    const built = withMode(boardFromTopics(hit.entry.seed, rankedTopics(hit.entry)), entryMode(hit.entry));
-    const board = layoutBoard(built, prefsFromSettings(snapshot.settings, false, built.pinnedNodeId));
-    writeBoardSnapshot({ ...snapshot, boards: [...snapshot.boards, board], activeBoardId: board.id });
+    openBoardFromTopics(hit.entry.seed, rankedTopics(hit.entry), entryMode(hit.entry));
     toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "図鑑で人気の話題から並べました" });
-    requestOpenActiveBoard();
+    router.push("/");
+  }
+
+  /** 図鑑に語の無い ♡（カードの語など）は、ホームと同じ始め方（AI・図鑑）で広げる */
+  function startKeyword(keyword: string) {
+    requestStartKeyword(keyword);
     router.push("/");
   }
 
@@ -166,11 +201,12 @@ export function TopicDatabase() {
         />
       </label>
 
-      <div className="mb-2 flex flex-wrap gap-2" role="group" aria-label="表示する記録">
+      <div className={cn("flex flex-wrap gap-2", scope === "fav" ? "mb-6" : "mb-2")} role="group" aria-label="表示する記録">
         {(
           [
             ["all", "みんなの図鑑"],
             ["mine", "自分の記録"],
+            ["fav", "♡ した話題"],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -184,12 +220,13 @@ export function TopicDatabase() {
             onClick={() => setScope(id)}
           >
             {label}
+            {id === "fav" && favs.length > 0 ? <span className="ml-1 tabular-nums opacity-80">{favs.length}</span> : null}
           </button>
         ))}
       </div>
 
-      {/* モード（親）→ 分類（子）。選んだモードのタブの下に、そのモードの分類の枠をつなげて出す */}
-      <section className="topic-db-filter mb-6" data-mode={mode}>
+      {/* モード（親）→ 分類（子）。選んだモードのタブの下に、そのモードの分類の枠をつなげて出す（♡ はモードを問わず並べる） */}
+      <section className={cn("topic-db-filter mb-6", scope === "fav" && "hidden")} data-mode={mode}>
         <div className="topic-db-modes" role="group" aria-label="モード">
           {MODE_PRESETS.map((item) => {
             const Icon = MODE_ICONS[item.id];
@@ -240,25 +277,29 @@ export function TopicDatabase() {
         </div>
       </section>
 
-      {shared === "loading" && hits.length === 0 ? (
+      {shared === "loading" && shown.length === 0 && scope !== "fav" ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
           図鑑を読み込み中…
         </p>
-      ) : hits.length === 0 ? (
+      ) : shown.length === 0 && (scope !== "fav" || favLoose.length === 0) ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          {scope === "mine" && !query
-            ? "まだ自分の記録はありません。ホームで話題を広げると、ここにたまっていきます。"
-            : "見つかりませんでした。別の言葉で探すか、ホームでこのお題を広げてみてください。"}
+          {scope === "fav" && !query
+            ? "まだ ♡ した話題はありません。図鑑やホームのお題、いっしょに見る画面のカードで ♡ を押すと、ここに並びます。"
+            : scope === "mine" && !query
+              ? "まだ自分の記録はありません。ホームで話題を広げると、ここにたまっていきます。"
+              : "見つかりませんでした。別の言葉で探すか、ホームでこのお題を広げてみてください。"}
         </p>
       ) : (
         <ul className="relative grid gap-3 sm:grid-cols-2" data-critter-garden data-critter-skip="frog">
-          {hits.map((hit) => {
+          {shown.map((hit) => {
             const topics = rankedTopics(hit.entry, 14);
             const q = normalizeSeed(query);
             // 掛け合わせ（「A × B」）のお題は、それぞれの語から探せるようにする
             const mix = splitMix(hit.entry.seed);
+            // お題ごとのページ（同梱のお題だけにある）
+            const pageHref = topicPageHref(hit.entry.seed, entryMode(hit.entry));
             return (
-              <li key={`${mode}|${hit.entry.seed}`}>
+              <li key={`${entryMode(hit.entry)}|${hit.entry.seed}`}>
                 <article className="home-topic-card" data-critter-perch>
                   <div className="flex items-start justify-between gap-2">
                     <h2 className="min-w-0 text-sm leading-6 font-semibold break-words">
@@ -274,9 +315,14 @@ export function TopicDatabase() {
                             {mix[1]}
                           </button>
                         </>
+                      ) : pageHref ? (
+                        <Link href={pageHref} className="underline-offset-2 hover:text-primary hover:underline">
+                          {hit.entry.seed}
+                        </Link>
                       ) : (
                         hit.entry.seed
                       )}
+                      {scope === "fav" ? <ModeBadge mode={entryMode(hit.entry)} className="ml-1.5 align-middle" /> : null}
                     </h2>
                     <span
                       className={cn(
@@ -332,6 +378,41 @@ export function TopicDatabase() {
           })}
         </ul>
       )}
+
+      {scope === "fav" && favLoose.length > 0 ? (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold">♡ したカード</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            いっしょに見る画面などで ♡ した話題です。お題にして、ここから広げられます。
+          </p>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {favLoose.map((label) => (
+              <li
+                key={label}
+                className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm"
+              >
+                <Heart className="size-3.5 shrink-0 fill-current text-primary" aria-hidden />
+                <span className="min-w-0 flex-1 break-words">{label}</span>
+                <Button size="sm" variant="outline" onClick={() => startKeyword(label)}>
+                  <Sparkles />
+                  始める
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`「${label}」の ♡ を外す`}
+                  title="♡ を外す"
+                  onClick={() => toggleFavoriteTopic(label)}
+                >
+                  <X />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {children}
 
       <TopicPreviewDialog
         entry={previewing?.entry ?? null}
