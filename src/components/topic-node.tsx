@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { toast } from "sonner";
 
 import { useBoardActions } from "@/components/board-actions";
@@ -15,14 +15,11 @@ import { useRouletteMark } from "@/hooks/use-roulette";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
 import { appendToMemo } from "@/lib/explain";
 import { fitLabelFontSize } from "@/lib/fit-label";
+import type { TopicFlowNode } from "@/lib/flow-nodes";
 import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
 import { isSentenceCard, MANDALA_CHIP_H, MANDALA_CHIP_W, splitGloss } from "@/lib/node-box";
 import { cn } from "@/lib/utils";
-import type { TopicNodeData } from "@/lib/types";
-
-/** openedCode: マンダラートで開いた先の中央コード（画面表示用。保存しない） */
-export type TopicFlowNode = Node<TopicNodeData & { openedCode?: string }, "topic">;
 
 /** 長押しと見なすまでの時間と、それまでに動いてよい距離（超えたら盤面のスクロール） */
 const HOLD_MS = 450;
