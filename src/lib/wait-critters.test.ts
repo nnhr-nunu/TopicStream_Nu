@@ -9,8 +9,11 @@ import { realSprites } from "@/lib/critter-sprites-real";
 import {
   CRITTER_KINDS,
   critterPaths,
+  NO_WAITS,
   pickCritter,
   previewGroup,
+  shownWaits,
+  trackWaits,
   waitingGroups,
   type CritterCard,
   type CritterNode,
@@ -46,6 +49,14 @@ function seeded(seed = 7) {
 function take(next: () => CritterMove, count: number): CritterMove[] {
   return Array.from({ length: count }, () => next());
 }
+
+/** 盤面のカード（React Flow のノード）。measured = false は、作り直した直後で大きさがまだ測れていない状態 */
+const node = (id: string, parentId: string | null, x: number, extra: Partial<CritterNode["data"]> = {}, measured = true): CritterNode => ({
+  id,
+  position: { x, y: 0 },
+  ...(measured ? { measured: { width: 100, height: 40 } } : {}),
+  data: { parentId, ...extra },
+});
 
 describe("絵", () => {
   const all: [string, Sprite][] = [...Object.entries(CUTE_SPRITES), ...Object.entries(realSprites())];
@@ -116,13 +127,6 @@ describe("どの動物を出すか", () => {
 });
 
 describe("待っている盤面", () => {
-  const node = (id: string, parentId: string | null, x: number, extra: Partial<CritterNode["data"]> = {}, measured = true): CritterNode => ({
-    id,
-    position: { x, y: 0 },
-    ...(measured ? { measured: { width: 100, height: 40 } } : {}),
-    data: { parentId, ...extra },
-  });
-
   it("空のカードの親と、その子のカードを1つの範囲にする（ほかの 3×3 は入れない）", () => {
     const nodes = [
       node("root", null, 0),
@@ -156,6 +160,119 @@ describe("待っている盤面", () => {
     const group = previewGroup(nodes, "k", 4);
     expect(group?.key).toBe("c");
     expect(group?.cards.map((card) => Boolean(card.empty))).toEqual([false, true]);
+  });
+});
+
+describe("待ちの出入り", () => {
+  /** 親 parent の周りに 8 枚の子。先頭から open 枚が空のカード（語を待っている） */
+  const board = (open: number, { parent = "p", measured = true } = {}): CritterNode[] => [
+    node(parent, null, 0, {}, measured),
+    ...Array.from({ length: 8 }, (_, index) =>
+      node(`${parent}-${index}`, parent, 120 * (index + 1), index < open ? { placeholder: true } : {}, measured),
+    ),
+  ];
+  const ids = (waits: { key: string; waitNo: number }[]) => waits.map((wait) => [wait.key, wait.waitNo]);
+
+  it("語が1つ入るたびに nodes が作り直されて大きさが一瞬測れなくなっても、待ちは終わらず同じ場面のまま", () => {
+    let track = trackWaits(NO_WAITS, board(8));
+    expect(ids(track.live)).toEqual([["p", 1]]);
+    for (let open = 7; open >= 1; open -= 1) {
+      const cards = track.live[0]!.cards;
+      // 語が入って盤面が変わった直後: 大きさが測れず範囲が取れないので、前の範囲のまま続ける
+      track = trackWaits(track, board(open, { measured: false }));
+      expect(ids(track.live)).toEqual([["p", 1]]);
+      expect(track.live[0]!.cards).toBe(cards);
+      expect(track.leaving).toEqual([]);
+      // 測り直せたら、新しい範囲で続ける
+      track = trackWaits(track, board(open));
+      expect(ids(track.live)).toEqual([["p", 1]]);
+      expect(track.leaving).toEqual([]);
+    }
+  });
+
+  it("まだ一度も測れていない待ちは出さない。測れたら出す", () => {
+    let track = trackWaits(NO_WAITS, board(2, { measured: false }));
+    expect(track.live).toEqual([]);
+    track = trackWaits(track, board(2));
+    expect(ids(track.live)).toEqual([["p", 1]]);
+  });
+
+  it("待ちが終わると、消える途中の場面として1つだけ残り、番号も変わらない（締めの動きが続く）", () => {
+    let track = trackWaits(NO_WAITS, board(1));
+    track = trackWaits(track, board(0));
+    expect(track.live).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+
+    // そのあと盤面が変わっても（作り直されて測れていなくても）、消える途中の場面は増えも入れ替わりもしない
+    const leaving = track.leaving;
+    track = trackWaits(track, board(0, { measured: false }));
+    expect(track.leaving).toBe(leaving);
+  });
+
+  it("同じカードをもう一度広げたら別の待ち（新しい番号）になり、前の終わりかけの場面は外れる", () => {
+    let track = trackWaits(NO_WAITS, board(1));
+    track = trackWaits(track, board(0));
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+
+    track = trackWaits(track, board(2));
+    expect(ids(track.live)).toEqual([["p", 2]]);
+    expect(track.leaving).toEqual([]);
+
+    track = trackWaits(track, board(0));
+    expect(track.live).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 2]]);
+  });
+
+  it("同時に待つカードが複数あっても、番号は別で、終わるのも別々", () => {
+    const both = (p: number, q: number) => [...board(p), ...board(q, { parent: "q" })];
+    let track = trackWaits(NO_WAITS, both(2, 2));
+    expect(ids(track.live)).toEqual([["p", 1], ["q", 2]]);
+
+    track = trackWaits(track, both(2, 0));
+    expect(ids(track.live)).toEqual([["p", 1]]);
+    expect(ids(track.leaving)).toEqual([["q", 2]]);
+
+    track = trackWaits(track, both(0, 0));
+    expect(track.live).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["q", 2], ["p", 1]]);
+  });
+
+  it("画面に出す並びは番号順のままで、終わりかけに変わっても場面の位置が動かない（動くと消える動きが飛ぶ）", () => {
+    const both = (p: number, q: number) => [...board(p), ...board(q, { parent: "q" })];
+    const order = (track: Parameters<typeof shownWaits>[0]) => shownWaits(track).map((item) => [item.wait.key, item.leaving]);
+    let track = trackWaits(NO_WAITS, both(2, 2));
+    expect(order(track)).toEqual([["p", false], ["q", false]]);
+
+    track = trackWaits(track, both(0, 2));
+    expect(order(track)).toEqual([["p", true], ["q", false]]);
+
+    track = trackWaits(track, both(0, 0));
+    expect(order(track)).toEqual([["p", true], ["q", true]]);
+
+    // 広げ直した p は新しい番号で、並びの最後に付く
+    track = trackWaits(track, both(2, 0));
+    expect(order(track)).toEqual([["q", true], ["p", false]]);
+  });
+
+  it("どんな順に出入りしても、同じカードの場面が2つ並ばない（React の key が重ならない）", () => {
+    const random = seeded(11);
+    let track = NO_WAITS;
+    for (let step = 0; step < 400; step += 1) {
+      const nodes = ["p", "q", "r"].flatMap((parent) => {
+        const state = Math.floor(random() * 4);
+        if (state === 0) return [];
+        if (state === 1) return board(3, { parent });
+        if (state === 2) return board(3, { parent, measured: false });
+        return board(0, { parent });
+      });
+      const before = track.lastNo;
+      track = trackWaits(track, nodes);
+      const shown = [...track.live, ...track.leaving];
+      expect(new Set(shown.map((wait) => wait.key)).size).toBe(shown.length);
+      expect(new Set(shown.map((wait) => wait.waitNo)).size).toBe(shown.length);
+      expect(track.lastNo).toBeGreaterThanOrEqual(before);
+      for (const wait of shown) expect(wait.waitNo).toBeLessThanOrEqual(track.lastNo);
+    }
   });
 });
 

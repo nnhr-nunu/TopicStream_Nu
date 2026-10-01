@@ -8,13 +8,15 @@ import { getBoardSnapshot, getServerBoardSnapshot, subscribeBoardStore } from "@
 import { CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import {
   isCritterKind,
+  NO_WAITS,
   pickCritter,
   previewGroup,
-  waitingGroups,
-  type CritterGroup,
+  shownWaits,
+  trackWaits,
   type CritterKind,
   type CritterNode,
   type CritterStyle,
+  type CritterWait,
 } from "@/lib/wait-critters";
 
 const subscribeNothing = () => () => {};
@@ -43,7 +45,6 @@ const selectServerSettings = () => getServerBoardSnapshot().settings;
  */
 export function WaitCritters({ nodes, focusedId }: { nodes: CritterNode[]; focusedId: string | null }) {
   const settings = useSyncExternalStore(subscribeBoardStore, selectSettings, selectServerSettings);
-  const groups = useMemo(() => waitingGroups(nodes), [nodes]);
   const previewParam = usePreviewCritter();
   const preview = useMemo(() => parsePreview(previewParam), [previewParam]);
   const previewTarget = useMemo(
@@ -52,39 +53,34 @@ export function WaitCritters({ nodes, focusedId }: { nodes: CritterNode[]; focus
   );
 
   // 終わった待ちは少しだけ残して、締めの動きと消える様子を見せる
-  const [leaving, setLeaving] = useState<CritterGroup[]>([]);
-  const [seen, setSeen] = useState(groups);
-  if (seen !== groups) {
-    const gone = seen.filter((group) => !groups.some((item) => item.key === group.key));
-    setSeen(groups);
-    if (gone.length > 0) setLeaving((current) => [...current, ...gone]);
+  const [track, setTrack] = useState(() => trackWaits(NO_WAITS, nodes));
+  const [seen, setSeen] = useState(nodes);
+  if (seen !== nodes) {
+    setSeen(nodes);
+    setTrack((current) => trackWaits(current, nodes));
   }
   useEffect(() => {
-    if (leaving.length === 0) return;
-    const timer = window.setTimeout(() => setLeaving([]), LEAVE_MS);
+    if (track.leaving.length === 0) return;
+    const timer = window.setTimeout(() => setTrack((current) => ({ ...current, leaving: [] })), LEAVE_MS);
     return () => window.clearTimeout(timer);
-  }, [leaving]);
+  }, [track.leaving]);
 
-  const choose = (group: CritterGroup) => pickCritter(group.seed, settings.hiddenCritters, settings.critterStyle);
-  const shown = [
-    ...groups.map((group) => ({ group, leaving: false, pick: choose(group) })),
-    ...leaving
-      .filter((group) => !groups.some((item) => item.key === group.key))
-      .map((group) => ({ group, leaving: true, pick: choose(group) })),
-  ];
+  const choose = (wait: CritterWait) => pickCritter(wait.seed, settings.hiddenCritters, settings.critterStyle);
+  const shown = shownWaits(track).map(({ wait, leaving }) => ({ wait, leaving, pick: choose(wait) }));
   if (preview && previewTarget) {
     const pick = preview.kind
       ? { kind: preview.kind, style: preview.style ?? "cute" }
       : pickCritter(previewTarget.seed, [], preview.style ?? "mix");
-    shown.push({ group: { ...previewTarget, key: `preview-${previewTarget.key}` }, leaving: false, pick });
+    shown.push({ wait: { ...previewTarget, key: `preview-${previewTarget.key}`, waitNo: 0 }, leaving: false, pick });
   }
   const scenes = shown.filter((item): item is typeof item & { pick: NonNullable<typeof item.pick> } => item.pick !== null);
   if (scenes.length === 0) return null;
 
+  // key は待ちごとの番号入り: 同じ待ちの間は（終わりかけになっても）同じ場面を使い続け、広げ直した待ちは新しい場面にする
   return (
     <ViewportPortal>
-      {scenes.map(({ group, leaving: out, pick }) => (
-        <CritterScene key={`${group.key}:${pick.kind}:${pick.style}`} kind={pick.kind} style={pick.style} cards={group.cards} leaving={out} />
+      {scenes.map(({ wait, leaving: out, pick }) => (
+        <CritterScene key={`${wait.key}:${wait.waitNo}:${pick.kind}:${pick.style}`} kind={pick.kind} style={pick.style} cards={wait.cards} leaving={out} />
       ))}
     </ViewportPortal>
   );
