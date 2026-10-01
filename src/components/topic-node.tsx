@@ -343,8 +343,9 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       ) : null}
 
       {isRoot && !data.placeholder ? (
-        <span className="topic-root-ribbon" aria-hidden>
-          はじまり
+        // 視聴者が出したお題（お題箱から採用したカード）は「はじまり」の代わりに「リスナーのお題」
+        <span className={cn("topic-root-ribbon", data.fromListener && "topic-root-ribbon-listener")} aria-hidden>
+          {data.fromListener ? "リスナーのお題" : "はじまり"}
         </span>
       ) : null}
 

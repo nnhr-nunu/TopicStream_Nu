@@ -116,9 +116,8 @@ export function TopicWorkspace() {
   }
 
   const showHome = atHome || board.nodes.length === 0;
-  const pinnedLabel = board.pinnedNodeId
-    ? board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""
-    : "";
+  const pinnedNode = board.pinnedNodeId ? board.nodes.find((node) => node.id === board.pinnedNodeId) : undefined;
+  const pinnedLabel = pinnedNode?.data.label ?? "";
 
   return (
     <BoardActionsProvider
@@ -230,10 +229,15 @@ export function TopicWorkspace() {
                   : ""
               }
               onHeart={(id, delta) => controller.bumpFrameHearts(id, delta)}
+              onAdoptTopic={(label) => void controller.adoptListenerTopic(label)}
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >
-              <PinBanner label={pinnedLabel} since={settings.showElapsed ? board.pinnedAt : undefined}>
+              <PinBanner
+                label={pinnedLabel}
+                since={settings.showElapsed ? board.pinnedAt : undefined}
+                fromListener={Boolean(pinnedNode?.data.fromListener)}
+              >
                 <PrivacyNotice trigger={privacyNotice} />
               </PinBanner>
               <BoardCanvas

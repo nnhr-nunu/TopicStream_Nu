@@ -85,7 +85,10 @@ export function OverlayWorkspace() {
         }
         data-layout={settings.generationLayout}
       >
-        <PinBanner label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""} />
+        <PinBanner
+          label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""}
+          fromListener={Boolean(board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.fromListener)}
+        />
         <BoardCanvas
           board={board}
           overlay

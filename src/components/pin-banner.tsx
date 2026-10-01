@@ -27,10 +27,13 @@ function Elapsed({ since }: { since: number }) {
 export function PinBanner({
   label,
   since,
+  fromListener = false,
   children,
 }: {
   label: string;
   since?: number;
+  /** 視聴者がコメントで出したお題（お題箱から採用したカード） */
+  fromListener?: boolean;
   /** 帯のすぐ下に並べるお知らせ（帯が 2 行になっても重ならず、左下の操作にもかぶらない） */
   children?: ReactNode;
 }) {
@@ -42,6 +45,7 @@ export function PinBanner({
         <div className="pin-banner-inner" role="status" title={label}>
           <span className="pin-banner-now">NOW</span>
           <p className="pin-banner-text">{label}</p>
+          {fromListener ? <span className="pin-banner-listener">リスナーのお題</span> : null}
           {since ? <Elapsed key={since} since={since} /> : null}
         </div>
       ) : null}
