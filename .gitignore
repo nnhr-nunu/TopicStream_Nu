@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# build:pages がビルドの間だけ API を退避する場所
+/.pages-stash/

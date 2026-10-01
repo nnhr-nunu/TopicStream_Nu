@@ -113,16 +113,22 @@ export function formatOffset(ms: number): string {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}` : `${minutes}:${seconds}`;
 }
 
-/** 配信を始めた時刻（origin）から見た行。始める前に終わった話題は外し、始める前から話していた話題は 0:00 にする */
+/**
+ * 配信を始めた時刻（origin）から見た行。始める前に終わった話題（始めてから 10 秒も残らない話題）は外し、
+ * 始める前から話していた話題は 0:00 にする
+ */
 export function rowsFrom(rows: TalkRow[], origin: number): { row: TalkRow; offset: number }[] {
   return rows
     .filter((row, index) => {
       if (row.start >= origin) return true;
       const end = row.end ?? rows[index + 1]?.start;
-      return end === undefined || end > origin;
+      return end === undefined || end - origin >= MIN_TALK_MS;
     })
     .map((row) => ({ row, offset: Math.max(0, row.start - origin) }));
 }
+
+/** YouTube がチャプターとして読む最少の数（0:00 から始まり、3 つ以上、どれも 10 秒以上） */
+export const MIN_CHAPTERS = 3;
 
 /** 行に出す名前。ボードをまたいだ配信では、どのお題の中の話題かも付ける */
 function rowName(row: TalkRow, withTheme: boolean): string {
@@ -135,16 +141,32 @@ export function usesManyThemes(rows: TalkRow[]): boolean {
 
 /** 概要欄に貼るタイムスタンプ。YouTube のチャプターは 0:00 から始まる必要があるので、無ければ先頭に足す */
 export function talkTimestamps(rows: TalkRow[], origin: number): string {
+  return chapterLines(rows, origin).join("\n");
+}
+
+/** 最初の話題が始めて 10 秒以内ならそれを 0:00 にし、もっと後なら先頭に「はじまり」を足す（10 秒より短いチャプターを作らない） */
+export function chapterLines(rows: TalkRow[], origin: number): string[] {
   const shown = rowsFrom(rows, origin);
-  if (shown.length === 0) return "";
+  if (shown.length === 0) return [];
   const withTheme = usesManyThemes(shown.map((item) => item.row));
-  const lines = shown.map((item) => `${formatOffset(item.offset)} ${rowName(item.row, withTheme)}`);
-  if (shown[0]!.offset >= 1000) lines.unshift("0:00 はじまり");
-  return lines.join("\n");
+  const lines = shown.map((item, index) => {
+    const offset = index === 0 && item.offset < MIN_TALK_MS ? 0 : item.offset;
+    return `${formatOffset(offset)} ${rowName(item.row, withTheme)}`;
+  });
+  if (shown[0]!.offset >= MIN_TALK_MS) lines.unshift("0:00 はじまり");
+  return lines;
 }
 
 /** X に投稿する文（ハッシュタグ込み）。サイトのリンクを付けても入る長さにし、入りきらない話題は「ほか」にまとめる */
 export function talkPost(rows: TalkRow[], origin: number): string {
+  /** 最初の話題だけで入りきらないときは、話題の名前を切って入れる */
+  const clipFirstName = (top: string, name: string, rest: boolean) => {
+    for (let length = name.length - 1; length > 0; length -= 1) {
+      const body = `${top}\n・${name.slice(0, length)}…${rest ? "\n…ほか" : ""}`;
+      if (weightedPostLength(composeSharePost(body), true) <= POST_LIMIT) return body;
+    }
+    return top;
+  };
   const names = [...new Set(rowsFrom(rows, origin).map((item) => item.row.label))];
   if (names.length === 0) return "";
   const head = "今日の配信で話したこと💬";
@@ -154,7 +176,7 @@ export function talkPost(rows: TalkRow[], origin: number): string {
     const candidate = `${body}\n・${name}`;
     // まだ残りがあるなら、「ほか」を足しても入る長さまで
     const fits = weightedPostLength(composeSharePost(rest ? `${candidate}\n…ほか` : candidate), true) <= POST_LIMIT;
-    if (!fits) return composeSharePost(body === head ? candidate : `${body}\n…ほか`);
+    if (!fits) return composeSharePost(body === head ? clipFirstName(head, name, rest) : `${body}\n…ほか`);
     body = candidate;
   }
   return composeSharePost(body);

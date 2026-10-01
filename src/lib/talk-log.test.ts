@@ -165,6 +165,14 @@ describe("タイムスタンプ", () => {
     expect(talkTimestamps(rows, T0 + 20 * MIN)).toBe("0:00 ひとりカフェ");
   });
 
+  it("最初の話題が始めて 10 秒以内なら 0:00 にし、10 秒より短い「はじまり」を作らない", () => {
+    expect(talkTimestamps(rows, T0 - 7_000)).toBe("0:00 昼まで寝る\n12:07 ひとりカフェ");
+  });
+
+  it("始めてから 10 秒も残らない話題は外す（YouTube は 10 秒より短いチャプターを読まない）", () => {
+    expect(talkTimestamps(rows, T0 + 12 * MIN - 3_000)).toBe("0:00 ひとりカフェ");
+  });
+
   it("ボードをまたいだときは、どのお題の話題かも付ける", () => {
     const mixed = talkSessions(
       logOf([
@@ -220,5 +228,18 @@ describe("配信を始めた時刻", () => {
 
   it("読めない時刻なら、最初の話題の時刻のまま", () => {
     expect(originFromClock(T0, "")).toBe(T0);
+  });
+});
+
+describe("X に投稿する文の長さ", () => {
+  it("最初の話題が長すぎても、上限に収まるように切る", () => {
+    const long = logOf([
+      [0, now("a", "あ".repeat(150))],
+      [12, now("b", "ひとりカフェ")],
+      [70, null],
+    ]);
+    const post = talkPost(talkSessions(long)[0]!.rows, T0);
+    expect(weightedPostLength(post, true)).toBeLessThanOrEqual(POST_LIMIT);
+    expect(post).toContain("…");
   });
 });
