@@ -58,7 +58,8 @@ export function buildExplainPrompt(label: string, context: string[] = [], mode: 
 export function parseExplanation(raw: string): string {
   const text = raw
     .replace(/```[a-z]*\n?|```/gi, "")
-    .replace(/^\s*(?:[-*・#>]+|\d+[.)])\s*/gm, "")
+    // 行頭の箇条書き・見出し・番号を外す（「2.5次元」「3.14」の数字、「#推し活」のタグは残す）
+    .replace(/^\s*(?:[-*・>]+|#+(?=\s)|\d+[.)](?!\d))\s*/gm, "")
     .replace(/\*\*|__/g, "")
     .replace(/^\s*(?:解説|答え|回答)\s*[:：]\s*/, "")
     .replace(/\s*\n\s*/g, "")

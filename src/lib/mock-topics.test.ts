@@ -64,3 +64,16 @@ describe("オフラインの候補の長さ", () => {
     expect([...seen].some((label) => label.length > 16)).toBe(true);
   });
 });
+
+describe("候補を出し切ったとき", () => {
+  it("盤面の語で候補が尽きても、近くの語だけ避けて埋める（雑談・ほかのモード）", () => {
+    for (const mode of ["chat", "advice"] as const) {
+      const used: string[] = [];
+      for (let round = 0; round < 40; round += 1) used.push(...mockRelatedTopics("推し", used, 8, [], { mode }));
+      const near = used.slice(-8);
+      const next = mockRelatedTopics("推し", [...near, ...used], 8, [], { mode });
+      expect(next.length, mode).toBe(8);
+      expect(next.some((label) => near.includes(label)), mode).toBe(false);
+    }
+  });
+});

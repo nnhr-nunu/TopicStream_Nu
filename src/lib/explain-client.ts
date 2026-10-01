@@ -1,3 +1,4 @@
+import { apiPath, isNoServerResponse } from "@/lib/api-base";
 import { DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { offlineExplanation, type Explanation } from "@/lib/explain";
@@ -24,7 +25,7 @@ export async function fetchExplanation(options: {
   if (hit) return hit;
   const offline = offlineExplanation(options.label, options.context);
   try {
-    const response = await fetch("/api/explain", {
+    const response = await fetch(apiPath("/api/explain"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -35,7 +36,7 @@ export async function fetchExplanation(options: {
         apiKey: sanitizeSecret(options.apiKey) || undefined,
       }),
     });
-    if (response.status === 404) return offline;
+    if (isNoServerResponse(response)) return offline;
     if (!response.ok) throw new Error(`explain ${response.status}`);
     const json = (await response.json()) as Partial<ExplainResult>;
     const result: ExplainResult = {

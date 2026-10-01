@@ -39,3 +39,12 @@ describe("解説", () => {
     expect(appendToMemo("メ".repeat(100), `${"あ".repeat(30)}。`).length).toBeLessThanOrEqual(EXPLAIN_MAX);
   });
 });
+
+describe("解説の数字・タグ", () => {
+  it("文頭の「2.5次元」「3.14」「#推し活」を番号・見出しとして削らない", () => {
+    expect(parseExplanation("2.5次元とは、漫画やアニメを舞台にしたもの。")).toBe("2.5次元とは、漫画やアニメを舞台にしたもの。");
+    expect(parseExplanation("3.14は円周率のおおよその値。")).toBe("3.14は円周率のおおよその値。");
+    expect(parseExplanation("#推し活 は推しを応援する活動。")).toBe("#推し活 は推しを応援する活動。");
+    expect(parseExplanation("1. 推しを応援する活動。")).toBe("推しを応援する活動。");
+  });
+});
