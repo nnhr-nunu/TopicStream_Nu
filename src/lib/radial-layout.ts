@@ -171,9 +171,10 @@ function childrenOf(nodes: TNode[], parentId: string | null): TNode[] {
 }
 
 function separateGlyphs(board: Board, positions: Map<string, Point>, prefs: Required<LayoutPrefs>) {
-  const parentOf = new Map(board.nodes.map((node) => [node.id, node.data.parentId] as const));
   const depthOf = new Map(board.nodes.map((node) => [node.id, node.data.depth] as const));
   const ids = board.nodes.map((node) => node.id);
+  // 箱の大きさは位置で変わらないので 1 回だけ見積もる（全組 × 18 回のたびに探し直すと、100 枚を超えると入力が固まる）
+  const boxOf = new Map(board.nodes.map((node) => [node.id, estimateLocalBox(node, prefs)] as const));
 
   for (let pass = 0; pass < 18; pass += 1) {
     let moved = false;
@@ -181,13 +182,11 @@ function separateGlyphs(board: Board, positions: Map<string, Point>, prefs: Requ
       for (let j = i + 1; j < ids.length; j += 1) {
         const aId = ids[i]!;
         const bId = ids[j]!;
-        const aNode = board.nodes.find((node) => node.id === aId)!;
-        const bNode = board.nodes.find((node) => node.id === bId)!;
         const aPos = positions.get(aId);
         const bPos = positions.get(bId);
         if (!aPos || !bPos) continue;
-        const aBox = { ...estimateLocalBox(aNode, prefs) };
-        const bBox = { ...estimateLocalBox(bNode, prefs) };
+        const aBox = boxOf.get(aId)!;
+        const bBox = boxOf.get(bId)!;
         const aAbs = {
           left: aPos.x + aBox.left,
           right: aPos.x + aBox.right,
@@ -204,21 +203,17 @@ function separateGlyphs(board: Board, positions: Map<string, Point>, prefs: Requ
         if (!push) continue;
         const deeper = (depthOf.get(aId) ?? 0) >= (depthOf.get(bId) ?? 0) ? aId : bId;
         const shallower = deeper === aId ? bId : aId;
-        const sameParent = parentOf.get(aId) && parentOf.get(aId) === parentOf.get(bId);
-        const moveId = sameParent ? deeper : deeper;
-        const originId = parentOf.get(moveId);
-        const origin = (originId ? positions.get(originId) : null) ?? { x: 0, y: 0 };
+        // 深い方（後から広げた方）を動かす
+        const moveId = deeper;
         const pos = positions.get(moveId)!;
         const delta = moveId === aId ? push : { x: -push.x, y: -push.y };
         const next = { x: pos.x + delta.x * 0.62, y: pos.y + delta.y * 0.62 };
-        const fromParent = { x: next.x - origin.x, y: next.y - origin.y };
-        const len = Math.hypot(fromParent.x, fromParent.y) || 1;
         const other = positions.get(shallower)!;
         const away = { x: next.x - other.x, y: next.y - other.y };
         const awayLen = Math.hypot(away.x, away.y) || 1;
         positions.set(moveId, {
-          x: origin.x + (fromParent.x / len) * len + (away.x / awayLen) * 2,
-          y: origin.y + (fromParent.y / len) * len + (away.y / awayLen) * 2,
+          x: next.x + (away.x / awayLen) * 2,
+          y: next.y + (away.y / awayLen) * 2,
         });
         moved = true;
       }
