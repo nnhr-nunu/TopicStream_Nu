@@ -14,6 +14,12 @@ import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import type { Board, GenerationLayout } from "@/lib/types";
 
 const NO_FAVORITES: string[] = [];
+const noSubscribe = () => () => {};
+
+/** OBS のブラウザソースで映しているか（配信の画面に「使ってみる」の入口を出さない） */
+function inObs(): boolean {
+  return "obsstudio" in window;
+}
 
 function layoutOf(board: Board): GenerationLayout {
   return board.nodes.some((node) => typeof node.data.groupId === "number") ? "mandala" : "radial";
@@ -42,6 +48,13 @@ export function WatchView({ shareId }: { shareId: string }) {
     loadFavoriteTopics,
     () => NO_FAVORITES,
   );
+  // サーバーでは出さず、ブラウザで OBS でないと分かってから出す
+  const obs = useSyncExternalStore(noSubscribe, inObs, () => true);
+
+  // タブの題名もボード名にする（いくつも開いたときに見分けられるように）
+  useEffect(() => {
+    if (board?.name) document.title = `${board.name} | いっしょに見る - TopicStream(ぬ)`;
+  }, [board?.name]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,6 +160,12 @@ export function WatchView({ shareId }: { shareId: string }) {
             <p className="text-[10px] tracking-[0.2em] text-primary">いっしょに見ている</p>
             <p className="text-sm font-medium">{board.name}</p>
             {nickname ? <p className="text-[11px] text-muted-foreground">{nickname} の枠</p> : null}
+            {obs ? null : (
+              // 見ている人が、自分の配信・雑談でも使えると分かる入口（配信の画面には出さない）
+              <Link href="/" className="mt-1 inline-block text-[11px] text-primary underline-offset-4 hover:underline">
+                TopicStream(ぬ) で自分も話題を広げる →
+              </Link>
+            )}
           </div>
           <div className="pointer-events-auto flex items-center gap-1 rounded-2xl border border-border/70 bg-background/75 p-1 backdrop-blur-md">
             <Button
