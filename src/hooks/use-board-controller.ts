@@ -361,7 +361,11 @@ export function useBoardController() {
     }
   }, []);
 
-  const { shareId, publishWatchLink } = useWatchShare(activeBoard, snapshot.settings.streamUrl);
+  const { shareId, publishWatchLink } = useWatchShare(
+    activeBoard,
+    snapshot.settings.streamUrl,
+    snapshot.settings.nickname,
+  );
 
   return {
     hydrated: mounted,

@@ -17,9 +17,10 @@ let unavailable = false;
 const sentBoards = new Map<string, string>();
 const sentStreams = new Map<string, number>();
 
-function post(path: string, body: unknown) {
-  if (unavailable) return;
-  void fetch(`${base}${path}`, {
+/** 返事の JSON を返す（失敗・サーバーが無いときは null） */
+function post(path: string, body: unknown): Promise<unknown> {
+  if (unavailable) return Promise.resolve(null);
+  return fetch(`${base}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -27,8 +28,9 @@ function post(path: string, body: unknown) {
   })
     .then((response) => {
       if (response.status === 404 || response.status === 405) unavailable = true;
+      return response.ok ? response.json().catch(() => null) : null;
     })
-    .catch(() => undefined);
+    .catch(() => null);
 }
 
 /** もう一歩広げたボードだけ、使われ具合が変わったときに送る（呼ぶ側で操作が落ち着くまで待つ） */
@@ -39,14 +41,20 @@ export function shareBoardUsage(board: Board) {
   if (sentBoards.get(board.id) === usage) return;
   sentBoards.set(board.id, usage);
   // 付箋は自分用。サーバーでも外すが、そもそも送らない
-  post("/api/community", { board: withoutMemos(board) });
+  void post("/api/community", { board: withoutMemos(board) });
 }
 
 /**
  * 連携した配信URLを一覧に載せる（ライブ表示を保つため、連携中は定期的に呼ぶ）。
- * watchKey はいっしょに見るリンクの持ち主の鍵。持ち主だけが一覧の枠に自分のリンクを付けられる
+ * watchKey はいっしょに見るリンクの持ち主の鍵。持ち主だけが一覧の枠に自分のリンクを付けられる。
+ * onStreamer にはサーバーが調べた配信者名（YouTube はチャンネル名）を渡す
  */
-export function announceStream(url: string, watch?: { id: string; key: string | null }, now = Date.now()) {
+export function announceStream(
+  url: string,
+  watch?: { id: string; key: string | null },
+  onStreamer?: (name: string) => void,
+  now = Date.now(),
+) {
   const ref = parseStreamUrl(url);
   if (!ref) return;
   // いっしょに見るリンクを後から作ったときは、間引かずにすぐ載せ直す（リンクの有無もキーに入れる）
@@ -54,5 +62,8 @@ export function announceStream(url: string, watch?: { id: string; key: string | 
   const prev = sentStreams.get(key);
   if (prev && now - prev < STREAM_HEARTBEAT_MS - 30_000) return;
   sentStreams.set(key, now);
-  post("/api/streams", { url, watchId: watch?.id, watchKey: watch?.key ?? undefined });
+  void post("/api/streams", { url, watchId: watch?.id, watchKey: watch?.key ?? undefined }).then((json) => {
+    const streamer = (json as { stream?: { streamer?: unknown } } | null)?.stream?.streamer;
+    if (typeof streamer === "string" && streamer.trim()) onStreamer?.(streamer.trim());
+  });
 }

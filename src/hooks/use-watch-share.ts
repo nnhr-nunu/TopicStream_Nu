@@ -69,7 +69,7 @@ async function postShare(
  * 「いっしょに見るリンク」。リンクを作って（publishWatchLink）、以後は今のボードが変わるたびに同じリンクへ送り直す。
  * リンクの持ち主かどうかは、作ったタブだけが持つ鍵で見分ける。
  */
-export function useWatchShare(activeBoard: Board | null, streamUrl = "") {
+export function useWatchShare(activeBoard: Board | null, streamUrl = "", streamer = "") {
   const [shareId, setShareId] = useState<string | null>(null);
   /** リンクを作っている途中（続けて押しても 2 つ作らない） */
   const publishing = useRef(false);
@@ -131,8 +131,8 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "") {
     const wait = Math.max(0, Math.min(900, lastSent.current + 2_500 - Date.now()));
     const timer = window.setTimeout(() => {
       lastSent.current = Date.now();
-      const current = currentSnapshot();
-      const nickname = current.settings.nickname || loadIdentity().nickname;
+      // 配信者名が後から分かったとき（YouTube はサーバーの返事待ち）も送り直して「〇〇 の枠」を出す
+      const nickname = streamer || loadIdentity().nickname;
       void postShare({ id: shareId, key: readShareSession().key }, activeBoard, nickname, chat).then((saved) => {
         if (saved === "forbidden") {
           // 別の端末で作ったリンクなど。黙って送り続けず、作り直してもらう
@@ -147,7 +147,7 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "") {
       });
     }, wait);
     return () => window.clearTimeout(timer);
-  }, [activeBoard, shareId, chat]);
+  }, [activeBoard, shareId, chat, streamer]);
 
   return { shareId, publishWatchLink };
 }
