@@ -76,6 +76,8 @@ export function StartScreen({
   linkedUrl,
   linkedTitle,
   linkedStreamer,
+  linkedAutoStreamer,
+  onLinkedStreamerChange,
   linkedWatchId,
 }: {
   boards: Board[];
@@ -87,6 +89,8 @@ export function StartScreen({
   linkedUrl?: string;
   linkedTitle?: string;
   linkedStreamer?: string;
+  linkedAutoStreamer?: string;
+  onLinkedStreamerChange?: (name: string) => void;
   linkedWatchId?: string;
 }) {
   const [keyword, setKeyword] = useState("");
@@ -305,6 +309,8 @@ export function StartScreen({
             linkedUrl={linkedUrl}
             linkedTitle={linkedTitle}
             linkedStreamer={linkedStreamer}
+            linkedAutoStreamer={linkedAutoStreamer}
+            onLinkedStreamerChange={onLinkedStreamerChange}
             linkedWatchId={linkedWatchId}
           />
 

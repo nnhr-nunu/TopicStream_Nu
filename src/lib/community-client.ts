@@ -46,24 +46,24 @@ export function shareBoardUsage(board: Board) {
 
 /**
  * 連携した配信URLを一覧に載せる（ライブ表示を保つため、連携中は定期的に呼ぶ）。
- * watchKey はいっしょに見るリンクの持ち主の鍵。持ち主だけが一覧の枠に自分のリンクを付けられる。
- * onStreamer にはサーバーが調べた配信者名（YouTube はチャンネル名）を渡す
+ * watch.key はいっしょに見るリンクの持ち主の鍵。持ち主だけが一覧の枠に自分のリンクを付けられる。
+ * streamer は手で直した配信者名。onAuthor にはサーバーが調べた配信サイトでの名前（YouTube はチャンネル名）を渡す
  */
 export function announceStream(
   url: string,
-  watch?: { id: string; key: string | null },
-  onStreamer?: (name: string) => void,
+  opts: { watch?: { id: string; key: string | null }; streamer?: string; onAuthor?: (name: string) => void } = {},
   now = Date.now(),
 ) {
+  const { watch, streamer, onAuthor } = opts;
   const ref = parseStreamUrl(url);
   if (!ref) return;
-  // いっしょに見るリンクを後から作ったときは、間引かずにすぐ載せ直す（リンクの有無もキーに入れる）
-  const key = `${ref.kind}:${ref.kind === "youtube" ? ref.videoId : ref.channel.toLowerCase()}:${watch?.id ?? ""}`;
+  // いっしょに見るリンクを後から作った・名前を直したときは、間引かずにすぐ載せ直す（リンクと名前もキーに入れる）
+  const key = `${ref.kind}:${ref.kind === "youtube" ? ref.videoId : ref.channel.toLowerCase()}:${watch?.id ?? ""}:${streamer ?? ""}`;
   const prev = sentStreams.get(key);
   if (prev && now - prev < STREAM_HEARTBEAT_MS - 30_000) return;
   sentStreams.set(key, now);
-  void post("/api/streams", { url, watchId: watch?.id, watchKey: watch?.key ?? undefined }).then((json) => {
-    const streamer = (json as { stream?: { streamer?: unknown } } | null)?.stream?.streamer;
-    if (typeof streamer === "string" && streamer.trim()) onStreamer?.(streamer.trim());
+  void post("/api/streams", { url, watchId: watch?.id, watchKey: watch?.key ?? undefined, streamer }).then((json) => {
+    const author = (json as { stream?: { author?: unknown } } | null)?.stream?.author;
+    if (typeof author === "string" && author.trim()) onAuthor?.(author.trim());
   });
 }

@@ -61,10 +61,26 @@ export function TopicWorkspace() {
     if (keyword) void startWithKeyword(keyword, DEFAULT_MODE);
   }, [hydrated, startWithKeyword]);
 
-  // 配信者名は配信URLから入れる（Twitch はチャンネル名、YouTube はサーバーが調べたチャンネル名）
-  useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined, (name) => {
-    if (name !== settings?.nickname) controller.patchSettings({ nickname: name });
-  });
+  const { patchSettings } = controller;
+  const nickname = settings?.nickname ?? "";
+  const nicknameByHand = settings?.nicknameByHand === true;
+  const autoStreamer = useCommunityPublish(
+    board ?? null,
+    settings?.streamUrl ?? "",
+    controller.shareId ?? undefined,
+    nicknameByHand ? nickname : "",
+  );
+  // 配信者名は配信URLから入れる（Twitch はチャンネル名、YouTube はサーバーが調べたチャンネル名）。手で直した名前は上書きしない
+  useEffect(() => {
+    if (!nicknameByHand && autoStreamer && autoStreamer !== nickname) patchSettings({ nickname: autoStreamer });
+  }, [autoStreamer, nickname, nicknameByHand, patchSettings]);
+  /** ✏️ で直した配信者名。空か配信 URL の名前と同じなら、URL の名前に戻す（URL を替えたときに名前もついてくる） */
+  const changeStreamer = (name: string) =>
+    patchSettings(
+      name && name !== autoStreamer
+        ? { nickname: name, nicknameByHand: true }
+        : { nickname: autoStreamer, nicknameByHand: false },
+    );
   // NOW にした話題の履歴（設定の「話した話題のまとめ」）。読み込みが終わってから追い始める
   useTalkLog(hydrated ? (board ?? null) : null);
 
@@ -210,6 +226,8 @@ export function TopicWorkspace() {
             linkedUrl={settings.streamUrl}
             linkedTitle={board.name}
             linkedStreamer={settings.nickname}
+            linkedAutoStreamer={autoStreamer}
+            onLinkedStreamerChange={changeStreamer}
             linkedWatchId={controller.shareId ?? undefined}
           />
         ) : (
@@ -233,6 +251,9 @@ export function TopicWorkspace() {
               onHeart={(id, delta) => controller.bumpFrameHearts(id, delta)}
               onAdoptTopic={(label) => void controller.adoptListenerTopic(label)}
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
+              streamer={settings.nickname}
+              autoStreamer={autoStreamer}
+              onStreamerChange={changeStreamer}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >
               <PinBanner

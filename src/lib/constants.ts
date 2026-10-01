@@ -50,6 +50,7 @@ export const DEFAULT_SETTINGS = {
   density: "comfortable" as const,
   overlayTransparent: true,
   nickname: "",
+  nicknameByHand: false,
   colorTheme: "fresh" as const,
   generationLayout: "mandala" as const,
   streamUrl: "",

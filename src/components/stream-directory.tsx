@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { MapPinned, Play } from "lucide-react";
 import Link from "next/link";
 
+import { StreamerNameEditor } from "@/components/streamer-name-editor";
+
 import {
   mergePublicStreams,
   publicStreamFromLink,
@@ -17,11 +19,17 @@ export function StreamDirectory({
   linkedUrl,
   linkedTitle,
   linkedStreamer,
+  linkedAutoStreamer,
+  onLinkedStreamerChange,
   linkedWatchId,
 }: {
   linkedUrl?: string;
   linkedTitle?: string;
   linkedStreamer?: string;
+  /** 配信 URL から分かる名前（✏️ で空にしたときに戻る名前） */
+  linkedAutoStreamer?: string;
+  /** 渡すと、この端末で連携中の配信の行だけ名前を ✏️ で直せる */
+  onLinkedStreamerChange?: (name: string) => void;
   linkedWatchId?: string;
 }) {
   const [remote, setRemote] = useState<PublicStream[]>(SEED_PUBLIC_STREAMS);
@@ -72,6 +80,8 @@ export function StreamDirectory({
         <ul className="flex flex-col gap-2">
           {streams.map((stream) => {
             const mapHref = watchMapHref(stream.watchId);
+            const own = Boolean(onLinkedStreamerChange && linked && stream.url === linked.url);
+            const platform = stream.platform === "youtube" ? "YouTube" : "Twitch";
             return (
               <li
                 key={stream.id}
@@ -87,9 +97,20 @@ export function StreamDirectory({
                   >
                     {stream.title}
                   </a>
-                  <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                    {stream.streamer} · {stream.platform === "youtube" ? "YouTube" : "Twitch"}
-                  </span>
+                  {own && onLinkedStreamerChange ? (
+                    <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+                      <StreamerNameEditor
+                        name={linkedStreamer ?? ""}
+                        autoName={linkedAutoStreamer ?? ""}
+                        onChange={onLinkedStreamerChange}
+                      />
+                      <span className="shrink-0">· {platform}</span>
+                    </span>
+                  ) : (
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {stream.streamer} · {platform}
+                    </span>
+                  )}
                 </span>
                 {mapHref ? (
                   <Link

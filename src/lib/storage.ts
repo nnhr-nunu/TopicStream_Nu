@@ -164,6 +164,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
     density: "comfortable",
     overlayTransparent: settings.overlayTransparent !== false,
     nickname: typeof settings.nickname === "string" ? settings.nickname.slice(0, 24) : "",
+    nicknameByHand: settings.nicknameByHand === true,
     colorTheme: asColorTheme(settings.colorTheme),
     generationLayout,
     streamUrl: typeof settings.streamUrl === "string" ? settings.streamUrl.slice(0, 400) : "",
