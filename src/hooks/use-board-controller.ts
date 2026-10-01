@@ -98,7 +98,7 @@ export function useBoardController() {
       // 空のボードが残っていればそれを使い、既定の名前ならキーワードに付け替える。
       const reuse = active.nodes.length === 0 ? active : current.boards.find((board) => board.nodes.length === 0);
       const target = reuse ?? emptyBoard();
-      const defaultName = /^(新しいボード( \d+)?|\d+月\d+日の雑談)$/.test(target.name);
+      const defaultName = /^(新しい(ボード|マップ)( \d+)?|\d+月\d+日の雑談)$/.test(target.name);
       const renamed = !reuse || defaultName ? ops.renameBoard(target, label.trim().slice(0, 24)) : target;
       const named = withMode(renamed, mode);
       const rooted = ops.createRootBoard(named, label, prefsFromSettings(current.settings, false, named.pinnedNodeId));
@@ -136,7 +136,7 @@ export function useBoardController() {
       // 新しいカードが、戻した 3×3 の番号を使うことがある。進む履歴を残すと番号が重なる（pushUndo が進む履歴を消す）
       if (added && rootId && previousFocus) pushUndo(board.id, ops.historyFromChildren(added, previousFocus, [rootId], []));
       else updateHistory(board.id, (history) => ({ ...history, redo: [] }));
-      toast.success(`新しいきっかけ: ${topic}`, { description: "やめるときは「1つ戻る」" });
+      toast.success(`新しいお題: ${topic}`, { description: "取り消すときは「1つ戻る」" });
       return;
     }
     await startWithKeyword(topic, mode);
@@ -168,7 +168,7 @@ export function useBoardController() {
       const undone = ops.undoExpand(item, action);
       return action.replaced ? ops.redoExpand(undone, action.replaced) : undone;
     });
-    toast.success("ひとつ戻しました");
+    toast.success("1つ戻しました");
   }, [updateBoard]);
 
   const redo = useCallback(() => {
@@ -254,7 +254,7 @@ export function useBoardController() {
       if (previousFocus) pushUndo(board.id, ops.historyFromChildren(added, previousFocus, [rootId], []));
       else updateHistory(board.id, (history) => ({ ...history, redo: [] }));
       pinNode(rootId);
-      toast.success(`リスナーのお題: ${topic}`, { description: "やめるときは「1つ戻る」を 2 回" });
+      toast.success(`リスナーのお題: ${topic}`, { description: "取り消すときは「1つ戻る」を 2 回" });
       await expandNode(rootId);
     },
     [expandNode, pinNode, updateBoard],

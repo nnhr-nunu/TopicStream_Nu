@@ -113,7 +113,7 @@ export function TalkSummary() {
     <Section
       icon={<ClipboardList />}
       title="話した話題のまとめ"
-      description="NOW にした話題を、順番と時刻つきで残しています。ボードを切り替えながら話しても 1 本につながります（この端末だけに保存）。"
+      description="NOW にした話題を、順番と時刻つきで残します。マップを切り替えても 1 本につながります（この端末だけ）。"
     >
       {sessions.length > 1 ? (
         <Select

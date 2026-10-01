@@ -73,10 +73,10 @@ function BoardRow({
             }}
             maxLength={40}
             autoFocus
-            aria-label="ボード名"
+            aria-label="マップ名"
             className="h-9"
           />
-          <Button type="submit" size="icon-sm" aria-label="名前を保存">
+          <Button type="submit" size="icon-sm" aria-label="名前を保存" title="名前を保存">
             <Check />
           </Button>
           <Button
@@ -84,6 +84,7 @@ function BoardRow({
             size="icon-sm"
             variant="ghost"
             aria-label="やめる"
+            title="やめる"
             onClick={() => {
               setName(board.name);
               setMode("view");
@@ -131,7 +132,7 @@ function BoardRow({
           {active ? <span className="board-row-badge">表示中</span> : null}
         </span>
         <span className="mt-0.5 block text-[11px] text-muted-foreground">
-          {cards > 0 ? `カード ${cards}枚` : "まだ空です"} · {formatUpdated(board.updatedAt)}
+          {cards > 0 ? `カード ${cards} 枚` : "まだ空です"} · {formatUpdated(board.updatedAt)}
         </span>
       </button>
       <div className="board-row-actions">
@@ -189,7 +190,7 @@ export function BoardPanel({
 }: {
   boards: Board[];
   activeBoard: Board;
-  /** ホームでは「ボード一覧」ボタンとして出す（まだどのボードも開いていない見た目） */
+  /** ホームでは「マップ一覧」ボタンとして出す（まだどのボードも開いていない見た目） */
   atHome?: boolean;
   onOpen: (id: string) => void;
   onRename: (name: string, id: string) => void;
@@ -212,12 +213,20 @@ export function BoardPanel({
             variant="ghost"
             size="sm"
             className="app-crumb-board max-w-[min(52vw,18rem)]"
-            aria-label={atHome ? "ボードの一覧を開く" : `ボード「${activeBoard.name}」— ボードの一覧を開く`}
+            aria-label={atHome ? "マップの一覧を開く" : `マップ「${activeBoard.name}」— マップの一覧を開く`}
           />
         }
       >
         {atHome ? <LayoutGrid className="size-3.5 shrink-0 opacity-70" /> : null}
-        <span className="truncate font-semibold">{atHome ? (used > 0 ? `ボード一覧（${used}）` : "ボード一覧") : activeBoard.name}</span>
+        {atHome ? (
+          // スマホでは「一覧」を外して、数まで見えるようにする
+          <span className="truncate font-semibold">
+            マップ<span className="max-sm:hidden">一覧</span>
+            {used > 0 ? `（${used}）` : ""}
+          </span>
+        ) : (
+          <span className="truncate font-semibold">{activeBoard.name}</span>
+        )}
         {atHome ? null : <ModeBadge mode={activeBoard.mode} className="max-sm:hidden!" />}
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </SheetTrigger>
@@ -225,10 +234,10 @@ export function BoardPanel({
         <SheetHeader className="gap-1 pb-3">
           <SheetTitle className="flex items-center gap-2">
             <LayoutGrid className="size-4 text-primary" />
-            ボード
+            マップ
           </SheetTitle>
           <SheetDescription className="text-xs">
-            雑談ごとの盤面です。このブラウザに保存されます。
+            作ったマップの一覧です。このブラウザに保存されます。
           </SheetDescription>
         </SheetHeader>
 
@@ -259,7 +268,7 @@ export function BoardPanel({
             variant="outline"
             size="sm"
             className="flex-1"
-            title="全ボードをJSONで保存します（APIキーは含みません）"
+            title="全部のマップをファイルに保存します（AI キーは含みません）"
             onClick={onExport}
           >
             <Download />
@@ -270,7 +279,7 @@ export function BoardPanel({
             variant="outline"
             size="sm"
             className="flex-1"
-            title="JSONから復元します（同じボードは新しい方を残し、手元の方が新しければ別のボードとして足します）"
+            title="書き出したファイルから戻します"
             onClick={() => fileRef.current?.click()}
           >
             <Upload />

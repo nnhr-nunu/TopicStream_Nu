@@ -20,7 +20,7 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <div>
           <h1 style={{ fontSize: 18 }}>うまく表示できませんでした</h1>
           <p style={{ fontSize: 14, lineHeight: 1.7, color: "#4d5b57" }}>
-            作ったボードはこの端末に残っています。もう一度読み込んでみてください。
+            作ったマップはこの端末に残っています。もう一度読み込んでみてください。
           </p>
           <button
             type="button"

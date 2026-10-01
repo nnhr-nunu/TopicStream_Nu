@@ -119,7 +119,7 @@ export function ModeDock({
         </div>
       ) : null}
       <div className="mode-dock-bar">
-        <div role="radiogroup" aria-label="カードをタップしたときの広げ方" className="mode-dock-toggle">
+        <div role="radiogroup" aria-label="カードを押したときの動き" className="mode-dock-toggle">
           {MODES.map(({ value, label, tip, Icon }) => (
             <button
               key={value}
@@ -141,7 +141,7 @@ export function ModeDock({
             className="mode-dock-roulette"
             onClick={onRoulette}
             disabled={spinning || !expanded}
-            aria-label="話題ルーレット（まだ話していないカードから次の話題を選ぶ）"
+            aria-label="話題ルーレット"
             title={expanded ? "まだ話していないカードから次の話題を選ぶ（N キー）" : "お題を広げると使えます"}
             data-spinning={spinning || undefined}
           >

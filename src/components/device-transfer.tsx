@@ -10,11 +10,11 @@ import { Input } from "@/components/ui/input";
 import { formatTransferCode } from "@/lib/transfer";
 import { receiveTransfer, sendTransfer } from "@/lib/transfer-client";
 
-const UNAVAILABLE = "この公開版（デモ）では使えません。ボード一覧の「書き出す」「読み込む」で、ファイルにして運んでください。";
+const UNAVAILABLE = "この公開版（デモ）では使えません。マップ一覧の「書き出す」「読み込む」で、ファイルにして運んでください。";
 
 const SEND_ERRORS = {
-  empty: "引き継ぐボードがまだありません。",
-  "too-large": "ボードが多すぎて預けられませんでした。使わないボードを消すか、ボード一覧の「書き出す」でファイルにして運んでください。",
+  empty: "引き継ぐマップがまだありません。",
+  "too-large": "マップが多すぎて預けられませんでした。使わないマップを消すか、マップ一覧の「書き出す」でファイルにして運んでください。",
   unavailable: UNAVAILABLE,
   rate: "続けて作ったので、少し待ってからもう一度どうぞ。",
   failed: "引き継ぎコードを作れませんでした。通信の状態を見て、もう一度お試しください。",
@@ -72,7 +72,7 @@ export function DeviceTransfer() {
     toast.success("受け取りました", {
       description:
         parts.length > 0
-          ? `${parts.join("・")}。${arrived ? "ホームのボード一覧から開けます。" : ""}`
+          ? `${parts.join("・")}。${arrived ? "ホームのマップ一覧から開けます。" : ""}`
           : "新しく足すものはありませんでした。",
       duration: 8_000,
     });
@@ -82,7 +82,7 @@ export function DeviceTransfer() {
     <Section
       icon={<MonitorSmartphone />}
       title="別の端末へ引き継ぐ"
-      description="スマホで仕込んだボードを PC で開く、などに。ボード（付箋も）と ♡ した話題を運びます。設定と AI キーは運びません。"
+      description="スマホで仕込んだマップを PC で開く、などに。マップ（付箋も）とハートを付けた話題を運びます。設定と AI キーは運びません。"
     >
       <div className="space-y-2">
         <p className="text-xs font-medium">1. 元の端末で、コードを作る</p>
@@ -90,7 +90,7 @@ export function DeviceTransfer() {
           <div className="rounded-lg bg-primary/10 px-3 py-2.5 text-center">
             <p className="font-mono text-2xl font-bold tracking-[0.18em]">{formatTransferCode(sent.code)}</p>
             <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-              ボード {sent.boards} 件を預けました。{clock(sent.expiresAt)} まで使えます。
+              マップ {sent.boards} 件を預けました。{clock(sent.expiresAt)} まで使えます。
             </p>
             <div className="mt-2 flex justify-center gap-2">
               <Button
@@ -156,7 +156,7 @@ export function DeviceTransfer() {
         </p>
       ) : null}
       <p className="text-[11px] leading-4 text-muted-foreground">
-        中身はコードで暗号化してから 15 分だけ預けるので、コードを知らない人には読めません。受け取っても、今あるボードは消えません（同じボードは、あとで触った方を残します）。
+        中身はコードで暗号化してから 15 分だけ預けるので、コードを知らない人には読めません。受け取っても、今あるマップは消えません（同じボードは、あとで触った方を残します）。
       </p>
     </Section>
   );

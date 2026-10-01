@@ -36,7 +36,7 @@ export function DeveloperFooter() {
         <div className="mt-4 space-y-2">
           <p className="font-medium">開発者：ぬぬはら（催眠音声制作者）</p>
           <p>
-            Twitter：<External href="https://x.com/nnhr_nunu" />
+            X：<External href="https://x.com/nnhr_nunu" />
           </p>
           <p>
             催眠音声チャンネル：<External href="https://www.youtube.com/@nnhr_nunu" />
@@ -44,7 +44,7 @@ export function DeveloperFooter() {
           <p>
             実写催眠チャンネル：<External href="https://www.youtube.com/channel/UCqYpbbypex0iOikcZRenxGA" />
           </p>
-          <p>バグ報告はDMなどで頂けたら幸いです。</p>
+          <p>バグ報告はDMなどでいただけたら幸いです。</p>
         </div>
         <div className="mt-5 border-t border-border pt-5">
           <h3 className="font-medium">【開発した関連サービス】</h3>

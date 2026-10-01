@@ -438,6 +438,13 @@
   top: 1rem;
 }
 
+/* いっしょに見る画面のスマホ: 左上の枠（ボード名・参加の案内・入口のリンク）の下に NOW の帯を出す */
+@media (max-width: 640px) {
+  .watch-view .pin-banner {
+    top: 8.6rem;
+  }
+}
+
 @media (max-width: 640px) {
   .pin-banner {
     top: 6.4rem;

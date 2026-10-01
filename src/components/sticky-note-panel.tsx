@@ -75,7 +75,7 @@ export function StickyNotePanel({
         <DialogHeader>
           <DialogTitle>📝 {title || "付箋"}</DialogTitle>
           <DialogDescription>
-            {readOnly ? "配信メモです。マスの大きさは変わりません。" : "Enter で完了、Shift+Enter で改行。"}
+            {readOnly ? "付箋です。カードの大きさは変わりません。" : "Enter で完了、Shift+Enter で改行。"}
           </DialogDescription>
         </DialogHeader>
         {readOnly ? null : (
@@ -88,7 +88,7 @@ export function StickyNotePanel({
           </p>
         )}
         {readOnly ? (
-          <p className="whitespace-pre-wrap text-sm leading-6">{value || "メモはまだありません"}</p>
+          <p className="whitespace-pre-wrap text-sm leading-6">{value || "付箋はまだありません"}</p>
         ) : (
           <Textarea
             value={draft}

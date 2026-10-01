@@ -53,7 +53,7 @@ function imageFileName(board: Board, mode: TrailImageMode): string {
 
 /**
  * 話題の軌跡を画像にして、保存・コピー・（スマホなら）共有する。
- * X の投稿画面（intent）には画像を添付できないので、「X でポスト」を押したときに画像もコピーしておき、貼ってもらう。
+ * X の投稿画面（intent）には画像を添付できないので、「X に投稿」を押したときに画像もコピーしておき、貼ってもらう。
  */
 function TrailImagePanel({
   board,
@@ -62,7 +62,7 @@ function TrailImagePanel({
 }: {
   board: Board;
   open: boolean;
-  /** できあがった画像（「X でポスト」でコピーする） */
+  /** できあがった画像（「X に投稿」でコピーする） */
   imageRef: RefObject<Blob | null>;
 }) {
   const steps = useMemo(() => buildTopicTrail(board).steps, [board]);
@@ -183,7 +183,7 @@ function TrailImagePanel({
       </div>
       <p className="text-[11px] leading-4 text-muted-foreground">
         {canCopy
-          ? "「X でポスト」を押すと画像もコピーされるので、投稿画面で貼り付け（Ctrl+V）てください。"
+          ? "「X に投稿」を押すと画像もコピーされるので、投稿画面で貼り付け（Ctrl+V）てください。"
           : "X の投稿画面には画像が自動で付かないので、保存した画像を添付してください。"}
       </p>
     </div>
@@ -292,7 +292,7 @@ export function SharePostDialog({
             onClick={post}
           >
             <XLogo className="size-3.5" />
-            X でポスト
+            X に投稿
           </Button>
         </DialogFooter>
       </DialogContent>

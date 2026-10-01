@@ -70,8 +70,8 @@ export function TopicActionsMenu({
   const items: MenuItem[] = [
     {
       key: "pin",
-      label: isPinned ? "ピンを外す" : "今の話題にする",
-      short: isPinned ? "ピンを外す" : "今の話題にする",
+      label: isPinned ? "NOW を外す" : "NOW にする",
+      short: isPinned ? "NOW を外す" : "NOW にする",
       icon: <Pin className={cn(isPinned && "fill-current")} />,
       onClick: onPin,
     },
@@ -79,7 +79,7 @@ export function TopicActionsMenu({
   if (onExpand) {
     items.push({
       key: "expand",
-      label: "広げる：切り口を8つ出す",
+      label: "広げる：切り口を 8 つ出す",
       short: "広げる",
       icon: <Grid3x3 />,
       onClick: onExpand,
@@ -89,8 +89,8 @@ export function TopicActionsMenu({
     items.push({
       key: "detail",
       label: detailRedo
-        ? "具体化：周りの8枚を具体案に作り直す"
-        : "具体化：具体案を8つ出す",
+        ? "具体化：周りの 8 枚を具体案に作り直す"
+        : "具体化：具体案を 8 つ出す",
       short: "具体化",
       icon: <ListChecks />,
       onClick: onDetail,
@@ -253,7 +253,7 @@ function SheetRegenerate({ spares, readyAt, onClick }: { spares: number; readyAt
       <span className="topic-sheet-icon">
         <RefreshCw />
       </span>
-      <span>{cooling ? `あと${seconds}秒` : spares > 0 ? `作り直す（${spares}）` : "作り直す"}</span>
+      <span>{cooling ? `あと ${seconds} 秒` : spares > 0 ? `作り直す（${spares}）` : "作り直す"}</span>
     </button>
   );
 }

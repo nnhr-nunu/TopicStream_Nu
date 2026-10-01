@@ -54,7 +54,7 @@ export function OverlayWorkspace() {
     return (
       <div className="flex h-full items-center justify-center px-10 text-center">
         <p className="max-w-xl text-3xl font-semibold leading-snug text-foreground/90">
-          まだ話題がありません。メイン画面でキーワードを置いてください。
+          まだ話題がありません。メイン画面でお題を入れてください。
         </p>
       </div>
     );

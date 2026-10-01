@@ -131,9 +131,9 @@ export function ThemeBoardList({
           <Input
             value={query}
             onChange={(event) => void runSearch(event.target.value)}
-            placeholder="テーマ・タグ・キーワードで検索"
+            placeholder="お題・タグで検索"
             className="h-11 rounded-xl pl-9 bg-card/70"
-            aria-label="テーマを検索"
+            aria-label="マップを探す"
           />
         </label>
       )}
@@ -142,18 +142,18 @@ export function ThemeBoardList({
 
       {!loaded ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          みんなのボードを読み込み中…
+          みんなのマップを読み込み中…
         </p>
       ) : total === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
-          <p className="text-sm font-medium">まだテーマボードはありません</p>
+          <p className="text-sm font-medium">まだマップはありません</p>
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
             これから増えていきます。まずはお題を入れて、自分の話題マップを作ってみてください。
           </p>
         </div>
       ) : shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-          該当するボードがありません。別の言葉で探してみてください。
+          見つかりませんでした。別の言葉で探してみてください。
         </p>
       ) : (
         <ul className={cn("relative grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")} data-critter-garden data-critter-skip={critterSkip}>
@@ -178,9 +178,9 @@ export function ThemeBoardList({
                           <span aria-hidden>·</span>
                         </>
                       ) : null}
-                      <span>全{stats.cards}カード</span>
+                      <span>カード {stats.cards} 枚</span>
                       <span aria-hidden>·</span>
-                      <span>{stats.expanded}回展開</span>
+                      <span>{stats.expanded} 回広げた</span>
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-1.5">
@@ -206,7 +206,7 @@ export function ThemeBoardList({
                       このお題で始める
                       <ArrowRight />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => onImport(board)} disabled={busy} title="広げたところまで丸ごと、自分のボードに写して続きから使います">
+                    <Button size="sm" variant="outline" onClick={() => onImport(board)} disabled={busy} title="広げたところまで丸ごと、自分のマップに追加します">
                       <Copy />
                       このマップを使う
                     </Button>

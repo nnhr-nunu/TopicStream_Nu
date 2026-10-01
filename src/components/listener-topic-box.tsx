@@ -15,7 +15,6 @@ function TopicItem({ topic, onAdopt }: { topic: ListenerTopic; onAdopt: (topic: 
       <button
         type="button"
         className="odai-adopt"
-        title="押すとカードになって広がり、NOW になります"
         onClick={() => onAdopt(topic)}
       >
         <span className="odai-label">{topic.label}</span>
@@ -79,7 +78,7 @@ export function ListenerTopicPill({
   const [open, setOpen] = useState(false);
   const hidden = columnOpen ? topics.length - COLUMN_LIMIT : topics.length;
   if (hidden <= 0) return null;
-  const label = columnOpen ? `お題 ほか${hidden}` : `お題箱 ${hidden}`;
+  const label = columnOpen ? `お題箱 ほか ${hidden}` : `お題箱 ${hidden}`;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger

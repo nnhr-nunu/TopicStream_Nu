@@ -56,7 +56,7 @@ export function CatalogPreviewDialog({
             <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-3 pr-12">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="truncate text-base">{board.name}</DialogTitle>
-                <DialogDescription className="text-xs">見るだけの画面です。コピーすると、このマップの続きを自分のボードで広げられます。</DialogDescription>
+                <DialogDescription className="text-xs">見るだけの画面です。「このマップを使う」で、広げたところから続けられます。</DialogDescription>
               </div>
               <Button
                 size="sm"

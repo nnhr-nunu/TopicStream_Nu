@@ -60,8 +60,8 @@ export function writeBoardSnapshot(next: AppSnapshot) {
     // ブラウザの保存容量がいっぱい。盤面は開いている間は使えるので、気づけるように一度だけ知らせる
     if (!storageFullNoticed) {
       storageFullNoticed = true;
-      toast.warning("ボードを保存できませんでした", {
-        description: "ブラウザの保存容量がいっぱいです。使わないボードを削除するか、「書き出す」で控えを取ってください。",
+      toast.warning("マップを保存できませんでした", {
+        description: "ブラウザの保存容量がいっぱいです。使わないマップを削除するか、「書き出す」で控えを取ってください。",
         duration: 10_000,
       });
     }

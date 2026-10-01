@@ -15,7 +15,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
     <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center justify-center gap-4 px-6 text-center">
       <h1 className="text-lg font-semibold">うまく表示できませんでした</h1>
       <p className="text-sm leading-6 text-muted-foreground">
-        一時的な不具合かもしれません。作ったボードはこの端末に残っているので、もう一度読み込んでみてください。
+        一時的な不具合かもしれません。作ったマップはこの端末に残っているので、もう一度読み込んでみてください。
       </p>
       <div className="flex flex-wrap justify-center gap-2">
         <button

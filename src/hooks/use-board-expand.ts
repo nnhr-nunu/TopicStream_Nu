@@ -260,7 +260,7 @@ export function useBoardExpand({ persist, updateBoardById, expandTokensRef, reje
         (item) => item.data.parentId === target.id && (item.data.placeholder || item.data.expanding),
       );
       if (target.data.expanding || busyChild) return;
-      toast.message("周りの 8 枚を具体的な内容に作り直します", { description: "元に戻すときは「1つ戻る」" });
+      toast.message("周りの 8 枚を具体的な内容に作り直します", { description: "取り消すときは「1つ戻る」" });
       void expandNode(target.id, true, false, true);
     },
     [expandNode],
@@ -287,7 +287,7 @@ export function useBoardExpand({ persist, updateBoardById, expandTokensRef, reje
       persist({ ...current, boards: current.boards.map((item) => (item.id === added.board.id ? added.board : item)) });
       const mix = added.board.nodes.find((node) => node.id === added.mixId);
       toast.message(`「${mix?.data.label ?? ""}」を作りました`, {
-        description: "やめるときは「1つ戻る」",
+        description: "取り消すときは「1つ戻る」",
       });
       void expandNode(added.mixId, false, false, false, {
         parentId: targetId,

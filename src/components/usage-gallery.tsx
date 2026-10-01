@@ -20,8 +20,8 @@ export const USAGE_STEPS = [
   },
   {
     image: "menu",
-    title: "残す・作り直す・メモする",
-    body: "使いたい話題はピン、合わなければ作り直し、付箋でひとこと。",
+    title: "NOW・作り直し・付箋",
+    body: "話す話題は NOW に、合わなければ作り直し、付箋でひとこと。",
   },
   {
     image: "combine",

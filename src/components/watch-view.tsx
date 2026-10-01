@@ -18,6 +18,14 @@ import type { Board, GenerationLayout } from "@/lib/types";
 const NO_FAVORITES: string[] = [];
 const noSubscribe = () => () => {};
 
+const WIDE_QUERY = "(min-width: 640px)";
+
+function subscribeWide(onChange: () => void) {
+  const media = window.matchMedia(WIDE_QUERY);
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
 /** OBS のブラウザソースで映しているか（配信の画面に「使ってみる」の入口を出さない） */
 function inObs(): boolean {
   return "obsstudio" in window;
@@ -62,6 +70,8 @@ export function WatchView({ shareId }: { shareId: string }) {
   );
   // サーバーでは出さず、ブラウザで OBS でないと分かってから出す
   const obs = useSyncExternalStore(noSubscribe, inObs, () => true);
+  // コメントでの参加の案内は、広い画面では開いて、スマホでは 1 行にたたんで出す（NOW の帯を隠さないように）
+  const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => false);
 
   // タブの題名もボード名にする（いくつも開いたときに見分けられるように）
   useEffect(() => {
@@ -175,15 +185,15 @@ export function WatchView({ shareId }: { shareId: string }) {
         generationLayout: layout,
       }}
     >
-      <div className="relative h-svh overflow-hidden" data-layout={layout}>
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex justify-between gap-3 p-3">
+      <div className="watch-view relative h-svh overflow-hidden" data-layout={layout}>
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-3 p-3">
           <div className="pointer-events-auto rounded-2xl border border-border/70 bg-background/75 px-3 py-2 backdrop-blur-md">
             <p className="text-[10px] tracking-[0.2em] text-primary">いっしょに見ている</p>
             <p className="text-sm font-medium">{board.name}</p>
             {nickname ? <p className="text-[11px] text-muted-foreground">{nickname} の枠</p> : null}
             {/* 配信者がコメントを読んでいて、カードに番号があるときだけ（番号は 3×3 のときだけ付く） */}
             {chat && !obs && layout === "mandala" ? (
-              <details open className="watch-join mt-1.5 max-w-64 text-[11px]">
+              <details key={wide ? "wide" : "narrow"} open={wide} className="watch-join mt-1.5 max-w-64 text-[11px]">
                 <summary className="cursor-pointer font-semibold text-primary">コメントで参加できます</summary>
                 <ViewerGuide />
               </details>

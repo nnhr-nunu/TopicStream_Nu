@@ -48,7 +48,7 @@ export function isWellUsed(board: Board): boolean {
 }
 
 function isDefaultName(name: string): boolean {
-  return /^\d{1,2}月\d{1,2}日の雑談$/.test(name) || /^新しいボード/.test(name);
+  return /^\d{1,2}月\d{1,2}日の雑談$/.test(name) || /^新しい(ボード|マップ)/.test(name);
 }
 
 /** 載せられる形にする（メモを外し、個人につながりそうな語・人を傷つける語があれば載せない） */

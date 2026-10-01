@@ -117,10 +117,10 @@ describe("配信URL", () => {
 });
 
 describe("ボード名", () => {
-  it("今日の雑談、被ったら新しいボード", () => {
+  it("今日の雑談、被ったら新しいマップ", () => {
     const today = todayBoardName(new Date("2026-09-23T00:00:00"));
     expect(today).toBe("9月23日の雑談");
-    expect(nextBoardName([today], new Date("2026-09-23T00:00:00"))).toBe("新しいボード");
-    expect(nextBoardName([today, "新しいボード"], new Date("2026-09-23T00:00:00"))).toBe("新しいボード 2");
+    expect(nextBoardName([today], new Date("2026-09-23T00:00:00"))).toBe("新しいマップ");
+    expect(nextBoardName([today, "新しいマップ"], new Date("2026-09-23T00:00:00"))).toBe("新しいマップ 2");
   });
 });
