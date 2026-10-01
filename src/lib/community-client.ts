@@ -49,7 +49,8 @@ export function shareBoardUsage(board: Board) {
 export function announceStream(url: string, watch?: { id: string; key: string | null }, now = Date.now()) {
   const ref = parseStreamUrl(url);
   if (!ref) return;
-  const key = `${ref.kind}:${ref.kind === "youtube" ? ref.videoId : ref.channel.toLowerCase()}`;
+  // いっしょに見るリンクを後から作ったときは、間引かずにすぐ載せ直す（リンクの有無もキーに入れる）
+  const key = `${ref.kind}:${ref.kind === "youtube" ? ref.videoId : ref.channel.toLowerCase()}:${watch?.id ?? ""}`;
   const prev = sentStreams.get(key);
   if (prev && now - prev < STREAM_HEARTBEAT_MS - 30_000) return;
   sentStreams.set(key, now);

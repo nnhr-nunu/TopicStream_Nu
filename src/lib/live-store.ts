@@ -176,8 +176,8 @@ const SHARE_TTL_SECONDS = 180 * 24 * 60 * 60;
 export const SHARE_ID_PATTERN = /^[a-zA-Z0-9_-]{6,40}$/;
 const SHARE_KEY_PATTERN = /^[a-f0-9]{32,64}$/;
 
-/** owner: 書き換えてよい人の鍵のハッシュ。見る人には返さない */
-type Share = { board: Board; nickname: string; updatedAt: number; owner?: string };
+/** owner: 書き換えてよい人の鍵のハッシュ。見る人には返さない。chat: 配信のコメントを読んでいる（見る画面にコメントでできることを出す） */
+type Share = { board: Board; nickname: string; updatedAt: number; chat?: boolean; owner?: string };
 export type PublicShare = Omit<Share, "owner">;
 
 export type SaveShareResult =
@@ -231,6 +231,7 @@ export async function saveShare(input: {
   key: string | null;
   board: Board;
   nickname: string;
+  chat?: boolean;
   allowCreate?: () => boolean;
 }): Promise<SaveShareResult> {
   const requestedId = input.id && SHARE_ID_PATTERN.test(input.id) ? input.id : null;
@@ -248,7 +249,13 @@ export async function saveShare(input: {
   // 鍵の無い古い共有・期限で消えた共有は、送ってきた人を持ち主にして続ける
   const id = requestedId ?? newShareId();
   const key = requestedKey ?? randomBytes(24).toString("hex");
-  const share: Share = { board: input.board, nickname: input.nickname, updatedAt: Date.now(), owner: hashKey(key) };
+  const share: Share = {
+    board: input.board,
+    nickname: input.nickname,
+    updatedAt: Date.now(),
+    chat: input.chat === true,
+    owner: hashKey(key),
+  };
   const config = redisConfig();
   if (!config) {
     const live = load();
@@ -278,5 +285,5 @@ export async function getShare(id: string): Promise<PublicShare | null> {
   if (!SHARE_ID_PATTERN.test(id)) return null;
   const share = await readShare(id);
   if (!share) return null;
-  return { board: share.board, nickname: share.nickname, updatedAt: share.updatedAt };
+  return { board: share.board, nickname: share.nickname, updatedAt: share.updatedAt, chat: share.chat === true };
 }

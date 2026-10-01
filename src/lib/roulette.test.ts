@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import * as ops from "@/lib/board-ops";
 import { normalizePrefs } from "@/lib/node-box";
-import { pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
+import { clearTalked, hasTalked, pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
 import { emptyBoard } from "@/lib/storage";
 import type { Board } from "@/lib/types";
 
@@ -27,6 +27,21 @@ describe("話題ルーレット", () => {
     expect(board.pinnedAt).toBeTypeOf("number");
     const labels = rouletteCandidates(board).map((node) => node.data.label).sort();
     expect(labels).toEqual(["C", "D", "E", "F", "G", "H"]);
+  });
+
+  it("話した印を全部外すと、また選べる", () => {
+    let board = expandedBoard();
+    for (const label of ["A", "B", "C", "D", "E", "F", "G", "H"]) {
+      board = ops.pinNode(board, board.nodes.find((node) => node.data.label === label)!.id, prefs);
+    }
+    board = ops.pinNode(board, null, prefs);
+    expect(rouletteCandidates(board)).toEqual([]);
+    expect(hasTalked(board)).toBe(true);
+    const cleared = clearTalked(board);
+    expect(hasTalked(cleared)).toBe(false);
+    expect(rouletteCandidates(cleared).map((node) => node.data.label).sort()).toEqual(["A", "B", "C", "D", "E", "F", "G", "H"]);
+    // 印が無ければ同じボードを返す（保存し直さない）
+    expect(clearTalked(cleared)).toBe(cleared);
   });
 
   it("文を書き直したカードは、また選べる", () => {

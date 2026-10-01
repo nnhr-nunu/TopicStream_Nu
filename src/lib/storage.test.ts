@@ -50,4 +50,10 @@ describe("広げている途中で閉じたボード", () => {
     const board = asBoard({ id: "b1", name: "x", nodes: [node("r", null), node("d", "r", { detail: true })], edges: [] });
     expect(board?.nodes.find((item) => item.id === "d")?.data.detail).toBe(true);
   });
+
+  it("お題箱から採用したカードの印（リスナーのお題）を読み込み直しても残す", () => {
+    const board = asBoard({ id: "b1", name: "x", nodes: [node("r", null, { fromListener: true }), node("a", "r")], edges: [] });
+    expect(board?.nodes.find((item) => item.id === "r")?.data.fromListener).toBe(true);
+    expect(board?.nodes.find((item) => item.id === "a")?.data.fromListener).toBeUndefined();
+  });
 });

@@ -49,6 +49,28 @@ async function copyText(text: string, done: string) {
 }
 
 /**
+ * 配信の終わりに、設定を開かずにタイムスタンプをコピーするボタン（「配信と連携」の中に置く）。
+ * いちばん新しい配信のまとまりを、最初の話題を 0:00 として写す（時刻を直したいときは設定のまとめから）
+ */
+export function TimestampCopyButton() {
+  const log = useSyncExternalStore(subscribeTalkLog, loadTalkLog, getServerTalkLog);
+  const latest = useMemo(() => talkSessions(log)[0], [log]);
+  if (!latest || latest.rows.length === 0) return null;
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="secondary"
+      className="self-start"
+      onClick={() => void copyText(talkTimestamps(latest.rows, latest.start), "タイムスタンプをコピーしました")}
+    >
+      <Copy />
+      タイムスタンプをコピー（{latest.rows.length} 話題）
+    </Button>
+  );
+}
+
+/**
  * 設定の「話した話題のまとめ」。NOW にした話題を、配信ごと・時刻順に並べて、
  * 概要欄のタイムスタンプや X の投稿にコピーできる（ボードを切り替えながら話しても 1 本につながる）
  */
