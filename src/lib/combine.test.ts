@@ -93,6 +93,14 @@ describe("掛け合わせのカード", () => {
     expect(addMixNode(added.board, b, a, mandala)).toBeNull();
   });
 
+  it("掛け合わせたカードは、さらに掛け合わせない（A × B × C は 2 つに分けられない）", () => {
+    const board = expanded();
+    const added = addMixNode(board, byLabel(board, "料理").id, byLabel(board, "旅行").id, mandala)!;
+    const other = byLabel(added.board, "本").id;
+    expect(canCombine(added.board, added.mixId, other).ok).toBe(false);
+    expect(canCombine(added.board, other, added.mixId).ok).toBe(false);
+  });
+
   it("1つ戻るで掛け合わせのカードごと消え、進むで戻る。重ねた先は広げられるまま", () => {
     const board = expanded();
     const source = byLabel(board, "料理");

@@ -573,7 +573,8 @@ export function setLabel(
   overlay = false,
 ): Board {
   const trimmed = label.trim().slice(0, LABEL_EDIT_MAX);
-  if (!trimmed) return board;
+  // 空にした・文を変えなかったときは何もしない（「話した」の印も残す）
+  if (!trimmed || board.nodes.find((node) => node.id === nodeId)?.data.label === trimmed) return board;
   return maybeLayout(
     touch(board, {
       nodes: board.nodes.map((node) =>

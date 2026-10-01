@@ -24,6 +24,7 @@ import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
 import { WaitCritters } from "@/components/wait-critters";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { useRouletteLanded } from "@/hooks/use-roulette";
+import { isTypingTarget, modalOpen, shortcutKey } from "@/lib/key-guards";
 import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -330,11 +331,8 @@ function CanvasInner({
   useEffect(() => {
     if (overlay) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) return;
-      }
+      // 入力欄・開いているダイアログやシートの中では、裏の盤面を拡大縮小しない
+      if (isTypingTarget(event.target) || modalOpen(event.target)) return;
       // Ctrl+F（ページ内検索）・Ctrl+0 / Ctrl+± （ブラウザの拡大縮小）はブラウザに任せる
       if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing || event.defaultPrevented) return;
       if (event.key === "+" || event.key === "=") {
@@ -347,7 +345,7 @@ function CanvasInner({
         void zoomOut({ duration: 160 });
         return;
       }
-      if (event.key === "0" || event.key.toLowerCase() === "f") {
+      if (event.key === "0" || shortcutKey(event) === "f") {
         event.preventDefault();
         // 上のピン留めの帯・左下の切り替えにカードが隠れないよう、自動で合わせるときと同じ余白にする
         void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 260, ...canvasFitZoom(overlay) });

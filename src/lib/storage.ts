@@ -29,8 +29,11 @@ export function defaultSnapshot(): AppSnapshot {
   };
 }
 
-/** 1 ボードのカードの上限（壊れたデータ・送られてきた巨大なデータで固まらないように） */
-const MAX_NODES = 800;
+/**
+ * 1 ボードのカードの上限（壊れたデータ・送られてきた巨大なデータで固まらないように）。
+ * 読み込むたびにここで切るので、ふつうに広げて届く数より十分大きくする（1 回広げると 9 枚ずつ増える）
+ */
+const MAX_NODES = 3_000;
 
 function asNode(value: unknown): TNode | null {
   if (!value || typeof value !== "object") return null;

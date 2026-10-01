@@ -125,3 +125,16 @@ describe("展開のやり直し", () => {
     expect(board.nodes[0]!.data.frameHearts).toBe(3);
   });
 });
+
+describe("文の書き直し", () => {
+  it("文を変えなかった・空にしたときは同じボードを返す（「話した」の印も残す）", () => {
+    const board = ops.createRootBoard(emptyBoard("t"), "推し");
+    const id = board.nodes[0]!.id;
+    const talked = { ...board, nodes: board.nodes.map((node) => ({ ...node, data: { ...node.data, talkedAt: 1 } })) };
+    expect(ops.setLabel(talked, id, " 推し ")).toBe(talked);
+    expect(ops.setLabel(talked, id, "   ")).toBe(talked);
+    const changed = ops.setLabel(talked, id, "推し活");
+    expect(changed.nodes[0]!.data.label).toBe("推し活");
+    expect(changed.nodes[0]!.data.talkedAt).toBeUndefined();
+  });
+});
