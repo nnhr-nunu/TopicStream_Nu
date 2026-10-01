@@ -1,3 +1,4 @@
+import { apiPath, isNoServerResponse } from "@/lib/api-base";
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
@@ -106,6 +107,10 @@ export async function generateRelatedTopics(options: {
 
 type RequestOptions = Parameters<typeof generateRelatedTopics>[0];
 
+/** サーバーは 50 秒で諦めて返す。通信が止まったまま戻らないとき（電波・公衆 Wi-Fi のログイン画面など）だけ、こちらで切る */
+const CLIENT_TIMEOUT_MS = 70_000;
+
+
 /** AI が答えず、図鑑の語も足りなかったときのお知らせ（定型の候補は出さずに、再試行をお願いする） */
 export function retryLaterMessage(kind: string | undefined, ownKey = false): string {
   if (kind === "key") return "自分の AI キーが使えませんでした。設定の「自分の AI キー」で接続テストをしてみてください。";
@@ -174,9 +179,13 @@ async function requestTopics(
     return result;
   };
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   try {
-    const response = await fetch("/api/gemini", {
+    const response = await fetch(apiPath("/api/gemini"), {
       method: "POST",
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         seed: options.seed,
@@ -193,7 +202,7 @@ async function requestTopics(
         stream: true,
       }),
     });
-    if (response.status === 404) {
+    if (isNoServerResponse(response)) {
       // GitHub Pages（サーバーの無い公開版）はオフライン生成が普通の動きなので、何も知らせない
       markFillers(options.seed, mock, mode);
       return { topics: mock, source: "mock" };
@@ -203,7 +212,7 @@ async function requestTopics(
     const isStream = (response.headers.get("content-type") ?? "").includes("ndjson") && response.body;
     if (!isStream) return finish((await response.json()) as GenerateResult);
 
-    const reader = response.body!.getReader();
+    reader = response.body!.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
     let done: Partial<GenerateResult> | null = null;
@@ -242,5 +251,9 @@ async function requestTopics(
       need,
       Boolean(override),
     );
+  } finally {
+    clearTimeout(timer);
+    // 途中で読むのをやめたとき（壊れた行・時間切れ）に、通信を開いたままにしない
+    void reader?.cancel().catch(() => undefined);
   }
 }

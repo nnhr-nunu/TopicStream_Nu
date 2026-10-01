@@ -1,4 +1,4 @@
-import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
+import { readGeminiApiKey, sanitizeApiKey } from "@/lib/env-secret";
 import { offlineExplanation, type Explanation } from "@/lib/explain";
 import { geminiUserNotice, GeminiRequestError } from "@/lib/gemini-core";
 import { requestExplanation } from "@/lib/gemini-explain";
@@ -40,10 +40,11 @@ export async function POST(request: Request) {
         .filter((item): item is string => typeof item === "string")
         .map((item) => item.trim().slice(0, 48))
         .filter(Boolean)
-        .slice(0, 3)
+        // topicContext は最後に最初のお題（根っこ）を足すので、広げるときと同じ 4 つまで受け取る
+        .slice(0, 4)
     : [];
   const mode = parseMode(body?.mode);
-  const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const override = typeof body?.apiKey === "string" ? sanitizeApiKey(body.apiKey) : "";
   const model = allowedModel(body?.model, Boolean(override));
   const apiKey = override || readGeminiApiKey();
   const offline = offlineExplanation(label, context);

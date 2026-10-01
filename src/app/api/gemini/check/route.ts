@@ -1,4 +1,4 @@
-import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
+import { readGeminiApiKey, sanitizeApiKey } from "@/lib/env-secret";
 import { checkGeminiKey } from "@/lib/gemini-core";
 import { allowedModel, clientKeyFromHeaders } from "@/lib/gemini-guard";
 import { createRateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -12,7 +12,7 @@ const limit = createRateLimit(6, 60_000);
 export async function POST(request: Request) {
   if (!limit(clientKeyFromHeaders(request.headers))) return tooManyRequests(60);
   const body = (await request.json().catch(() => null)) as { apiKey?: unknown; model?: unknown } | null;
-  const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const override = typeof body?.apiKey === "string" ? sanitizeApiKey(body.apiKey) : "";
   const apiKey = override || readGeminiApiKey();
   if (!apiKey) {
     return Response.json({ ok: false, source: "none", models: [] });

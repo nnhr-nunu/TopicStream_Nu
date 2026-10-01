@@ -1,5 +1,5 @@
 import { CHILD_COUNT, GEMINI_HOST, ROOT_LABEL_MAX } from "@/lib/constants";
-import { readGeminiApiKey, sanitizeSecret } from "@/lib/env-secret";
+import { readGeminiApiKey, sanitizeApiKey } from "@/lib/env-secret";
 import {
   geminiDebug,
   geminiFailureWarning,
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "お題が空です" }, { status: 400 });
   }
 
-  const override = typeof body?.apiKey === "string" ? sanitizeSecret(body.apiKey) : "";
+  const override = typeof body?.apiKey === "string" ? sanitizeApiKey(body.apiKey) : "";
   const input: Input = {
     seed,
     existing: Array.isArray(body?.existing)

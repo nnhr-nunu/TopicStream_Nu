@@ -370,6 +370,9 @@ export function shouldTryNextModel(error: GeminiRequestError): boolean {
   if (isBillingError(error.debug)) return false; // 請求はプロジェクト単位。どのモデルでも同じ
   if (status === 404 || google === "NOT_FOUND") return true;
   if (error.kind === "timeout") return true;
+  // 答えが空（安全フィルタ・出力の上限）・Google 側の一時的な故障は、別のモデルなら通ることがある
+  if (error.debug.reason === "empty") return true;
+  if (status === 500 || status === 502 || status === 504 || google === "INTERNAL" || google === "DEADLINE_EXCEEDED") return true;
   return isGeminiBusyError(error);
 }
 
@@ -556,6 +559,9 @@ export async function requestGemini(
       lastModel = model;
       try {
         await runModel(model, patience);
+        // 200 で答えが空（安全フィルタ・出力の上限など）: 定型の候補だけで埋める前に、次のモデルにも聞く
+        // （一部でも取れていれば、足りない分は呼び出し側で埋める）
+        if (collected.length === 0 && remaining() >= 3_000) throw new GeminiRequestError("http", geminiDebug({ reason: "empty", model }));
         return { topics: [...collected], model, tried };
       } catch (error) {
         lastError = record(error, model);
@@ -800,19 +806,22 @@ async function requestGeminiOnce(options: GeminiOptions, remaining: Remaining): 
   // 予備（minimum を超える分）が足りないだけなら呼び直さない（呼ぶ回数・枠の節約）
   if (first.length >= (options.minimum ?? options.count) || remaining() < 4_000) return first.slice(0, options.count);
   const seen = [...options.existing, ...first];
+  let merged = first;
   try {
+    // 1 回目で出た語も「重ならないように」に入れる（入れないと同じ語をまた返し、全部落ちて 1 回分を無駄にする）
     const retry = parseTopics(
-      (await generateGeminiText({ ...options, count: options.count - first.length }, remaining, watch(seen))).text,
+      (await generateGeminiText({ ...options, existing: seen, count: options.count - first.length }, remaining, watch(seen))).text,
       options.seed,
       seen,
       options.detail,
       options.mode,
     );
-    return mergeParsedTopics(first, retry, options.count);
+    merged = mergeParsedTopics(first, retry, options.count);
   } catch {
-    if (first.length > 0) return first;
-    throw new GeminiRequestError("http", geminiDebug({ reason: "empty", model: options.model }));
+    /* 2 回目が失敗しても、1 回目の語があれば使う */
   }
+  if (merged.length === 0) throw new GeminiRequestError("http", geminiDebug({ reason: "empty", model: options.model }));
+  return merged;
 }
 
 export type GeminiKeyCheck = {

@@ -278,18 +278,39 @@ function uniquePush(target: string[], value: string, banned: Set<string>) {
  * context は広げるカードの祖先（近い順）。related は元のお題について図鑑から引いた語。
  * 並び: 深掘り → 定番の語 → 元のお題の語 → 切り口 → よく使われる話題 → お題の一覧
  */
+/** 候補を出し切ったときに、まだ重ならないように避ける語の数（呼ぶ側は近いカードの語を先に並べて渡す） */
+const NEAR_EXISTING = 16;
+
+/**
+ * キー無しのときの候補。盤面の語とは重ならないように選ぶが、深く広げて候補を出し切ったら
+ * 近くのカード（同じ 3×3・たどってきたカード）の語だけを避けて、使った切り口をもう一度使う
+ * （出し切ったまま返すと、空のカードが黙って消えて「押しても何も起きない」になる）
+ */
 export function mockRelatedTopics(
   seed: string,
   existing: string[] = [],
   count = CHILD_COUNT,
   preferred: string[] = [],
-  { context = [], related = [], mode = DEFAULT_MODE }: { context?: string[]; related?: string[]; mode?: BoardMode } = {},
+  options: { context?: string[]; related?: string[]; mode?: BoardMode } = {},
+): string[] {
+  const first = pickMockTopics(seed, existing, count, preferred, options);
+  if (first.length >= count || existing.length <= NEAR_EXISTING) return first;
+  const again = pickMockTopics(seed, [...existing.slice(0, NEAR_EXISTING), ...first], count - first.length, preferred, options);
+  return [...first, ...again];
+}
+
+function pickMockTopics(
+  seed: string,
+  existing: string[],
+  count: number,
+  preferred: string[],
+  { context = [], related = [], mode = DEFAULT_MODE }: { context?: string[]; related?: string[]; mode?: BoardMode },
 ): string[] {
   // 掛け合わせ（「A × B」）は両方の語を使った定型の話題を先に出し、足りない分をふつうの候補で埋める
   const mixed = mockMixTopics(seed, existing, count);
   if (mixed) {
     if (mixed.length >= count) return mixed;
-    const rest = mockRelatedTopics(splitMix(seed)?.[0] ?? seed, [...existing, ...mixed], count - mixed.length, preferred, { context, related, mode });
+    const rest = pickMockTopics(splitMix(seed)?.[0] ?? seed, [...existing, ...mixed], count - mixed.length, preferred, { context, related, mode });
     return [...mixed, ...rest];
   }
   if (mode !== DEFAULT_MODE) return modeRelatedTopics(seed, existing, count, context, modePreset(mode).angleGroups);

@@ -327,6 +327,22 @@ describe("Gemini の混雑リトライ", () => {
     expect(sent.generationConfig.responseMimeType).toBe("application/json");
   });
 
+  it("200 で答えが空（安全フィルタなど）なら、定型の候補で埋めずに次のモデルへ。500 も次のモデルへ", async () => {
+    geminiRetry.sleep = vi.fn(async () => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        if (url.includes("gemini-3.5-flash-lite")) return googleOk([]);
+        if (url.includes("models/gemini-3.6-flash:")) return googleError(500, "INTERNAL");
+        return googleOk(["温泉", "湯けむり"]);
+      }),
+    );
+    const result = await requestGemini({ seed: "お題", existing: [], apiKey: "test-key", model: DEFAULT_MODEL, count: 2 });
+    expect(result.topics).toEqual(["温泉", "湯けむり"]);
+    expect(result.tried.slice(0, 2)).toEqual(["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
+  });
+
   it("利用枠の無い 429 は同じモデルで待たず、試した結果を残す", async () => {
     const sleep = vi.fn(async () => {});
     geminiRetry.sleep = sleep;
