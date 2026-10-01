@@ -80,7 +80,10 @@ export type Settings = {
   fontScale: number;
   density: Density;
   overlayTransparent: boolean;
+  /** 配信者名。いっしょに見る画面の「〇〇 の枠」と配信一覧に出る */
   nickname: string;
+  /** 配信者名を自分で直した。直していなければ、配信 URL から分かる名前を入れ続ける */
+  nicknameByHand: boolean;
   colorTheme: ColorTheme;
   generationLayout: GenerationLayout;
   streamUrl: string;

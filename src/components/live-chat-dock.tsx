@@ -6,6 +6,7 @@ import { ChevronUp, CircleHelp, MessageSquareText, Radio } from "lucide-react";
 import { toast } from "sonner";
 
 import { ListenerTopicColumn, ListenerTopicPill } from "@/components/listener-topic-box";
+import { StreamerNameEditor } from "@/components/streamer-name-editor";
 import { TimestampCopyButton } from "@/components/talk-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,9 @@ export function LiveChatDock({
   onAdoptTopic,
   onStreamUrlChange,
   onShowCommentsChange,
+  streamer,
+  autoStreamer,
+  onStreamerChange,
   children,
 }: {
   board: Board | null;
@@ -75,10 +79,19 @@ export function LiveChatDock({
   onAdoptTopic: (label: string) => void;
   onStreamUrlChange: (url: string) => void;
   onShowCommentsChange: (show: boolean) => void;
+  /** 配信者名（見る画面の「〇〇 の枠」と配信一覧に出る） */
+  streamer: string;
+  /** 配信 URL から分かる名前（✏️ で空にしたときに戻る名前） */
+  autoStreamer: string;
+  onStreamerChange: (name: string) => void;
   children: ReactNode;
 }) {
   const streamRef = useMemo(() => parseStreamUrl(streamUrl), [streamUrl]);
   const linked = Boolean(streamRef);
+  const changeStreamUrl = (next: string) => {
+    if (!linked && parseStreamUrl(next) && !showComments) onShowCommentsChange(true);
+    onStreamUrlChange(next);
+  };
   const [draft, setDraft] = useState("");
   const [log, setLog] = useState<ChatLine[]>([]);
   const [live, setLive] = useState<LiveState>({ phase: "connecting", message: "" });
@@ -398,19 +411,32 @@ export function LiveChatDock({
             <Input
               id="map-stream-url"
               value={streamUrl}
-              // 前の配信の URL が入っていても、そのまま貼れば置き換わるように全体を選んでおく
+              // 前の配信の URL が入っていても、開いてすぐ貼れば置き換わるように全体を選んでおく
               onFocus={(event) => event.currentTarget.select()}
-              placeholder="YouTube の watch / Studio / チャット、または Twitch"
-              onChange={(event) => {
-                const next = event.target.value;
-                if (!linked && parseStreamUrl(next) && !showComments) onShowCommentsChange(true);
-                onStreamUrlChange(next);
+              // 選んだ所をクリックすると選択が外れてカーソルが置かれ、貼った URL が前の URL の途中に混ざる。
+              // 配信の URL を貼ったときは、カーソルの位置に関係なく丸ごと置き換える
+              onPaste={(event) => {
+                const pasted = event.clipboardData.getData("text").trim();
+                if (!parseStreamUrl(pasted)) return;
+                event.preventDefault();
+                changeStreamUrl(pasted);
               }}
+              placeholder="YouTube の watch / Studio / チャット、または Twitch"
+              onChange={(event) => changeStreamUrl(event.target.value)}
               aria-label="配信URLまたはチャットURL"
               autoFocus
             />
             {/* 視聴者ができることの一覧はコメント欄（貼ると開く）に出るので、ここでは繰り返さない */}
             <p className="text-[11px] leading-4 text-muted-foreground">貼るとコメント欄が開いて、コメントを読み始めます。</p>
+            {linked ? (
+              <div className="flex flex-col gap-0.5 text-xs">
+                <span className="font-semibold">配信者名</span>
+                <StreamerNameEditor name={streamer} autoName={autoStreamer} onChange={onStreamerChange} />
+                <p className="text-[11px] leading-4 text-muted-foreground">
+                  見る画面の「〇〇 の枠」と配信一覧に出ます。空にすると配信 URL の名前に戻ります。
+                </p>
+              </div>
+            ) : null}
             <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
               視聴者への案内をコピー
             </Button>

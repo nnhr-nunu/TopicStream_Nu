@@ -1,9 +1,13 @@
+import { isPublicSafe } from "@/lib/public-text";
 import { parseStreamUrl, type StreamRef } from "@/lib/stream-url";
 
 export type PublicStream = {
   id: string;
   title: string;
+  /** 一覧に出す配信者名（配信者が手で直した名前のこともある） */
   streamer: string;
+  /** 配信サイトでの名前（Twitch のチャンネル名・YouTube のチャンネル名）。手で直した名前を空に戻したときに使う */
+  author?: string;
   platform: "youtube" | "twitch";
   url: string;
   live: boolean;
@@ -41,6 +45,20 @@ export function streamThumbnailUrl(stream: Pick<PublicStream, "url" | "live">): 
   if (ref.kind === "youtube") return `https://i.ytimg.com/vi/${ref.videoId}/mqdefault.jpg`;
   if (!stream.live) return undefined;
   return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${ref.channel.toLowerCase()}-320x180.jpg`;
+}
+
+/** 配信者名の長さの上限（いっしょに見るリンク・設定と同じ） */
+export const STREAMER_NAME_MAX = 24;
+
+/** 手で入れた配信者名を整える（続く空白を 1 つにして前後を除き、長すぎる分を切る） */
+export function cleanStreamerName(raw: unknown): string {
+  return typeof raw === "string" ? raw.replace(/\s+/gu, " ").trim().slice(0, STREAMER_NAME_MAX) : "";
+}
+
+/** 一覧に出す配信者名。手で直した名前は公開してよい文のときだけ使い、だめなら配信サイトでの名前にする */
+export function pickStreamerName(author: string, custom: unknown): string {
+  const name = cleanStreamerName(custom);
+  return name && isPublicSafe(name) ? name : author;
 }
 
 export function sortPublicStreams(streams: PublicStream[]): PublicStream[] {

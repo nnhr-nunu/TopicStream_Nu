@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cleanStreamerName,
   mergePublicStreams,
+  pickStreamerName,
   publicStreamFromLink,
   sortPublicStreams,
   streamThumbnailUrl,
@@ -65,5 +67,24 @@ describe("配信一覧", () => {
     );
     expect(streamThumbnailUrl({ url: "https://www.twitch.tv/nunu", live: false })).toBeUndefined();
     expect(streamThumbnailUrl({ url: "not a url", live: true })).toBeUndefined();
+  });
+});
+
+describe("配信者名", () => {
+  it("手で入れた名前は空白を詰めて、長すぎる分を切る", () => {
+    expect(cleanStreamerName("  ぬぬ　 はら  ")).toBe("ぬぬ はら");
+    expect(cleanStreamerName("あ".repeat(30))).toHaveLength(24);
+    expect(cleanStreamerName(42)).toBe("");
+  });
+
+  it("手で直した名前があれば一覧にその名前で載せる", () => {
+    expect(pickStreamerName("nunuhara_", "ぬぬはら")).toBe("ぬぬはら");
+  });
+
+  it("名前が空・公開できない文なら、配信サイトでの名前に戻す", () => {
+    expect(pickStreamerName("nunuhara_", "")).toBe("nunuhara_");
+    expect(pickStreamerName("nunuhara_", undefined)).toBe("nunuhara_");
+    expect(pickStreamerName("nunuhara_", "連絡は taro@example.com")).toBe("nunuhara_");
+    expect(pickStreamerName("nunuhara_", "死ね")).toBe("nunuhara_");
   });
 });
