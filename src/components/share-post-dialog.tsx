@@ -66,12 +66,10 @@ function TrailImagePanel({ board, open }: { board: Board; open: boolean }) {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    let url = "";
     renderTrailImage(board, mode)
       .then((blob) => {
         if (cancelled) return;
-        url = URL.createObjectURL(blob);
-        setImage({ mode, blob, url });
+        setImage({ mode, blob, url: URL.createObjectURL(blob) });
         setFailed(false);
       })
       .catch(() => {
@@ -79,9 +77,14 @@ function TrailImagePanel({ board, open }: { board: Board; open: boolean }) {
       });
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
     };
   }, [board, mode, open]);
+
+  // URL は画像を差し替えたあと・閉じたあとに手放す（配信中にボードが変わるたびに、表示中・保存する画像の URL を消さない）
+  useEffect(() => {
+    if (!image) return;
+    return () => URL.revokeObjectURL(image.url);
+  }, [image]);
 
   const file = ready ? new File([ready.blob], imageFileName(board, mode), { type: "image/png" }) : null;
   const canShareFile =

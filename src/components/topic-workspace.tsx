@@ -124,6 +124,7 @@ export function TopicWorkspace() {
     <BoardActionsProvider
       value={{
         expandNode: (id) => void controller.expandNode(id),
+        focusNode: controller.focusNode,
         regenerateNode: (id) => void controller.regenerateNode(id),
         detailNode: controller.detailNode,
         rejectNode: controller.rejectNode,
@@ -228,7 +229,7 @@ export function TopicWorkspace() {
                     })()
                   : ""
               }
-              onHeart={(id) => controller.bumpFrameHearts(id, 1)}
+              onHeart={(id, delta) => controller.bumpFrameHearts(id, delta)}
               onStreamUrlChange={(streamUrl) => controller.patchSettings({ streamUrl })}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
             >

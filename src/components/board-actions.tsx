@@ -15,6 +15,8 @@ type BoardActions = {
   /** 解説: 話の流れを踏まえた短い解説（盤面は変えない） */
   explainNode?: (id: string, label: string) => Promise<ExplainResult>;
   pinNode: (id: string | null) => void;
+  /** カードを選ぶ（枠を付け、E・P・G・C キーの対象にする）。広げないカードを押したときに使う */
+  focusNode?: (id: string) => void;
   setMemo: (id: string, memo: string) => void;
   setLabel?: (id: string, label: string) => void;
   copyLabel: (id: string) => void;
