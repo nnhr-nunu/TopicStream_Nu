@@ -111,12 +111,13 @@ export function WatchView({ shareId }: { shareId: string }) {
         }
         const json = (await response.json()) as { board: Board; nickname: string; chat?: boolean };
         if (cancelled || !json.board) return;
+        // 配信の URL を後から貼った・外したときは盤面が変わらなくても届くので、盤面の比較より先に反映する
+        setChat(json.chat === true);
         const updated = typeof json.board.updatedAt === "number" ? json.board.updatedAt : Date.now();
         if (updated === lastUpdated) return;
         lastUpdated = updated;
         setBoard(json.board);
         setNickname(json.nickname);
-        setChat(json.chat === true);
         setError(null);
       } catch {
         // 通信の途切れは次の読み込みで取り戻す

@@ -319,31 +319,35 @@ function CanvasInner({
   }, [nodesInitialized, board.id, layout]);
 
   // 画面の向きを変えた・ウィンドウの幅や高さが大きく変わったら、合わせ直す（0 / F キーや「全体を見る」を押さなくていいように）。
-  // 少しずつ変えても、前に合わせたときの大きさから 1/3 以上ずれたら 1 回だけ動かす（コメント欄の開け閉め程度では動かさない）
-  const paneWidth = useStore((state) => state.width);
-  const paneHeight = useStore((state) => state.height);
-  const fittedSize = useRef<{ width: number; height: number } | null>(null);
+  // 見るのはウィンドウの大きさ（盤面の大きさだと、スマホでコメント欄を開け閉めするたびに動いてしまう）。
+  // 少しずつ変えても、前に合わせたときから 1/3 以上ずれたら 1 回だけ動かす。文字を打っている間（キーボードで縮んだとき）は動かさない
   const latestBoard = useRef(board);
+  const latestFit = useRef(fitBoard);
   useEffect(() => {
     latestBoard.current = board;
+    latestFit.current = fitBoard;
   });
   useEffect(() => {
-    if (!paneWidth || !paneHeight) return;
-    const last = fittedSize.current;
-    if (!last) {
-      fittedSize.current = { width: paneWidth, height: paneHeight };
-      return;
-    }
-    const turned = last.width > last.height !== paneWidth > paneHeight;
-    const resized =
-      Math.abs(paneWidth - last.width) > last.width / 3 || Math.abs(paneHeight - last.height) > last.height / 3;
-    if (!turned && !resized) return;
-    const timer = window.setTimeout(() => {
-      fittedSize.current = { width: paneWidth, height: paneHeight };
-      if (latestBoard.current.nodes.length > 0) fitBoard(latestBoard.current, 260);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [paneWidth, paneHeight, fitBoard]);
+    let fitted = { width: window.innerWidth, height: window.innerHeight };
+    let timer: number | undefined;
+    const onResize = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const turned = fitted.width > fitted.height !== width > height;
+        const resized = Math.abs(width - fitted.width) > fitted.width / 3 || Math.abs(height - fitted.height) > fitted.height / 3;
+        if ((!turned && !resized) || isTypingTarget(document.activeElement)) return;
+        fitted = { width, height };
+        if (latestBoard.current.nodes.length > 0) latestFit.current(latestBoard.current, 260);
+      }, 250);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   // ルーレットが止まったら、当たったカードを画面の真ん中へ（倍率はそのまま）。ピンで並びが変わるのを待ってから動かす
   const landedId = useRouletteLanded();

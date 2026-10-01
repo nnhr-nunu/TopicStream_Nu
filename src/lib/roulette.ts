@@ -31,6 +31,8 @@ export function clearTalked(board: Board): Board {
   if (!hasTalked(board)) return board;
   return {
     ...board,
+    // 見る画面は updatedAt が変わったときだけ描き直すので、印を外したことも伝わるように進める
+    updatedAt: Date.now(),
     nodes: board.nodes.map((node) => (node.data.talkedAt ? { ...node, data: { ...node.data, talkedAt: undefined } } : node)),
   };
 }
