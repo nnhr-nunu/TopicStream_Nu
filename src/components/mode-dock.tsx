@@ -10,23 +10,25 @@ import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import type { ExpandMode } from "@/lib/types";
 
 const HINT_KEY = "topicstream-nu:hint-hold-v1";
+/** 最初の 3×3 で一度だけ出す「カードを押すとさらに広がる」 */
+const EXPAND_HINT_KEY = "topicstream-nu:hint-expand-v1";
 
 const MODES = [
   { value: "abstract", label: "抽象展開", tip: "タップで切り口を 8 つ出して広げる", Icon: Grid3x3 },
   { value: "detail", label: "具体的", tip: "タップで「具体的にする」（具体的な話題・対応策などを 8 つ出す）", Icon: ListChecks },
 ] as const;
 
-function hintSeen(): boolean {
+function hintSeen(key = HINT_KEY): boolean {
   try {
-    return window.localStorage.getItem(HINT_KEY) === "1";
+    return window.localStorage.getItem(key) === "1";
   } catch {
     return true;
   }
 }
 
-function markHintSeen() {
+function markHintSeen(key = HINT_KEY) {
   try {
-    window.localStorage.setItem(HINT_KEY, "1");
+    window.localStorage.setItem(key, "1");
   } catch {
     /* 保存できなくても、この画面では閉じる */
   }
@@ -34,12 +36,14 @@ function markHintSeen() {
 
 /**
  * 盤面の左下: カードをタップしたときの広げ方（抽象展開 / 具体的）と、使い方。
- * スマホでは初めて広げたあとに一度だけ「長押しでメニュー・重ねると掛け合わせ」のヒントを出す。
+ * 最初の 3×3 では一度だけ「カードを押すとさらに 8 つ広がる」、スマホではそのあと一度だけ
+ * 「長押しでメニュー・重ねると掛け合わせ」のヒントを出す。
  */
 export function ModeDock({
   mode,
   onChange,
   expanded,
+  opened = 0,
   onRoulette,
   spinning = false,
 }: {
@@ -47,6 +51,8 @@ export function ModeDock({
   onChange: (mode: ExpandMode) => void;
   /** 一度でも広げたか（広げる前にヒントを出しても、触るカードが無いので） */
   expanded: boolean;
+  /** 広げたカードの数（1 なら最初の 3×3 だけ） */
+  opened?: number;
   /** 話題ルーレット（まだ話していないカードから次の話題を選ぶ） */
   onRoulette?: () => void;
   spinning?: boolean;
@@ -54,13 +60,33 @@ export function ModeDock({
   const coarse = useCoarsePointer();
   const [helpOpen, setHelpOpen] = useState(false);
   const [hint, setHint] = useState(false);
+  const [expandHint, setExpandHint] = useState(false);
+  const showExpandHint = expandHint && opened === 1;
 
   useEffect(() => {
-    // PC はカーソルを乗せればメニューが出るので案内しない（スマホの長押しは触っても気づけない）
-    if (!coarse || !expanded || hintSeen()) return;
+    // 最初の 3×3 が並んだら、ほかのカードも押せることを伝える（初めての人は中央のお題で止まりやすい）
+    if (opened !== 1 || hintSeen(EXPAND_HINT_KEY)) return;
+    const timer = window.setTimeout(() => setExpandHint(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [opened]);
+
+  useEffect(() => {
+    // 2 つ目を広げた＝もう分かっているので、次からは出さない
+    if (opened >= 2) markHintSeen(EXPAND_HINT_KEY);
+  }, [opened]);
+
+  useEffect(() => {
+    // PC はカーソルを乗せればメニューが出るので案内しない（スマホの長押しは触っても気づけない）。
+    // 広げ方の案内と重ならないよう、そちらを見終えてから
+    if (!coarse || !expanded || showExpandHint || hintSeen() || !hintSeen(EXPAND_HINT_KEY)) return;
     const timer = window.setTimeout(() => setHint(true), 1600);
     return () => window.clearTimeout(timer);
-  }, [coarse, expanded]);
+  }, [coarse, expanded, opened, showExpandHint]);
+
+  const closeExpandHint = () => {
+    markHintSeen(EXPAND_HINT_KEY);
+    setExpandHint(false);
+  };
 
   const closeHint = () => {
     markHintSeen();
@@ -69,7 +95,18 @@ export function ModeDock({
 
   return (
     <div className="mode-dock">
-      {hint ? (
+      {showExpandHint ? (
+        <div className="mode-dock-hint" role="status">
+          <p>
+            気になるカードを<b>{coarse ? "タップ" : "クリック"}</b>すると、
+            <br />
+            そこからさらに <b>8 つ</b>広がります。
+          </p>
+          <button type="button" className="mode-dock-hint-close" onClick={closeExpandHint}>
+            わかった
+          </button>
+        </div>
+      ) : hint ? (
         <div className="mode-dock-hint" role="status">
           <p>
             カードを<b>長押し</b>でメニュー。
@@ -118,6 +155,7 @@ export function ModeDock({
           aria-label="使い方"
           title="使い方"
           onClick={() => {
+            closeExpandHint();
             closeHint();
             setHelpOpen(true);
           }}

@@ -246,6 +246,7 @@ export function TopicWorkspace() {
                   mode={settings.expandMode}
                   onChange={(expandMode) => controller.patchSettings({ expandMode })}
                   expanded={board.nodes.length > 1}
+                  opened={board.nodes.filter((node) => node.data.expanded).length}
                   onRoulette={() => void controller.spinRoulette()}
                   spinning={controller.spinning}
                 />

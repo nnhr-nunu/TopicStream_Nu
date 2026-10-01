@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { Maximize } from "lucide-react";
 import {
   Background,
   BackgroundVariant,
@@ -516,6 +517,20 @@ function CanvasInner({
             color="color-mix(in oklab, var(--foreground) 14%, transparent)"
           />
           <ZoomVar />
+          {coarse ? (
+            // スマホには F / 0 キーが無いので、全体を見るボタンを置く（ピンチで迷子になったとき・向きを変えたとき）
+            <button
+              type="button"
+              className="board-fit-button"
+              aria-label="全体を見る"
+              title="全体を見る"
+              onClick={() =>
+                void fitView({ padding: canvasFitPadding(overlay, pinned), duration: 260, ...canvasFitZoom(overlay) })
+              }
+            >
+              <Maximize className="size-5" aria-hidden />
+            </button>
+          ) : null}
           {children}
           {pickFrom ? <CombinePickBanner label={pickLabel} onCancel={() => setPickFrom(null)} /> : null}
         </>
