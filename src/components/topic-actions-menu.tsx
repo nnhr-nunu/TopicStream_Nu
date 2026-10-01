@@ -332,6 +332,8 @@ export function useMenuHold() {
   const [open, setOpen] = useState(false);
   const [locked, setLocked] = useState(false);
   const timer = useRef<number | null>(null);
+  /** ポインタがカード（とメニュー）の上にあるか。編集を閉じたときに、外ならメニューも閉じる */
+  const hovering = useRef(false);
 
   const clear = () => {
     if (timer.current) {
@@ -341,25 +343,36 @@ export function useMenuHold() {
   };
 
   const show = () => {
+    hovering.current = true;
     clear();
     setOpen(true);
   };
 
   const hideSoon = () => {
+    hovering.current = false;
     if (locked) return;
     clear();
     timer.current = window.setTimeout(() => setOpen(false), LEAVE_MS);
   };
 
   const hideNow = () => {
+    hovering.current = false;
     if (locked) return;
     clear();
     setOpen(false);
   };
 
+  /** 編集を終えた。ポインタがもうカードの外なら、メニューを開いたままにしない（Ctrl+Enter で確定したとき） */
+  const unlock = () => {
+    setLocked(false);
+    if (hovering.current) return;
+    clear();
+    timer.current = window.setTimeout(() => setOpen(false), LEAVE_MS);
+  };
+
   useEffect(() => () => clear(), []);
 
-  return { open, setOpen, locked, setLocked, show, hideSoon, hideNow, clear };
+  return { open, setOpen, locked, setLocked, unlock, show, hideSoon, hideNow, clear };
 }
 
 export function NodeDraftEditor({
@@ -405,6 +418,8 @@ export function NodeDraftEditor({
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
           event.stopPropagation();
+          // 変換中の Esc は変換の取り消し（書きかけを消して閉じない）
+          if (event.nativeEvent.isComposing) return;
           if (event.key === "Escape") {
             event.preventDefault();
             onCancel();

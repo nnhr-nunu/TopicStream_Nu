@@ -60,6 +60,12 @@ describe("コードと紛れる書き方", () => {
     expect(parseChatComment("2f ❤").heartCodes).toEqual(["2F"]);
   });
 
+  it("「3Dゲーム」「2Dアニメ」のような語は番号とみなさない", () => {
+    expect(parseChatComment("3Dゲーム好き").codes).toEqual([]);
+    expect(parseChatComment("2Dアニメ派").codes).toEqual([]);
+    expect(parseChatComment("1Eが聞きたい").codes).toEqual(["1E"]);
+  });
+
   it("「1Eｗｗ」「1E2F」も読む", () => {
     expect(parseChatComment("1Eｗｗｗ").codes).toEqual(["1E"]);
     expect(parseChatComment("1E2F").codes).toEqual(["1E", "2F"]);

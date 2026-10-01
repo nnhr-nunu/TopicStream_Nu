@@ -62,6 +62,7 @@ function BoardRow({
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
               if (event.key === "Escape") {
                 event.preventDefault();
                 event.stopPropagation();
@@ -266,7 +267,7 @@ export function BoardPanel({
             variant="outline"
             size="sm"
             className="flex-1"
-            title="JSONから復元します（今のボードはすべて置き換わります）"
+            title="JSONから復元します（同じボードは新しい方を残し、手元の方が新しければ別のボードとして足します）"
             onClick={() => fileRef.current?.click()}
           >
             <Upload />

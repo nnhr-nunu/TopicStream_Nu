@@ -4,6 +4,8 @@ const ID_PATTERN = /(?<![A-Za-z0-9])(\d{1,3})([A-Ia-i])(?![A-Za-z0-9])/g;
  * コメントの終わりか、区切り・助詞・ハートが続くときだけ数える（大文字はどこでも数える）
  */
 const LOWER_CODE_FOLLOW = /^(?:$|[\s、。，．,.!?！？♥❤💕💖💗😍がをはのにへもってとで])/u;
+/** 「3Dゲーム」「2Dアニメ」「3Dプリンタ」のように、すぐ後ろにカタカナが続くものは語の一部（番号ではない） */
+const WORD_FOLLOW = /^\p{Script=Katakana}/u;
 const HEART_PATTERN = /❤|♥|💕|💖|💗|😍|好き|大好き|推し|あいしてる|\blove\b/i;
 
 /** URL や @ハンドルの中の「3d」「1e」をコードと取り違えないよう、先に外す。「1Eｗｗ」「1E2F」は読めるように区切る */
@@ -38,8 +40,9 @@ export function parseChatComment(text: string, fallbackCode = ""): ChatParse {
   const codes = [...cleaned.matchAll(ID_PATTERN)]
     .filter((match) => {
       const letter = match[2] ?? "";
-      if (letter === letter.toUpperCase()) return true;
-      return LOWER_CODE_FOLLOW.test(cleaned.slice((match.index ?? 0) + match[0].length));
+      const rest = cleaned.slice((match.index ?? 0) + match[0].length);
+      if (letter === letter.toUpperCase()) return !WORD_FOLLOW.test(rest);
+      return LOWER_CODE_FOLLOW.test(rest);
     })
     .map((match) => normalizeCellCode(`${match[1] ?? ""}${match[2] ?? ""}`))
     .filter(Boolean);

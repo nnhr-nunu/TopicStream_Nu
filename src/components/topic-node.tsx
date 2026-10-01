@@ -53,6 +53,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     expandNode,
     regenerateNode,
     pinNode,
+    focusNode,
     setMemo,
     setLabel,
     detailNode,
@@ -165,7 +166,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
 
   const closeLabel = () => {
     setEditor(null);
-    menu.setLocked(false);
+    menu.unlock();
   };
 
   const clearHold = () => {
@@ -414,8 +415,11 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
           if (data.placeholder) return;
           // メニューの「掛け合わせる」で相手を選んでいる途中
           if (combine?.pickTarget(id)) return;
-          if (data.expanding || regenerating) return;
-          if (!canExpand) return;
+          // 広げない（広げ済み・作り直し中・読むだけの画面の）カードも、押したら選ぶ（枠とキー操作の対象をそのカードへ）
+          if (data.expanding || regenerating || !canExpand) {
+            focusNode?.(id);
+            return;
+          }
           if (tapDetail) detailNode?.(id);
           else expandNode(id);
         }}

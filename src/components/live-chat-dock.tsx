@@ -47,7 +47,8 @@ export function LiveChatDock({
   commentScale?: number;
   onCommentScaleChange?: (scale: number) => void;
   /** コメントで届いたハートをカードに +1 する。 */
-  onHeart: (nodeId: string) => void;
+  /** コメントのハート。届いた分をまとめて、カードごとに数を足す */
+  onHeart: (nodeId: string, delta: number) => void;
   onStreamUrlChange: (url: string) => void;
   onShowCommentsChange: (show: boolean) => void;
   children: ReactNode;
@@ -69,22 +70,41 @@ export function LiveChatDock({
     latest.current = { board, pinnedCode, onHeart, showComments };
   });
 
+  // ハートはコメント 1 件ごとに保存せず、少しまとめてから足す（1 回の読み込みで数十件届くと、保存の繰り返しで画面が固まる）
+  const pendingHearts = useRef(new Map<string, number>());
+  const heartTimer = useRef<number | undefined>(undefined);
+  const flushHearts = useCallback(() => {
+    heartTimer.current = undefined;
+    const pending = pendingHearts.current;
+    pendingHearts.current = new Map();
+    for (const [nodeId, count] of pending) latest.current.onHeart(nodeId, count);
+  }, []);
+  useEffect(
+    () => () => {
+      if (heartTimer.current !== undefined) window.clearTimeout(heartTimer.current);
+    },
+    [],
+  );
+
   const applyText = useCallback((text: string) => {
-    const { board: current, pinnedCode: pinned, onHeart: heart } = latest.current;
+    const { board: current, pinnedCode: pinned } = latest.current;
     if (!current) return;
     const parsed = parseChatComment(text, pinned ?? "");
-    if (parsed.highlightCodes.length > 0) emitPulse(parsed.highlightCodes);
+    // 「3Dゲーム」のような語を拾っても、盤面に無い番号は光らせない
+    const onBoard = parsed.highlightCodes.filter((code) => findNodeByCode(current.nodes, code));
+    if (onBoard.length > 0) emitPulse(onBoard);
     const hit: string[] = [];
     for (const code of commentHeartCodes(parsed)) {
       const node = findNodeByCode(current.nodes, code);
       if (!node) continue;
-      heart(node.id);
+      pendingHearts.current.set(node.id, (pendingHearts.current.get(node.id) ?? 0) + 1);
       hit.push(code);
     }
+    if (hit.length > 0 && heartTimer.current === undefined) heartTimer.current = window.setTimeout(flushHearts, 400);
     emitChatHearts(hit, 1);
     setLog((lines) => [...lines, { id: nextLine.current++, text }].slice(-80));
     if (!latest.current.showComments) setUnread((count) => count + 1);
-  }, []);
+  }, [flushHearts]);
 
   useEffect(() => {
     logEnd.current?.scrollIntoView({ block: "end" });
@@ -187,7 +207,8 @@ export function LiveChatDock({
             toast.warning(json.warning ?? "YouTube のコメント取得が今日の上限に達しました。", { duration: 10_000 });
           }
           setLive({ phase: json.problem === "not-live" ? "waiting" : "error", message: json.warning ?? "" });
-          later(() => void poll(), json.retryMs ?? 20_000);
+          // 終わった配信は戻ってこないので、みんなの YouTube の枠を使わないよう間隔を空ける
+          later(() => void poll(), json.problem === "ended" ? Math.max(json.retryMs ?? 0, 10 * 60_000) : (json.retryMs ?? 20_000));
           return;
         }
         setLive({ phase: "live", message: "YouTube のチャットを読んでいます。" });

@@ -120,6 +120,7 @@ export function WatchView({ shareId }: { shareId: string }) {
     <BoardActionsProvider
       value={{
         expandNode: () => undefined,
+        focusNode: setLocalFocus,
         pinNode: () => undefined,
         setMemo: () => undefined,
         setLabel: () => undefined,
