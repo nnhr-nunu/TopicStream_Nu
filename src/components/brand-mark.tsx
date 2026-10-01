@@ -19,7 +19,7 @@ export function BrandMark({
       type="button"
       onClick={onHome}
       className={cn("app-crumb-home", active && "app-crumb-home-active", className)}
-      aria-label="ホームへ（キーワード入力とテーマ一覧）"
+      aria-label="ホームへ"
       aria-current={active ? "page" : undefined}
       title="ホーム"
     >

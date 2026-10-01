@@ -150,7 +150,7 @@ export function TopicDatabase({ children }: { children?: ReactNode }) {
 
   function startBoard(hit: KnowledgeSearchHit) {
     openBoardFromTopics(hit.entry.seed, rankedTopics(hit.entry), entryMode(hit.entry));
-    toast.success(`「${hit.entry.seed}」のボードを作りました`, { description: "図鑑で人気の話題から並べました" });
+    toast.success(`「${hit.entry.seed}」のマップを作りました`, { description: "図鑑で人気の話題から並べました" });
     router.push("/");
   }
 
@@ -174,8 +174,8 @@ export function TopicDatabase({ children }: { children?: ReactNode }) {
           {mode === "chat" ? "みんなの配信で、盛り上がった話題" : `みんなの「${preset.label}」で出た切り口`}
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          TopicStream で広げられた話題を、モード・お題ごとに集めています。♡ を押された話題・深掘りされた話題ほど上に並ぶので、
-          「次なに話そう」「ほかの人はどう考えた？」のヒントに。気になるお題は、そのまま話題マップにできます。
+          TopicStream で広げられた話題を、モード・お題ごとに集めています。「次なに話そう」「ほかの人はどう考えた？」のヒントにどうぞ。
+          気になるお題は、そのまま自分のマップにできます。
         </p>
         <p className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           <span className="home-stat">
@@ -369,7 +369,7 @@ export function TopicDatabase({ children }: { children?: ReactNode }) {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => startBoard(hit)}>
                       <Sparkles />
-                      このお題で話題マップを作る
+                      このお題で始める
                     </Button>
                   </div>
                 </article>
@@ -425,7 +425,7 @@ export function TopicDatabase({ children }: { children?: ReactNode }) {
       />
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        話題は名前なしで集めています（候補には自動で作ったものも含みます）。お悩み相談などのモードの内容も公開されるので、個人がわかることは書かないでください。付箋の中身は集めません。♡・深掘り・ピン・コメントのハートで選ばれた話題ほど上に並びます。
+        話題は名前なしで集めています（候補には自動で作ったものも含みます）。お悩み相談などのモードの内容も公開されるので、個人がわかることは書かないでください。付箋の中身は集めません。ハート・深掘り・NOW で選ばれた話題ほど上に並びます。
         <Link href="/" className="ml-1 inline-flex items-center gap-0.5 underline-offset-2 hover:underline">
           ホームで広げる
           <ArrowRight className="size-3" />

@@ -110,8 +110,8 @@ export default async function TopicPageRoute({ params }: Props) {
   const steps = [
     {
       icon: <Sparkles />,
-      title: "「話題マップを作る」を押す",
-      body: "上の 3×3 が、そのまま自分のボードになります。登録もインストールも要りません。",
+      title: "「このお題で始める」を押す",
+      body: "上の 3×3 が、そのまま自分のマップになります。登録もインストールも要りません。",
     },
     {
       icon: <MousePointerClick />,
@@ -176,10 +176,10 @@ export default async function TopicPageRoute({ params }: Props) {
         <TopicPageMandala {...start} />
         <TopicStartButton {...start}>
           <Sparkles aria-hidden />
-          このお題で話題マップを作る
+          このお題で始める
         </TopicStartButton>
         <p className="text-center text-xs leading-5 text-muted-foreground">
-          登録なし・無料。カードを押すたびに、そこからさらに 8 つ広がります。
+          登録なし・無料。
         </p>
       </section>
 

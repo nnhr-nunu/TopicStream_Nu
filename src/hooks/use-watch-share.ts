@@ -107,7 +107,7 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "") {
     try {
       await navigator.clipboard.writeText(url);
       toast.success("いっしょに見るリンクをコピーしました", {
-        description: "リンクを知っている人はボードを見られます。個人情報は書かないでください。",
+        description: "リンクを知っている人はマップを見られます。個人情報は書かないでください。",
       });
     } catch {
       // コピーできない環境（権限が無い・古いブラウザ）では、リンクを読める形で長めに出す

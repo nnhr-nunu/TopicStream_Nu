@@ -279,11 +279,11 @@ export function LiveChatDock({
   const linkedLabel = !streamRef
     ? "配信と連携"
     : live.phase === "live"
-      ? `${streamLabel(streamRef)} 読み込み中`
+      ? `${streamLabel(streamRef)} 連携中`
       : live.phase === "waiting"
         ? `${streamLabel(streamRef)} 配信待ち`
         : live.phase === "error"
-          ? `${streamLabel(streamRef)} 読めていません`
+          ? `${streamLabel(streamRef)} つながっていません`
           : `${streamLabel(streamRef)} 接続中…`;
 
   return (

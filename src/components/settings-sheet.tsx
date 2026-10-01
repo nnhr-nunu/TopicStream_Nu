@@ -97,8 +97,8 @@ export function SettingsSheet({
         <div className="flex flex-col gap-3 px-4 pb-8">
           <Section icon={<Palette />} title="マップの見た目">
             <Row
-              label="広げかた"
-              hint={settings.generationLayout === "radial" ? "放射で広げたカードには番号（1A など）が付かないので、コメントの番号では選べません。" : undefined}
+              label="並べ方"
+              hint={settings.generationLayout === "radial" ? "放射の並びで広げたカードには番号（1A など）が付かないので、コメントの番号では選べません。" : undefined}
             >
               <Select
                 items={LAYOUT_ITEMS}

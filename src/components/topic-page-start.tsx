@@ -46,7 +46,7 @@ export function TopicPageMandala(props: StartProps) {
             className="topic-page-cell"
             data-family={index}
             onClick={start}
-            title="このお題で話題マップを作る"
+            title="このお題で始める"
           >
             {props.topics[index]}
           </button>

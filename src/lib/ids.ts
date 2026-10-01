@@ -12,8 +12,8 @@ export function todayBoardName(now = new Date()): string {
 export function nextBoardName(existing: string[], now = new Date()): string {
   const today = todayBoardName(now);
   if (!existing.includes(today)) return today;
-  if (!existing.includes("新しいボード")) return "新しいボード";
+  if (!existing.includes("新しいマップ")) return "新しいマップ";
   let index = 2;
-  while (existing.includes(`新しいボード ${index}`)) index += 1;
-  return `新しいボード ${index}`;
+  while (existing.includes(`新しいマップ ${index}`)) index += 1;
+  return `新しいマップ ${index}`;
 }

@@ -26,7 +26,7 @@ export function ModePicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="mode-picker" role="radiogroup" aria-label="使い方">
+    <div className="mode-picker" role="radiogroup" aria-label="用途">
       {MODE_PRESETS.map((preset) => {
         const Icon = MODE_ICONS[preset.id];
         const selected = preset.id === value;

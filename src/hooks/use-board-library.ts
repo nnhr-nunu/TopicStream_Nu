@@ -36,7 +36,7 @@ export function useBoardLibrary(persist: (next: AppSnapshot) => void) {
     (boardId?: string) => {
       const current = currentSnapshot();
       if (current.boards.length <= 1) {
-        toast.error("最後のボードは削除できません");
+        toast.error("最後のマップは削除できません");
         return;
       }
       const targetId = boardId ?? current.activeBoardId;
@@ -48,7 +48,7 @@ export function useBoardLibrary(persist: (next: AppSnapshot) => void) {
         activeBoardId: activeGone ? remaining[0]!.id : current.activeBoardId,
       });
       clearHistory(targetId);
-      toast.success("ボードを削除しました");
+      toast.success("マップを削除しました");
     },
     [persist],
   );
@@ -65,7 +65,7 @@ export function useBoardLibrary(persist: (next: AppSnapshot) => void) {
         boards: [...current.boards, board],
         activeBoardId: board.id,
       });
-      toast.success(`「${board.name}」をコピーしました`, { description: "自分のボードとして、続きから広げられます" });
+      toast.success(`「${board.name}」を自分のマップに追加しました`, { description: "続きから広げられます" });
     },
     [persist],
   );
@@ -136,8 +136,8 @@ export function useBoardLibrary(persist: (next: AppSnapshot) => void) {
     const first = replaced.get(imported[0]!.id) ?? added[0] ?? null;
     persist({ ...current, boards, activeBoardId: first?.id ?? current.activeBoardId });
     for (const board of [...replaced.values(), ...added]) clearHistory(board.id);
-    toast.success(`ボードを ${imported.length} 件読み込みました`, {
-      description: kept > 0 ? "手元の方が新しいボードは残し、読み込んだ方を「（読み込み）」として足しました" : undefined,
+    toast.success(`マップを ${imported.length} 件読み込みました`, {
+      description: kept > 0 ? "手元の方が新しいマップは残し、読み込んだ方を「（読み込み）」として足しました" : undefined,
     });
     return true;
   }, [persist]);

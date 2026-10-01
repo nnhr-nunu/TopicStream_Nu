@@ -110,7 +110,7 @@ export function TopicWorkspace() {
   if (!controller.hydrated || !board || !settings) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        ボードを読み込み中…
+        マップを読み込み中…
       </div>
     );
   }

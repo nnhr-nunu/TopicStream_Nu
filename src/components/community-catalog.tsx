@@ -20,7 +20,7 @@ export function CommunityCatalog() {
       boards: [...snapshot.boards, next],
       activeBoardId: next.id,
     });
-    toast.success(`「${board.name}」をコピーしました`, { description: "自分のボードとして、続きから広げられます" });
+    toast.success(`「${board.name}」を自分のマップに追加しました`, { description: "続きから広げられます" });
     requestOpenActiveBoard();
     router.push("/");
   }

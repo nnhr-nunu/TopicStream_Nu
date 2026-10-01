@@ -288,11 +288,11 @@ try {
   await waitFor(`document.readyState === 'complete'`);
   await evaluate(`localStorage.clear(); localStorage.setItem('topicstream-nu:hint-hold-v1', '1'); true`);
   await send("Page.navigate", { url: `${BASE}/` });
-  await waitFor(`!!document.querySelector('input[aria-label="開始キーワード"]')`);
+  await waitFor(`!!document.querySelector('input[aria-label="お題"]')`);
   await sleep(800);
 
   // お題を入れて始める（入れたところはホームの見出しと同じ画面なので撮らない）
-  const input = await evaluate(`(() => { const r = document.querySelector('input[aria-label="開始キーワード"]').getBoundingClientRect(); return { x: r.x + 40, y: r.y + r.height / 2 }; })()`);
+  const input = await evaluate(`(() => { const r = document.querySelector('input[aria-label="お題"]').getBoundingClientRect(); return { x: r.x + 40, y: r.y + r.height / 2 }; })()`);
   await click(input.x, input.y);
   await send("Input.insertText", { text: ROOT });
   await sleep(300);

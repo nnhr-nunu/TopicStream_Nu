@@ -7,7 +7,7 @@ import { TopicPageIndex } from "@/components/topic-page-index";
 export const metadata: Metadata = {
   title: "トピック図鑑 | TopicStream(ぬ)",
   description:
-    "みんなが TopicStream(ぬ)で広げた雑談ネタを、お題ごとにまとめた図鑑。お題や話題で検索して、そのままボードにできます。",
+    "みんなが TopicStream(ぬ)で広げた雑談ネタを、お題ごとにまとめた図鑑。お題や話題で検索して、そのまま自分のマップにできます。",
 };
 
 export default function TopicsPage() {

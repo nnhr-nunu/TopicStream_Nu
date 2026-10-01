@@ -123,7 +123,7 @@ export function StartScreen({
             <h1 className="mt-2 text-3xl leading-tight font-bold tracking-tight text-balance sm:text-5xl">
               もう、話題に詰まらない。
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-pretty text-muted-foreground sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-pretty text-muted-foreground [word-break:auto-phrase] sm:text-base">
               お題をひとつ入れるだけで、話せるネタや考えの切り口が 8 方向に広がる。
             </p>
 
@@ -142,7 +142,7 @@ export function StartScreen({
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 placeholder={narrow ? shortPlaceholder(preset.placeholder) : preset.placeholder}
-                aria-label="開始キーワード"
+                aria-label="お題"
                 aria-invalid={abusive || undefined}
                 aria-describedby={abusive ? "home-start-abusive" : undefined}
                 className="h-12 min-w-0 flex-1 rounded-xl border-0 bg-transparent px-3 text-base shadow-none focus-visible:ring-0 max-sm:placeholder:text-sm"
@@ -242,12 +242,12 @@ export function StartScreen({
                           <ModeBadge mode={board.mode} />
                         </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                          {rootLabel(board) ? `「${rootLabel(board)}」から · ` : ""}カード {board.nodes.length}枚 ·{" "}
+                          {rootLabel(board) ? `「${rootLabel(board)}」から · ` : ""}カード {board.nodes.length} 枚 ·{" "}
                           {formatUpdated(board.updatedAt)}
                         </span>
                       </span>
                       <span className="home-resume-go">
-                        マップを開く
+                        開く
                         <ArrowRight className="size-4" />
                       </span>
                     </button>
