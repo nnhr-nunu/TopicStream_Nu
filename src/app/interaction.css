@@ -68,6 +68,24 @@
   box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 12%, transparent);
   backdrop-filter: blur(10px);
 }
+.board-fit-button {
+  position: absolute;
+  right: 0.75rem;
+  /* 左下の切り替えと高さをそろえ、右下の React Flow の表記にはかからない所 */
+  bottom: 1.6rem;
+  z-index: 20;
+  display: inline-flex;
+  width: 2.9rem;
+  height: 2.9rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+  background: color-mix(in oklab, var(--background) 88%, transparent);
+  color: var(--muted-foreground);
+  box-shadow: 0 8px 22px color-mix(in oklab, var(--foreground) 12%, transparent);
+  backdrop-filter: blur(10px);
+}
 .mode-dock-help:hover {
   color: var(--foreground);
 }
