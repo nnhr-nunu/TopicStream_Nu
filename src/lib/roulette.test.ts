@@ -37,8 +37,9 @@ describe("話題ルーレット", () => {
     board = ops.pinNode(board, null, prefs);
     expect(rouletteCandidates(board)).toEqual([]);
     expect(hasTalked(board)).toBe(true);
-    const cleared = clearTalked(board);
+    const cleared = clearTalked({ ...board, updatedAt: 1 });
     expect(hasTalked(cleared)).toBe(false);
+    expect(cleared.updatedAt).toBeGreaterThan(1);
     expect(rouletteCandidates(cleared).map((node) => node.data.label).sort()).toEqual(["A", "B", "C", "D", "E", "F", "G", "H"]);
     // 印が無ければ同じボードを返す（保存し直さない）
     expect(clearTalked(cleared)).toBe(cleared);
