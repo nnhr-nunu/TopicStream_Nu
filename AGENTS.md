@@ -7,9 +7,9 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | やること | 入口 |
 | -------- | ---- |
 | マンダラート（3×3）の生成・展開ロジック | [`mandala.ts`](./src/lib/mandala.ts) → [`mandala-ids.ts`](./src/lib/mandala-ids.ts) |
-| ボード（トピック盤面）の状態操作 | [`board-ops.ts`](./src/lib/board-ops.ts) + [`board-store.ts`](./src/lib/board-store.ts) → 画面は [`board-canvas.tsx`](./src/components/board-canvas.tsx) / [`topic-workspace.tsx`](./src/components/topic-workspace.tsx) |
+| ボード（トピック盤面）の状態操作 | [`board-ops.ts`](./src/lib/board-ops.ts) + [`board-store.ts`](./src/lib/board-store.ts) → 操作の入口は [`use-board-controller.ts`](./src/hooks/use-board-controller.ts)（戻す/進む・NOW・文）。広げる [`use-board-expand.ts`](./src/hooks/use-board-expand.ts) / 作り直し [`use-board-regenerate.ts`](./src/hooks/use-board-regenerate.ts) / ボードの一覧・読み込み [`use-board-library.ts`](./src/hooks/use-board-library.ts) / いっしょに見るリンク [`use-watch-share.ts`](./src/hooks/use-watch-share.ts) → 画面は [`board-canvas.tsx`](./src/components/board-canvas.tsx) / [`topic-workspace.tsx`](./src/components/topic-workspace.tsx) |
 | ノード配置・レイアウト計算 | [`layout.ts`](./src/lib/layout.ts) / [`radial-layout.ts`](./src/lib/radial-layout.ts) / [`node-box.ts`](./src/lib/node-box.ts) |
-| Gemini 連携（トピック生成） | [`gemini-core.ts`](./src/lib/gemini-core.ts)（サーバー専用ロジック）→ [`gemini.ts`](./src/lib/gemini.ts)（クライアント呼び出し）→ [`app/api/gemini/`](./src/app/api/gemini/) |
+| Gemini 連携（トピック生成） | [`gemini-core.ts`](./src/lib/gemini-core.ts)（サーバー専用。モデルを替えて試す本体）+ `gemini-errors.ts` / `gemini-models.ts` / `gemini-stream.ts` / `gemini-prompt.ts` → [`gemini.ts`](./src/lib/gemini.ts)（クライアント呼び出し。答えの読み取りは純粋な [`topic-parse.ts`](./src/lib/topic-parse.ts) から読み、サーバー用のモジュールは import しない）→ [`app/api/gemini/`](./src/app/api/gemini/) |
 | トピック図鑑（集合知・AI の結果の再利用） | [`topic-knowledge.ts`](./src/lib/topic-knowledge.ts)（純粋な計算）→ [`knowledge-client.ts`](./src/lib/knowledge-client.ts) / [`knowledge-server.ts`](./src/lib/knowledge-server.ts) → [`topic-database.tsx`](./src/components/topic-database.tsx) / [`app/topics/`](./src/app/topics/) |
 | 図鑑の棚卸し（隠す・分類を直す・初期データ） | [`topic-archive-data.ts`](./src/lib/topic-archive-data.ts)（隠すお題・語、分類の表）→ 仕組みは [`topic-archive.ts`](./src/lib/topic-archive.ts)。同梱の手書きは [`topic-knowledge-seed-data.ts`](./src/lib/topic-knowledge-seed-data.ts)。語・お題の品質判定は [`label-quality.ts`](./src/lib/label-quality.ts) |
 | キー無し時のオフライン生成 | [`mock-topics.ts`](./src/lib/mock-topics.ts) / [`starters.ts`](./src/lib/starters.ts) |
@@ -24,7 +24,7 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | 話題ルーレット・「話した」の印・NOW の経過時間 | [`roulette.ts`](./src/lib/roulette.ts)（選び方）→ `use-board-controller.ts` の `spinRoulette` / [`use-roulette.ts`](./src/hooks/use-roulette.ts)（光らせる）/ [`pin-banner.tsx`](./src/components/pin-banner.tsx) |
 | 公開 API の守り（回数制限・共有リンクの鍵） | [`rate-limit.ts`](./src/lib/rate-limit.ts) / [`live-store.ts`](./src/lib/live-store.ts) の `saveShare` |
 | 公開する文のフィルタ（個人情報・暴言・晒し・差別語。重い悩みは通す） | [`public-text.ts`](./src/lib/public-text.ts)（図鑑・人気のお題・みんなのマップ・AI への指示で共通）。実名の悪口など文字で見分けられないものは `topic-archive-data.ts` で手作業で隠す |
-| ショートカット | [`use-hotkeys.ts`](./src/hooks/use-hotkeys.ts) |
+| ショートカット | [`use-hotkeys.ts`](./src/hooks/use-hotkeys.ts)（効かせない場面の判定は [`key-guards.ts`](./src/lib/key-guards.ts)。拡大縮小の F / 0 / ± は `board-canvas.tsx`） |
 | 未完了タスク | [`task.md`](./task.md) |
 | セットアップ・キー・公開URL | [`README.md`](./README.md) |
 
@@ -75,4 +75,5 @@ Windows の既定ターミナルは PowerShell（[`.vscode/settings.json`](./.vs
 
 - 完了タスク → `task.md` から削除（履歴は `git log`）
 - README は起動手順・公開URL・キーの説明のみ。製品メモが増えるなら `docs/product/` を新設
-- 800 行を超えるファイルは責務単位で分割する（現状 `board-ops.ts` が606行で最大 — 増やすなら分割を検討）
+- 800 行を超えるファイルは責務単位で分割する（2026-10-01 に `use-board-controller.ts` と `gemini-core.ts` を分けた。現状 `board-ops.ts` が約 700 行で最大 — 増やすなら `begin*` / `fill*` / 戻す系を `board-expand.ts` へ分ける）
+- クライアントから `/api/*` を呼ぶときは [`api-base.ts`](./src/lib/api-base.ts) の `apiPath` / `isNoServerResponse` を使う（GitHub Pages の 404 / 405 / HTML の返事をオフラインの動きに切り替える）
