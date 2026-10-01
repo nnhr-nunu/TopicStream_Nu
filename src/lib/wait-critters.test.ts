@@ -9,6 +9,7 @@ import { realSprites } from "@/lib/critter-sprites-real";
 import {
   CRITTER_KINDS,
   critterPaths,
+  dropLeaving,
   NO_WAITS,
   pickCritter,
   previewGroup,
@@ -209,18 +210,31 @@ describe("待ちの出入り", () => {
     expect(track.leaving).toBe(leaving);
   });
 
-  it("同じカードをもう一度広げたら別の待ち（新しい番号）になり、前の終わりかけの場面は外れる", () => {
+  it("同じカードがすぐにまた待ち始めたら別の待ち（新しい番号）になり、前の待ちの場面は消える動きを最後まで続ける", () => {
     let track = trackWaits(NO_WAITS, board(1));
     track = trackWaits(track, board(0));
     expect(ids(track.leaving)).toEqual([["p", 1]]);
 
     track = trackWaits(track, board(2));
     expect(ids(track.live)).toEqual([["p", 2]]);
-    expect(track.leaving).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
 
     track = trackWaits(track, board(0));
     expect(track.live).toEqual([]);
-    expect(ids(track.leaving)).toEqual([["p", 2]]);
+    expect(ids(track.leaving)).toEqual([["p", 1], ["p", 2]]);
+  });
+
+  it("消える途中の場面は待ちごとに外し、ほかの待ちの場面は残す", () => {
+    const both = (p: number, q: number) => [...board(p), ...board(q, { parent: "q" })];
+    let track = trackWaits(NO_WAITS, both(2, 2));
+    track = trackWaits(track, both(0, 2));
+    track = trackWaits(track, both(0, 0));
+    expect(ids(track.leaving)).toEqual([["p", 1], ["q", 2]]);
+
+    track = dropLeaving(track, 1);
+    expect(ids(track.leaving)).toEqual([["q", 2]]);
+    // もう無い番号なら何も変えない（同じ記録のまま）
+    expect(dropLeaving(track, 1)).toBe(track);
   });
 
   it("同時に待つカードが複数あっても、番号は別で、終わるのも別々", () => {
@@ -249,13 +263,14 @@ describe("待ちの出入り", () => {
     track = trackWaits(track, both(0, 0));
     expect(order(track)).toEqual([["p", true], ["q", true]]);
 
-    // 広げ直した p は新しい番号で、並びの最後に付く
+    // 広げ直した p は新しい番号で並びの最後に付き、前の p の消える途中の場面はそのままの位置に残る
     track = trackWaits(track, both(2, 0));
-    expect(order(track)).toEqual([["q", true], ["p", false]]);
+    expect(order(track)).toEqual([["p", true], ["q", true], ["p", false]]);
   });
 
-  it("どんな順に出入りしても、同じカードの場面が2つ並ばない（React の key が重ならない）", () => {
+  it("どんな順に出入りしても、場面の key が重ならず、待っている同じカードは1つだけで、終わった待ちは戻らない", () => {
     const random = seeded(11);
+    const ended = new Set<number>();
     let track = NO_WAITS;
     for (let step = 0; step < 400; step += 1) {
       const nodes = ["p", "q", "r"].flatMap((parent) => {
@@ -267,11 +282,16 @@ describe("待ちの出入り", () => {
       });
       const before = track.lastNo;
       track = trackWaits(track, nodes);
-      const shown = [...track.live, ...track.leaving];
-      expect(new Set(shown.map((wait) => wait.key)).size).toBe(shown.length);
-      expect(new Set(shown.map((wait) => wait.waitNo)).size).toBe(shown.length);
+      // 消える時間が来た場面を、ときどき外す
+      if (track.leaving.length > 0 && random() < 0.3) track = dropLeaving(track, track.leaving[0]!.waitNo);
+
+      const keys = shownWaits(track).map(({ wait }) => `${wait.key}:${wait.waitNo}`);
+      expect(new Set(keys).size).toBe(keys.length);
+      expect(new Set(track.live.map((wait) => wait.key)).size).toBe(track.live.length);
+      for (const wait of track.live) expect(ended.has(wait.waitNo)).toBe(false);
+      for (const wait of track.leaving) ended.add(wait.waitNo);
       expect(track.lastNo).toBeGreaterThanOrEqual(before);
-      for (const wait of shown) expect(wait.waitNo).toBeLessThanOrEqual(track.lastNo);
+      for (const wait of [...track.live, ...track.leaving]) expect(wait.waitNo).toBeLessThanOrEqual(track.lastNo);
     }
   });
 });

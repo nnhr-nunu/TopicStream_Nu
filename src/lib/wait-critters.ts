@@ -125,9 +125,14 @@ function waitingParentIds(nodes: CritterNode[]): Set<string> {
   return parents;
 }
 
+/** 親のカードごとの、動物が遊ぶ範囲（大きさがまだ測れていない盤面は入らない） */
+function groupsFor(nodes: CritterNode[], parents: Iterable<string>): CritterGroup[] {
+  return [...parents].map((id) => groupAround(nodes, id)).filter((group): group is CritterGroup => group !== null);
+}
+
 /** 空のカード（AI の語を待っている）がある盤面ごとの、動物が遊ぶ範囲（大きさがまだ測れていない盤面は入らない） */
 export function waitingGroups(nodes: CritterNode[]): CritterGroup[] {
-  return [...waitingParentIds(nodes)].map((id) => groupAround(nodes, id)).filter((group): group is CritterGroup => group !== null);
+  return groupsFor(nodes, waitingParentIds(nodes));
 }
 
 /**
@@ -154,8 +159,9 @@ export function previewGroup(nodes: CritterNode[], focusedId: string | null, cen
 export type CritterWait = CritterGroup & { waitNo: number };
 
 /**
- * 待ちの出入りの記録。live は待っている範囲、leaving は待ちが終わって消える途中の範囲。
- * 同じカードの範囲は live か leaving のどちらかに1つだけ。lastNo は最後に付けた待ち番号
+ * 待ちの出入りの記録。live は待っている範囲（同じカードは1つだけ）、leaving は待ちが終わって消える途中の範囲。
+ * 1つの待ち（waitNo）は live か leaving のどちらかに1回だけ出る。同じカードがすぐにまた待つと、前の待ちの消える途中の場面と
+ * 新しい待ちの場面が並ぶ（番号が違うので key は重ならない）。lastNo は最後に付けた待ち番号
  */
 export type WaitTrack = { live: CritterWait[]; leaving: CritterWait[]; lastNo: number };
 
@@ -168,7 +174,7 @@ export const NO_WAITS: WaitTrack = { live: [], leaving: [], lastNo: 0 };
  */
 export function trackWaits(prev: WaitTrack, nodes: CritterNode[]): WaitTrack {
   const waiting = waitingParentIds(nodes);
-  const measured = new Map(waitingGroups(nodes).map((group) => [group.key, group]));
+  const measured = new Map(groupsFor(nodes, waiting).map((group) => [group.key, group]));
   const live: CritterWait[] = [];
   const ended: CritterWait[] = [];
   for (const wait of prev.live) {
@@ -178,12 +184,14 @@ export function trackWaits(prev: WaitTrack, nodes: CritterNode[]): WaitTrack {
   }
   let lastNo = prev.lastNo;
   for (const group of measured.values()) live.push({ ...group, waitNo: (lastNo += 1) });
+  // 終わった待ちは消える途中の場面に回す。外すのは dropLeaving（待ちごとに時間が来たら）だけ
+  return { live, leaving: ended.length > 0 ? [...prev.leaving, ...ended] : prev.leaving, lastNo };
+}
 
-  // 広げ直して待ちが戻ったカードの終わりかけの場面は外す。同じ待ちを何度も積まない
-  const current = new Set([...live, ...ended].map((wait) => wait.key));
-  const kept = prev.leaving.filter((wait) => !current.has(wait.key));
-  const leaving = ended.length === 0 && kept.length === prev.leaving.length ? prev.leaving : [...kept, ...ended];
-  return { live, leaving, lastNo };
+/** 消える途中の待ちを1つ外す（その待ちが終わってから、消える様子を見せ終わったとき）。無い番号なら何も変えない */
+export function dropLeaving(track: WaitTrack, waitNo: number): WaitTrack {
+  const leaving = track.leaving.filter((wait) => wait.waitNo !== waitNo);
+  return leaving.length === track.leaving.length ? track : { ...track, leaving };
 }
 
 /**
