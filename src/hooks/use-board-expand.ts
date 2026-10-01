@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import * as ops from "@/lib/board-ops";
 import { addMixNode, canCombine, existingMix } from "@/lib/board-combine";
 import { currentSnapshot, existingForPrompt, expandKey, pushUndo, sameEntry } from "@/lib/board-controller-helpers";
+import { aiKeyToastAction } from "@/lib/settings-open";
 import { updateHistory } from "@/lib/board-history";
 import { addSpares, SPARE_COUNT, spareHolderId } from "@/lib/board-spares";
 import { showAnchorNotice, showGenerateNotice, startWaitNotes } from "@/lib/expand-notices";
@@ -188,7 +189,10 @@ export function useBoardExpand({ persist, updateBoardById, expandTokensRef, reje
         // AI が答えず図鑑にも足りる語が無い: 定型の候補は並べずに、広げる前へ戻す
         if (result.retryLater) {
           rollback();
-          toast.warning(result.warning, { duration: 8_000 });
+          toast.warning(result.warning, {
+            duration: 8_000,
+            action: aiKeyToastAction(result.noticeKind, Boolean(currentSnapshot().settings.geminiApiKey)),
+          });
           return;
         }
 

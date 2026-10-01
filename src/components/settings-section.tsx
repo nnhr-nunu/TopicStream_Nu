@@ -29,18 +29,21 @@ export function Row({
 
 /** 設定画面のまとまり（見出しと枠） */
 export function Section({
+  id,
   icon,
   title,
   description,
   children,
 }: {
+  /** お知らせから直接開くときの行き先（`openSettings("ai-key")` なら "settings-ai-key"） */
+  id?: string;
   icon: ReactNode;
   title: string;
   description?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-3 rounded-xl border border-border/70 bg-card/60 p-3">
+    <section id={id} className="scroll-mt-4 space-y-3 rounded-xl border border-border/70 bg-card/60 p-3">
       <div>
         <h3 className="flex items-center gap-1.5 text-sm font-semibold [&_svg]:size-4 [&_svg]:text-primary">
           {icon}

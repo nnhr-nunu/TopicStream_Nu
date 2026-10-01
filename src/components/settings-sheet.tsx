@@ -28,6 +28,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { loadAiUsage, subscribeAiUsage, type AiUsageDay } from "@/lib/ai-usage";
+import { OPEN_SETTINGS_EVENT } from "@/lib/settings-open";
 import type { Settings as AppSettings } from "@/lib/types";
 
 const LAYOUT_ITEMS = [
@@ -83,8 +84,22 @@ export function SettingsSheet({
   settings: AppSettings;
   onPatch: (patch: Partial<AppSettings>) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  // お知らせの「キーを入れる」などから開かれたら、その欄まで送る
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const section = (event as CustomEvent<string | undefined>).detail;
+      setOpen(true);
+      if (!section) return;
+      window.setTimeout(() => {
+        document.getElementById(`settings-${section}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 250);
+    };
+    window.addEventListener(OPEN_SETTINGS_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
+  }, []);
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger render={<Button variant="ghost" size="icon-sm" aria-label="設定" title="設定" />}>
         <Settings />
       </SheetTrigger>
