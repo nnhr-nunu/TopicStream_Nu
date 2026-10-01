@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { readShareSession } from "@/hooks/use-board-controller";
 import { useSettled } from "@/hooks/use-settled";
 import { announceStream, shareBoardUsage, STREAM_HEARTBEAT_MS } from "@/lib/community-client";
 import { parseStreamUrl } from "@/lib/stream-url";
@@ -26,8 +27,9 @@ export function useCommunityPublish(board: Board | null, streamUrl: string, watc
   const announceUrl = parseStreamUrl(settledUrl) ? settledUrl : "";
   useEffect(() => {
     if (!announceUrl || !inUse) return;
-    announceStream(announceUrl, watchId);
-    const timer = window.setInterval(() => announceStream(announceUrl, watchId), STREAM_HEARTBEAT_MS);
+    const announce = () => announceStream(announceUrl, watchId ? { id: watchId, key: readShareSession().key } : undefined);
+    announce();
+    const timer = window.setInterval(announce, STREAM_HEARTBEAT_MS);
     return () => window.clearInterval(timer);
   }, [inUse, announceUrl, watchId]);
 }

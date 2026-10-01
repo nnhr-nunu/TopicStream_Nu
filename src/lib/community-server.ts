@@ -6,8 +6,10 @@ import { join } from "node:path";
 import type { CatalogBoard } from "@/lib/catalog-data";
 import { searchCatalog } from "@/lib/catalog-data";
 import { rankCommunityBoards, toCommunityBoard, type CommunityBoard } from "@/lib/community-boards";
+import { isShareOwner } from "@/lib/live-store";
+import { isPublicSafe } from "@/lib/public-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
-import { asBoard } from "@/lib/storage";
+import { asBoard, withoutMemos } from "@/lib/storage";
 import { canonicalStreamUrl, type PublicStream } from "@/lib/stream-directory";
 import { parseStreamUrl } from "@/lib/stream-url";
 
@@ -111,8 +113,9 @@ function publicBoardId(boardId: string): string {
 }
 
 export async function saveCommunityBoard(raw: unknown): Promise<boolean> {
-  const board = asBoard(raw);
-  if (!board) return false;
+  const parsed = asBoard(raw);
+  if (!parsed) return false;
+  const board = withoutMemos(parsed);
   const entry = toCommunityBoard(board, publicBoardId(board.id));
   if (!entry) return false;
   const config = redisConfig();
@@ -184,7 +187,7 @@ async function youtubeInfo(url: string): Promise<{ title: string; author: string
 }
 
 /** 連携した配信を一覧に載せる。同じ枠はまとめて、最後に知らせが来た時刻を更新する */
-export async function saveStream(input: { url: unknown; watchId?: unknown }): Promise<PublicStream | null> {
+export async function saveStream(input: { url: unknown; watchId?: unknown; watchKey?: unknown }): Promise<PublicStream | null> {
   const ref = typeof input.url === "string" ? parseStreamUrl(input.url.trim()) : null;
   if (!ref) return null;
   const url = canonicalStreamUrl(ref);
@@ -202,7 +205,12 @@ export async function saveStream(input: { url: unknown; watchId?: unknown }): Pr
     title ||= "Twitch の配信";
     streamer ||= ref.channel;
   }
-  const watchId = typeof input.watchId === "string" && /^[\w-]{6,40}$/.test(input.watchId) ? input.watchId : prev?.watchId;
+  // 題名・配信者名も公開する文なので、ほかの公開の場所と同じフィルタを通す
+  if (!isPublicSafe(title) || !isPublicSafe(streamer)) return null;
+  // いっしょに見るリンクを付けられるのは、そのリンクの持ち主だけ（他人の配信の枠に別のボードをつなげない）
+  const ownsWatch =
+    typeof input.watchId === "string" && typeof input.watchKey === "string" && (await isShareOwner(input.watchId, input.watchKey));
+  const watchId = ownsWatch ? (input.watchId as string) : prev?.watchId;
   const stream: PublicStream = {
     id: prev?.id ?? `stream_${createHash("sha256").update(url).digest("hex").slice(0, 12)}`,
     title: title.slice(0, 100),

@@ -62,12 +62,17 @@ export const PICK_WEIGHTS: Record<PickKind, number> = {
 };
 
 export function isPickKind(value: unknown): value is PickKind {
-  return typeof value === "string" && value in PICK_WEIGHTS;
+  return typeof value === "string" && Object.hasOwn(PICK_WEIGHTS, value);
+}
+
+/** 語の数を読む。「constructor」「toString」のような語でも Object の組み込みを読まない */
+function own(record: Record<string, number> | undefined, label: string): number {
+  return record && Object.hasOwn(record, label) ? record[label]! : 0;
 }
 
 /** 語の強さ: 出た回数 + 選ばれた重み */
 export function topicScore(entry: KnowledgeEntry, label: string): number {
-  return (entry.topics[label] ?? 0) + (entry.picks?.[label] ?? 0);
+  return own(entry.topics, label) + own(entry.picks, label);
 }
 
 function totalPicks(entry: KnowledgeEntry): number {
@@ -83,7 +88,7 @@ export function withoutRejected(
   picks: Record<string, number> | undefined,
 ): Record<string, number> {
   if (!picks) return topics;
-  return Object.fromEntries(Object.entries(topics).filter(([label, count]) => count + (picks[label] ?? 0) > 0));
+  return Object.fromEntries(Object.entries(topics).filter(([label, count]) => count + own(picks, label) > 0));
 }
 
 /** キーは knowledgeKey（雑談は normalizeSeed したお題そのもの、ほかは「モード|お題」） */
@@ -276,7 +281,7 @@ export const TOPICS_PER_SEED = 40;
 
 function keepPicks(picks: Record<string, number> | undefined, topics: Record<string, number>) {
   if (!picks) return undefined;
-  const kept = Object.entries(picks).filter(([label, value]) => (label in topics && value > 0) || value < 0);
+  const kept = Object.entries(picks).filter(([label, value]) => (Object.hasOwn(topics, label) && value > 0) || value < 0);
   return kept.length ? Object.fromEntries(kept) : undefined;
 }
 
@@ -288,7 +293,7 @@ function trimTopics(
 ): Record<string, number> {
   const entries = Object.entries(topics);
   if (entries.length <= limit) return topics;
-  const strength = ([label, count]: [string, number]) => count + (picks?.[label] ?? 0);
+  const strength = ([label, count]: [string, number]) => count + own(picks, label);
   // 同じ強さなら新しく入った語（後ろにある語）を残す。古い語が居座って、新しい語が一度も残らなくなるのを防ぐ
   const ranked = entries
     .map((entry, index) => ({ entry, index }))
@@ -314,7 +319,7 @@ export function recordTopics(
   if (!key || cleaned.length === 0) return store;
   const current = store[key];
   const merged = { ...(current?.topics ?? {}) };
-  for (const label of cleaned) merged[label] = (merged[label] ?? 0) + weight;
+  for (const label of cleaned) merged[label] = own(merged, label) + weight;
   const allTopics = Object.keys(merged);
   return {
     ...store,
@@ -358,9 +363,9 @@ export function recordPick(
   const current = store[key];
   const topics = { ...(current?.topics ?? {}) };
   // 「ずれている」の印では語を加えない（票だけ残し、あとで AI が出しても候補に戻さない）
-  if (!(label in topics) && PICK_WEIGHTS[kind] > 0) topics[label] = 1;
+  if (!Object.hasOwn(topics, label) && PICK_WEIGHTS[kind] > 0) topics[label] = 1;
   const picks = { ...(current?.picks ?? {}) };
-  picks[label] = (picks[label] ?? 0) + PICK_WEIGHTS[kind];
+  picks[label] = own(picks, label) + PICK_WEIGHTS[kind];
   const entry: KnowledgeEntry = {
     seed: current?.seed ?? seed.trim(),
     category: current?.category ?? classifyTopic(seed, Object.keys(topics)),
@@ -382,9 +387,9 @@ export function mergeStores(...stores: KnowledgeStore[]): KnowledgeStore {
         continue;
       }
       const topics = { ...current.topics };
-      for (const [label, count] of Object.entries(entry.topics)) topics[label] = (topics[label] ?? 0) + count;
+      for (const [label, count] of Object.entries(entry.topics)) topics[label] = own(topics, label) + count;
       const picks = { ...(current.picks ?? {}) };
-      for (const [label, count] of Object.entries(entry.picks ?? {})) picks[label] = (picks[label] ?? 0) + count;
+      for (const [label, count] of Object.entries(entry.picks ?? {})) picks[label] = own(picks, label) + count;
       const trimmed = trimTopics(topics, picks);
       out[key] = withPicks(
         withMode(

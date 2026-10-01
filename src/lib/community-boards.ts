@@ -59,6 +59,7 @@ export function toCommunityBoard(board: Board, id: string, now = Date.now()): Co
   if (!root) return null;
   if (nodes.some((node) => !isPublicSafe(node.data.label))) return null;
   const ids = new Set(nodes.map((node) => node.id));
+  const usage = boardUsage(board);
   const rootLabel = root.data.label.trim().slice(0, ROOT_LABEL_MAX);
   const name = board.name.trim();
   return {
@@ -78,7 +79,9 @@ export function toCommunityBoard(board: Board, id: string, now = Date.now()): Co
       },
     })),
     edges: board.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
-    ...boardUsage(board),
+    ...usage,
+    // ♡ は送ってきた数をそのまま信じない（1 枚の偽のボードで一覧の上を取られないよう、カード 1 枚あたり 3 つまで）
+    hearts: Math.min(usage.hearts, usage.cards * 3),
     updatedAt: now,
   };
 }
