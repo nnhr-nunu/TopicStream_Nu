@@ -1,4 +1,4 @@
-import { mixLabel } from "@/lib/combine";
+import { MIX_SEPARATOR, mixLabel } from "@/lib/combine";
 import { createId } from "@/lib/ids";
 import { layoutBoard } from "@/lib/layout";
 import { CENTER_CELL_INDEX, familyIndexForGroup, nextGroupId } from "@/lib/mandala-ids";
@@ -19,6 +19,10 @@ export function canCombine(board: Board, sourceId: string, targetId: string): Co
     return { ok: false, reason: "同じ文のカードどうしは掛け合わせられません" };
   }
   if (existingMix(board, sourceId, targetId)) return { ok: false, reason: "この 2 枚はもう掛け合わせてあります" };
+  // 「A × B × C」は AI への指示・キー無しの候補が 2 つに分けられず、ふつうのお題として扱われてしまう
+  if (source.data.label.includes(MIX_SEPARATOR) || target.data.label.includes(MIX_SEPARATOR)) {
+    return { ok: false, reason: "掛け合わせたカードは、さらに掛け合わせられません（そのカードを広げてから、出た話題どうしで試してください）" };
+  }
   return { ok: true };
 }
 

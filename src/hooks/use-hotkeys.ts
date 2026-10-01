@@ -2,11 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable;
-}
+import { isTypingTarget, modalOpen, shortcutKey } from "@/lib/key-guards";
 
 /** Enter で押されるもの（ボタン・リンク・メニュー項目など）。Enter はそちらに任せる */
 function isControlTarget(target: EventTarget | null): boolean {
@@ -16,14 +12,6 @@ function isControlTarget(target: EventTarget | null): boolean {
       'button, a[href], summary, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="radio"], [role="checkbox"], [role="switch"], [role="link"]',
     ),
   );
-}
-
-/** ダイアログ・シート・メニューが開いている間は、裏の盤面を操作しない */
-function modalOpen(target: EventTarget | null): boolean {
-  if (target instanceof HTMLElement && target.closest('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')) {
-    return true;
-  }
-  return Boolean(document.querySelector('[data-slot="dialog-content"], [data-slot="sheet-content"]'));
 }
 
 export function useHotkeys(
@@ -51,10 +39,11 @@ export function useHotkeys(
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!enabledRef.current) return;
-      // 変換中の Enter・押しっぱなし・Alt との組み合わせ・ほかで処理済みのキーは見ない
-      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.repeat || event.altKey) return;
-      if (isTypingTarget(event.target) || modalOpen(event.target)) return;
-      const key = event.key.toLowerCase();
+      // 押しっぱなし・Alt との組み合わせ・ほかで処理済みのキーは見ない
+      if (event.defaultPrevented || event.repeat || event.altKey) return;
+      // 入力欄では打った文字として扱う（変換中の Enter も含む）
+      if (isTypingTarget(event.target) || modalOpen(event.target) || event.isComposing) return;
+      const key = shortcutKey(event);
       const meta = event.metaKey || event.ctrlKey;
       const current = handlersRef.current;
 

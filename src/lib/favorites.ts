@@ -12,7 +12,11 @@ export function loadFavoriteBoardIds(): string[] {
 
 export function saveFavoriteBoardIds(ids: string[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
+  try {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(ids));
+  } catch {
+    /* 容量がいっぱい・保存できない設定でも、押した操作で落ちない */
+  }
 }
 
 export function toggleFavoriteBoard(id: string): { ids: string[]; added: boolean } {
@@ -54,7 +58,11 @@ export function loadFavoriteTopics(): string[] {
 function saveFavoriteTopics(next: string[]) {
   if (typeof window === "undefined") return;
   const raw = JSON.stringify(next);
-  window.localStorage.setItem(TOPIC_FAV_KEY, raw);
+  try {
+    window.localStorage.setItem(TOPIC_FAV_KEY, raw);
+  } catch {
+    /* 保存できなくても、開いている間は覚えておく */
+  }
   topicFavRaw = raw;
   topicFavCache = next;
   for (const listener of topicFavListeners) listener();
