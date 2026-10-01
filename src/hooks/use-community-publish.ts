@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 
-import { readShareSession } from "@/hooks/use-board-controller";
 import { useSettled } from "@/hooks/use-settled";
+import { readShareSession } from "@/hooks/use-watch-share";
 import { announceStream, shareBoardUsage, STREAM_HEARTBEAT_MS } from "@/lib/community-client";
 import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
