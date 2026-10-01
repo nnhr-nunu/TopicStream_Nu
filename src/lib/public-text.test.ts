@@ -30,6 +30,15 @@ describe("looksPersonal", () => {
     expect(looksPersonal("404号室の怖い話")).toBe(false);
     expect(looksPersonal("LINEスタンプの使い方")).toBe(false);
     expect(looksPersonal("LINE MUSIC の話")).toBe(false);
+    expect(looksPersonal("Squid Game")).toBe(false);
+    expect(looksPersonal("Android Studio")).toBe(false);
+    expect(looksPersonal("2024 10 01 の振り返り")).toBe(false);
+  });
+
+  it("区切りを変えた電話・メール・http の無い URL も止める", () => {
+    for (const text of ["090 1234 5678", "0 9 0 1 2 3 4 5 6 7 8", "(090)1234-5678", "090.1234.5678", "taro [at] example.com", "taro @ example.com", "bit.ly/abc", "discord.gg/xyz"]) {
+      expect(looksPersonal(text), text).toBe(true);
+    }
   });
 });
 
@@ -103,5 +112,17 @@ describe("isPublicSafe", () => {
     expect(isPublicSafe("死にたい")).toBe(true);
     expect(isPublicSafe("090-1234-5678")).toBe(false);
     expect(isPublicSafe("あいつ死ね")).toBe(false);
+  });
+});
+
+describe("見えない文字・よく似た普通の語", () => {
+  it("見えない文字を挟んだ暴言も止める", () => {
+    for (const joiner of ["​", "‍", "⁠", "­"]) {
+      expect(looksAbusive(`死${joiner}ね`), JSON.stringify(joiner)).toBe(true);
+    }
+  });
+
+  it("「意外じゃん」は差別語とみなさない", () => {
+    expect(looksAbusive("いがいじゃん")).toBe(false);
   });
 });

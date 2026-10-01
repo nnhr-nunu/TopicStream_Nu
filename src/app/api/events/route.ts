@@ -14,6 +14,6 @@ export async function POST(request: Request) {
   const label = typeof body?.label === "string" ? body.label.trim() : "";
   const kind = typeof body?.kind === "string" && (TOPIC_EVENT_KINDS as readonly string[]).includes(body.kind) ? body.kind : "expands";
   if (!label || label.length > 40 || !isPublicSafe(label)) return Response.json({ ok: false }, { status: 400 });
-  if (perLabel(`${client}|${label}`)) bumpTopic(label, kind);
+  if (perLabel(`${client}|${label}`)) await bumpTopic(label, kind);
   return Response.json({ ok: true });
 }

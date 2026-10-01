@@ -13,13 +13,22 @@ const PERSONAL_PATTERNS = [
   /(https?:\/\/|www\.|[\w.+-]+@[\w-]+\.|@[A-Za-z0-9_]{3,}|\d{2,4}-\d{2,4}-\d{3,4}|\d{10,}|〒\s*\d{3}-?\d{4})/u,
   // 住所（「3丁目5」「123番地」「2番5号」「渋谷区神南1-2-3」）
   /\d{1,4}丁目\s*\d|\d{1,5}番地|\d{1,4}番\s*\d{1,4}号|[都道府県市区町村郡][^\d\s]{1,10}\d{1,4}-\d{1,4}/u,
-  // ID の書き方（「ID: taro_1234」「ユーザー名はhanako99」「mike#1234」）
-  /(?:ID|アカウント名|ユーザー名|ユーザ名)\s*[:：は]?\s*[A-Za-z0-9_.-]{4,}|[A-Za-z0-9_.]{2,32}#\d{4}\b/iu,
+  // 区切りを変えたメール（「taro [at] example.com」「taro @ example.com」）
+  /[\w.+-]+\s*(?:@|\[at\]|\(at\))\s*[\w-]+\.[a-z]{2,}/iu,
+  // http を付けない URL（「bit.ly/abc」「discord.gg/xxx」「x.com/name」）
+  /\b[a-z0-9-]+\.(?:com|net|org|jp|ly|gg|io|me|co|tv|be|ee|to|cc|xyz|link|app)(?:\.[a-z]{2})?\/\S/iu,
+  // ID の書き方（「ID: taro_1234」「ユーザー名はhanako99」「mike#1234」）。英単語の中の id（Squid・Android）は数えない
+  /(?:(?<![A-Za-z])ID|アカウント名|ユーザー名|ユーザ名)\s*[:：は]?\s*[A-Za-z0-9_.-]{4,}|[A-Za-z0-9_.]{2,32}#\d{4}\b/iu,
 ];
+
+/** 区切りを変えた電話番号（「090 1234 5678」「(090)1234-5678」「090.1234.5678」） */
+function hasPhoneNumber(normalized: string): boolean {
+  return /(?<!\d)0\d{9,10}(?!\d)/.test(normalized.replace(/(?<=\d)[\s().\-‐ー−]+(?=\d)/gu, ""));
+}
 
 export function looksPersonal(text: string): boolean {
   const normalized = text.normalize("NFKC");
-  return PERSONAL_PATTERNS.some((pattern) => pattern.test(normalized));
+  return PERSONAL_PATTERNS.some((pattern) => pattern.test(normalized)) || hasPhoneNumber(normalized);
 }
 
 /**
@@ -36,7 +45,7 @@ const ABUSIVE_PATTERNS = [
   /(?:住所|本名|顔|身元|自宅|家|職場|学校|勤務先|中の人)(?:を|の)?特定(?:しよう|してやる|する|したい|班)|特定班|特定厨/u,
   /(?:電|鬼|自宅|家)凸|凸(?:しよう|してやる|ろう)/u,
   // よく知られた差別語
-  /きちがい|気違い|基地外(?!\p{Script=Han})|がいじ(?!ん)|池沼|害児|知恵遅れ|かたわ(?!ら)|つんぼ/u,
+  /きちがい|気違い|基地外(?!\p{Script=Han})|がいじ(?![んゃゅょ])|池沼|害児|知恵遅れ|かたわ(?!ら)|つんぼ/u,
   /ちょん(?:公|こう|ころ|国|人)|支那(?:人|畜|豚|ちく)|(?<!郷)土人(?!形|気)|にがー|nigg(?:er|a)|faggot|chink/u,
 ];
 
@@ -45,7 +54,8 @@ function forCheck(text: string): string {
     .normalize("NFKC")
     .toLowerCase()
     .replace(/[ァ-ヶ]/gu, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0x60))
-    .replace(/[\s​・.,、。_*＊\-]/gu, "");
+    // \p{Cf}: 見えない文字（ゼロ幅・ソフトハイフン・単語結合子）を挟んですり抜けられないように
+    .replace(/[\s\p{Cf}・.,、。_*＊\-]/gu, "");
 }
 
 export function looksAbusive(text: string): boolean {

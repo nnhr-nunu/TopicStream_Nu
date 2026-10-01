@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!id) return Response.json({ error: "id が必要です" }, { status: 400 });
   // undo: 付けた ♡ を外す
   const delta = body?.undo === true ? -1 : 1;
-  const favorites = bumpFavorite(id, delta) ?? (await bumpCommunityFavorite(id, delta));
+  const favorites = (await bumpFavorite(id, delta)) ?? (await bumpCommunityFavorite(id, delta));
   if (favorites === null) return Response.json({ error: "ボードが見つかりません" }, { status: 404 });
   return Response.json({ id, favorites });
 }

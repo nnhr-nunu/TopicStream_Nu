@@ -66,6 +66,10 @@ const MAX_BATCH = 100;
 /** 1 人（IP）が 1 時間に入れられる票の数（ふつうに使えば届かない。荒らしで図鑑を塗り替えられないように） */
 const perHour = createRateLimit(600, 60 * 60_000);
 const perMinute = createRateLimit(40, 60_000);
+/** 同じ人の同じ票（お題・語・種類）は 6 時間に 1 回だけ数える（1 人で同じ語を押し上げ・押し下げできないように） */
+const sameVote = createRateLimit(1, 6 * 60 * 60_000);
+/** 「ずれている」は 1 票で語が消えるほど重いので、1 人が 1 時間に入れられる数を別に絞る */
+const wrongPerHour = createRateLimit(20, 60 * 60_000);
 
 type RawPick = { seed?: unknown; topic?: unknown; kind?: unknown; mode?: unknown };
 
@@ -86,17 +90,20 @@ export async function POST(request: Request) {
   const raw: RawPick[] = Array.isArray(body?.picks) ? (body.picks as RawPick[]) : body ? [body] : [];
   // 同じ語への同じ種類の票は、1 回の送信で 1 つに数える
   const seen = new Set<string>();
-  const picks = raw
+  const valid = raw
     .slice(0, MAX_BATCH)
     .map(asPick)
-    .filter((pick): pick is SharedPick => {
-      if (!pick) return false;
-      const key = `${pick.mode ?? "chat"}|${pick.seed}|${pick.topic}|${pick.kind}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  if (picks.length === 0) return Response.json({ ok: false }, { status: 400 });
+    .filter((pick): pick is SharedPick => Boolean(pick));
+  if (valid.length === 0) return Response.json({ ok: false }, { status: 400 });
+  const picks = valid.filter((pick) => {
+    const key = `${pick.mode ?? "chat"}|${pick.seed}|${pick.topic}|${pick.kind}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    if (!sameVote(`${client}|${key}`)) return false;
+    return pick.kind !== "wrong" || wrongPerHour(client);
+  });
+  // 同じ票の繰り返しだけなら、受け取ったことにして何もしない
+  if (picks.length === 0) return Response.json({ ok: true, recorded: 0 });
   if (!perHour(client, picks.length)) return tooManyRequests(10 * 60);
   const recorded = await recordSharedPicks(picks);
   return Response.json({ ok: true, recorded });

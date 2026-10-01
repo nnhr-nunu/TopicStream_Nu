@@ -1,5 +1,6 @@
 import { boardUsage, isWellUsed } from "@/lib/community-boards";
 import { isChatMode } from "@/lib/modes";
+import { withoutMemos } from "@/lib/storage";
 import { parseStreamUrl } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 
@@ -37,16 +38,20 @@ export function shareBoardUsage(board: Board) {
   const usage = JSON.stringify(boardUsage(board));
   if (sentBoards.get(board.id) === usage) return;
   sentBoards.set(board.id, usage);
-  post("/api/community", { board });
+  // 付箋は自分用。サーバーでも外すが、そもそも送らない
+  post("/api/community", { board: withoutMemos(board) });
 }
 
-/** 連携した配信URLを一覧に載せる（ライブ表示を保つため、連携中は定期的に呼ぶ） */
-export function announceStream(url: string, watchId?: string, now = Date.now()) {
+/**
+ * 連携した配信URLを一覧に載せる（ライブ表示を保つため、連携中は定期的に呼ぶ）。
+ * watchKey はいっしょに見るリンクの持ち主の鍵。持ち主だけが一覧の枠に自分のリンクを付けられる
+ */
+export function announceStream(url: string, watch?: { id: string; key: string | null }, now = Date.now()) {
   const ref = parseStreamUrl(url);
   if (!ref) return;
   const key = `${ref.kind}:${ref.kind === "youtube" ? ref.videoId : ref.channel.toLowerCase()}`;
   const prev = sentStreams.get(key);
   if (prev && now - prev < STREAM_HEARTBEAT_MS - 30_000) return;
   sentStreams.set(key, now);
-  post("/api/streams", { url, watchId });
+  post("/api/streams", { url, watchId: watch?.id, watchKey: watch?.key ?? undefined });
 }

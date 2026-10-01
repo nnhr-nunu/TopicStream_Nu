@@ -65,6 +65,21 @@ describe("いっしょに見るリンク", () => {
     expect(shared && "owner" in shared).toBe(false);
   });
 
+  it("新しく作るときだけ作成の回数を数え、使い切ったら作らない", async () => {
+    let calls = 0;
+    const allowCreate = () => {
+      calls += 1;
+      return calls <= 1;
+    };
+    const created = await saveShare({ id: null, key: null, board, nickname: "ぬ", allowCreate });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    // 持ち主の書き換えは作成に数えない
+    expect((await saveShare({ id: created.id, key: created.key, board, nickname: "ぬ", allowCreate })).ok).toBe(true);
+    expect(calls).toBe(1);
+    expect(await saveShare({ id: null, key: null, board, nickname: "ぬ", allowCreate })).toEqual({ ok: false, reason: "limited" });
+  });
+
   it("形の合わない ID・Object の組み込みの名前では読めない", async () => {
     expect(await getShare("__proto__")).toBeNull();
     expect(await getShare("constructor")).toBeNull();

@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   const query = searchParams.get("q") ?? "";
   return Response.json(
     {
-      boards: [...listCatalog(query), ...(await listCommunityCatalog(query))],
-      popular: popularTopics(),
+      boards: [...(await listCatalog(query)), ...(await listCommunityCatalog(query))],
+      popular: await popularTopics(),
     },
     query ? undefined : { headers: { "Cache-Control": LIST_CACHE } },
   );

@@ -46,7 +46,7 @@ function asNode(value: unknown): TNode | null {
     data: {
       label: String(node.data.label ?? "").slice(0, 160),
       memo: String(node.data.memo ?? "").slice(0, 4000),
-      parentId: typeof node.data.parentId === "string" ? node.data.parentId : null,
+      parentId: typeof node.data.parentId === "string" ? node.data.parentId.slice(0, 64) : null,
       expanded: Boolean(node.data.expanded),
       expanding: false,
       depth: Number(node.data.depth) || 0,
@@ -61,8 +61,8 @@ function asNode(value: unknown): TNode | null {
           ? node.data.familyIndex
           : undefined,
       role: node.data.role === "source" || node.data.role === "keyword" ? node.data.role : undefined,
-      copiedFromId: typeof node.data.copiedFromId === "string" ? node.data.copiedFromId : undefined,
-      mixedFromId: typeof node.data.mixedFromId === "string" ? node.data.mixedFromId : undefined,
+      copiedFromId: typeof node.data.copiedFromId === "string" ? node.data.copiedFromId.slice(0, 64) : undefined,
+      mixedFromId: typeof node.data.mixedFromId === "string" ? node.data.mixedFromId.slice(0, 64) : undefined,
       hostsGroupId:
         typeof node.data.hostsGroupId === "number" && node.data.hostsGroupId > 0
           ? node.data.hostsGroupId
@@ -76,7 +76,10 @@ function asNode(value: unknown): TNode | null {
           ? Math.min(9999, Math.round(node.data.frameHearts))
           : undefined,
       spares: Array.isArray(node.data.spares)
-        ? node.data.spares.filter((item): item is string => typeof item === "string").slice(0, 12)
+        ? node.data.spares
+            .filter((item): item is string => typeof item === "string")
+            .slice(0, 12)
+            .map((item) => item.slice(0, 160))
         : undefined,
       detail: node.data.detail === true ? true : undefined,
       talkedAt:
@@ -101,7 +104,8 @@ function asEdge(value: unknown): TEdge | null {
   if (!value || typeof value !== "object") return null;
   const edge = value as TEdge;
   if (!edge.id || !edge.source || !edge.target) return null;
-  return { id: String(edge.id), source: String(edge.source), target: String(edge.target) };
+  // カードの ID と同じ長さで切る（長い ID を送られても、つながりはそのまま読める）
+  return { id: String(edge.id).slice(0, 140), source: String(edge.source).slice(0, 64), target: String(edge.target).slice(0, 64) };
 }
 
 function asBoard(value: unknown): Board | null {
@@ -173,6 +177,11 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
 }
 
 export { asBoard };
+
+/** 付箋は自分用のメモなので、サーバーへ送る・サーバーで残すボードからは外す */
+export function withoutMemos(board: Board): Board {
+  return { ...board, nodes: board.nodes.map((node) => (node.data.memo ? { ...node, data: { ...node.data, memo: "" } } : node)) };
+}
 
 export function parseSnapshot(raw: unknown): AppSnapshot {
   const fallback = defaultSnapshot();

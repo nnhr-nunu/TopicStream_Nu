@@ -31,7 +31,7 @@ import { loadIdentity } from "@/lib/identity";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
 import { nextBoardName } from "@/lib/ids";
-import { emptyBoard, exportSnapshot, parseImportedBoards } from "@/lib/storage";
+import { emptyBoard, exportSnapshot, parseImportedBoards, withoutMemos } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
 import { pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
 import { setRouletteHighlight } from "@/hooks/use-roulette";
@@ -46,7 +46,7 @@ const SHARE_KEY = "topicstream-nu:share-id";
 /** いっしょに見るリンクを書き換えるための鍵（作ったタブだけが持つ） */
 const SHARE_OWNER_KEY = "topicstream-nu:share-key";
 
-function readShareSession(): { id: string | null; key: string | null } {
+export function readShareSession(): { id: string | null; key: string | null } {
   try {
     return { id: window.sessionStorage.getItem(SHARE_KEY), key: window.sessionStorage.getItem(SHARE_OWNER_KEY) };
   } catch {
@@ -83,11 +83,6 @@ async function postShare(
   if (!response?.ok) return null;
   const json = (await response.json().catch(() => null)) as { id?: unknown; key?: unknown } | null;
   return typeof json?.id === "string" && typeof json.key === "string" ? { id: json.id, key: json.key } : null;
-}
-
-/** 付箋は自分用のメモなので、いっしょに見るリンクにも載せない（サーバーへ送らない） */
-function withoutMemos(board: Board): Board {
-  return { ...board, nodes: board.nodes.map((node) => (node.data.memo ? { ...node, data: { ...node.data, memo: "" } } : node)) };
 }
 
 /** 予備が尽きて AI に作り直しを頼んだあと、次に頼めるまでの間隔（無料枠を連打で使い切らないため） */

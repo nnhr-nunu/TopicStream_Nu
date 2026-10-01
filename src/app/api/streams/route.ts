@@ -13,8 +13,8 @@ const limit = createRateLimit(12, 60_000);
 
 export async function POST(request: Request) {
   if (!limit(clientKeyFromHeaders(request.headers))) return tooManyRequests(60);
-  const body = (await request.json().catch(() => null)) as { url?: unknown; watchId?: unknown } | null;
-  const stream = await saveStream({ url: body?.url, watchId: body?.watchId });
+  const body = (await request.json().catch(() => null)) as { url?: unknown; watchId?: unknown; watchKey?: unknown } | null;
+  const stream = await saveStream({ url: body?.url, watchId: body?.watchId, watchKey: body?.watchKey });
   if (!stream) {
     return Response.json({ error: "YouTubeかTwitchの配信URLを貼ってください" }, { status: 400 });
   }
