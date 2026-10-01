@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ArrowRight, Clock, Copy, Eye, Search } from "lucide-react";
 
 import { CatalogPreviewDialog } from "@/components/catalog-preview-dialog";
@@ -20,6 +21,7 @@ export function ThemeBoardList({
   compact = false,
   busy = false,
   critterSkip,
+  limit,
 }: {
   initialBoards?: CatalogBoard[];
   /** ボードを丸ごと自分のボードに写す */
@@ -30,6 +32,8 @@ export function ThemeBoardList({
   busy?: boolean;
   /** この一覧に遊びに来させない動物（空白区切り。トップでは動きの大きいカエルを外す） */
   critterSkip?: string;
+  /** 探していないときに出す数（ホーム）。残りは「ぜんぶ見る」で一覧のページへ */
+  limit?: number;
 }) {
   const [query, setQuery] = useState("");
   const [boards, setBoards] = useState<CatalogBoard[]>(initialBoards ?? []);
@@ -68,8 +72,9 @@ export function ThemeBoardList({
     };
   }, [initialBoards]);
 
-  // 並びはサーバーの順（ちゃんと使われている・新しいボードが上）
-  const shown = boards;
+  // 並びはサーバーの順（ちゃんと使われている・新しいボードが上）。探しているときは全部出す
+  const shown = limit && !query.trim() ? boards.slice(0, limit) : boards;
+  const more = limit && !query.trim() && boards.length > limit;
 
   async function runSearch(value: string) {
     setQuery(value);
@@ -179,14 +184,18 @@ export function ThemeBoardList({
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-wrap gap-1.5">
-                    {board.keywords.slice(0, 6).map((keyword) => (
-                      <span
-                        key={keyword}
-                        className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
-                      >
-                        {keyword}
-                      </span>
-                    ))}
+                    {/* 真ん中のお題は見出しと同じなので、タグには出さない */}
+                    {board.keywords
+                      .filter((keyword) => keyword !== board.name && keyword !== catalogRoot(board))
+                      .slice(0, 6)
+                      .map((keyword) => (
+                        <span
+                          key={keyword}
+                          className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
                   </CardContent>
                   <CardFooter className="flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => setPreviewId(board.id)}>
@@ -197,9 +206,9 @@ export function ThemeBoardList({
                       このお題で始める
                       <ArrowRight />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => onImport(board)} disabled={busy} title="広げたところまで丸ごと、自分のボードに写します">
+                    <Button size="sm" variant="outline" onClick={() => onImport(board)} disabled={busy} title="広げたところまで丸ごと、自分のボードに写して続きから使います">
                       <Copy />
-                      コピーして使う
+                      このマップを使う
                     </Button>
                   </CardFooter>
                 </Card>
@@ -208,6 +217,14 @@ export function ThemeBoardList({
           })}
         </ul>
       )}
+      {more ? (
+        <div className="mt-5 flex justify-center">
+          <Link href="/community/" className="home-showcase-more">
+            話題マップをぜんぶ見る
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+      ) : null}
       <CatalogPreviewDialog
         board={previewing}
         liked={previewing ? favorites.includes(previewing.id) : false}

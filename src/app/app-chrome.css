@@ -1062,13 +1062,6 @@
   color: color-mix(in oklab, var(--listener) 70%, var(--foreground));
 }
 
-.odai-empty {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: 0.68rem;
-  line-height: 1.4;
-}
-
 .odai-list {
   display: flex;
   margin: 0;

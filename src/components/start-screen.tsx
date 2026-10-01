@@ -277,6 +277,7 @@ export function StartScreen({
               onStart={(label) => onStart(label, DEFAULT_MODE)}
               busy={busy}
               critterSkip="frog"
+              limit={6}
             />
           </section>
 

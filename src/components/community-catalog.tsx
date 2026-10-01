@@ -36,7 +36,7 @@ export function CommunityCatalog() {
         <BrandMark onHome={() => router.push("/")} />
         <h1 className="mt-4 text-2xl font-semibold">みんなが作った話題マップ</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          最近ちゃんと使われた話題マップが、よく使われた順に並びます。「見てみる」で中身を確かめてから、同じお題で一から始めるか、広げたところまで丸ごとコピーして続きから使えます。
+          よく使われた順に並びます。「このマップを使う」で、広げたところから続けられます。
         </p>
       </header>
       <ThemeBoardList onImport={importBoard} onStart={startBoard} />

@@ -46,7 +46,7 @@ export function TopicActionsMenu({
   sheetTitle?: string;
   isPinned: boolean;
   onPin: () => void;
-  /** 「具体的」モードのとき: タップの代わりにメニューから抽象展開（ふつうの広げ方）をする */
+  /** 「具体化」モードのとき: タップの代わりにメニューからふつうに広げる */
   onExpand?: () => void;
   /** 「具体的にする」 */
   onDetail?: () => void;
@@ -79,8 +79,8 @@ export function TopicActionsMenu({
   if (onExpand) {
     items.push({
       key: "expand",
-      label: "抽象展開：切り口を8つ出す",
-      short: "抽象展開",
+      label: "広げる：切り口を8つ出す",
+      short: "広げる",
       icon: <Grid3x3 />,
       onClick: onExpand,
     });

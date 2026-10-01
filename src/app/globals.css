@@ -350,6 +350,8 @@ html.overlay-mode .topic-chip {
   overflow: visible;
   white-space: pre-wrap;
   word-break: break-word;
+  /* 行数は変えずに各行の長さをそろえる（「最近買ってよかったも／の」のように 1 文字だけ次の行へ落ちない） */
+  text-wrap: balance;
   line-height: 1.2;
 }
 

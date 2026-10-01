@@ -14,8 +14,8 @@ const HINT_KEY = "topicstream-nu:hint-hold-v1";
 const EXPAND_HINT_KEY = "topicstream-nu:hint-expand-v1";
 
 const MODES = [
-  { value: "abstract", label: "抽象展開", tip: "タップで切り口を 8 つ出して広げる", Icon: Grid3x3 },
-  { value: "detail", label: "具体的", tip: "タップで「具体的にする」（具体的な話題・対応策などを 8 つ出す）", Icon: ListChecks },
+  { value: "abstract", label: "広げる", tip: "カードを押すと、切り口を 8 つ出して広げる", Icon: Grid3x3 },
+  { value: "detail", label: "具体化", tip: "カードを押すと、具体的な話題・対応策などを 8 つ出す", Icon: ListChecks },
 ] as const;
 
 function hintSeen(key = HINT_KEY): boolean {
@@ -35,7 +35,7 @@ function markHintSeen(key = HINT_KEY) {
 }
 
 /**
- * 盤面の左下: カードをタップしたときの広げ方（抽象展開 / 具体的）と、使い方。
+ * 盤面の左下: カードをタップしたときの広げ方（広げる / 具体化）と、使い方。
  * 最初の 3×3 では一度だけ「カードを押すとさらに 8 つ広がる」、スマホではそのあと一度だけ
  * 「長押しでメニュー・重ねると掛け合わせ」のヒントを出す。
  */

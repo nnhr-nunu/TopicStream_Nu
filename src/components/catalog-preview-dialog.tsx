@@ -74,7 +74,7 @@ export function CatalogPreviewDialog({
               </Button>
               <Button size="sm" onClick={() => onImport(board)} disabled={busy}>
                 <Copy />
-                コピーして使う
+                このマップを使う
               </Button>
             </div>
             <BoardActionsProvider
