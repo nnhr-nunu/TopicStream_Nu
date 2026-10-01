@@ -61,7 +61,10 @@ export function TopicWorkspace() {
     if (keyword) void startWithKeyword(keyword, DEFAULT_MODE);
   }, [hydrated, startWithKeyword]);
 
-  useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined);
+  // 配信者名は配信URLから入れる（Twitch はチャンネル名、YouTube はサーバーが調べたチャンネル名）
+  useCommunityPublish(board ?? null, settings?.streamUrl ?? "", controller.shareId ?? undefined, (name) => {
+    if (name !== settings?.nickname) controller.patchSettings({ nickname: name });
+  });
   // NOW にした話題の履歴（設定の「話した話題のまとめ」）。読み込みが終わってから追い始める
   useTalkLog(hydrated ? (board ?? null) : null);
 

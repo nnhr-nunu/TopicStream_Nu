@@ -79,6 +79,12 @@ export function parseStreamUrl(raw: string): StreamRef | null {
   return null;
 }
 
+/** URL だけで分かる配信者名（Twitch のチャンネル名）。YouTube の URL には名前が無いので空 */
+export function streamerFromUrl(raw: string): string {
+  const ref = parseStreamUrl(raw);
+  return ref?.kind === "twitch" ? ref.channel : "";
+}
+
 export function streamLabel(ref: StreamRef): string {
   if (ref.kind === "youtube") return "YouTube";
   return "Twitch";
