@@ -1,6 +1,6 @@
 /**
  * AI を待っている間に、3×3（中心＋周りのカード）を1枚の庭に見立てて遊ぶ小さな動物（ピクセルアート）。
- * ここは種類と選び方・待っている盤面の取り出し・カードの位置から道を作る計算だけ。
+ * ここは種類と選び方・待っている盤面の取り出し・待ちの出入り・カードの位置から道を作る計算だけ。
  * 動きは critter-moves.ts、どの絵をどう動かすかは critter-cast.ts、画面は wait-critters.tsx
  */
 
@@ -118,11 +118,16 @@ function groupAround(nodes: CritterNode[], parentId: string): CritterGroup | nul
   return cards.length > 1 ? { key: parentId, seed: ids.sort().join(","), cards } : null;
 }
 
-/** 空のカード（AI の語を待っている）がある盤面ごとの、動物が遊ぶ範囲 */
-export function waitingGroups(nodes: CritterNode[]): CritterGroup[] {
+/** 空のカード（AI の語を待っている）を持つ親のカードの id */
+function waitingParentIds(nodes: CritterNode[]): Set<string> {
   const parents = new Set<string>();
   for (const node of nodes) if (node.data.placeholder && node.data.parentId) parents.add(node.data.parentId);
-  return [...parents].map((id) => groupAround(nodes, id)).filter((group): group is CritterGroup => group !== null);
+  return parents;
+}
+
+/** 空のカード（AI の語を待っている）がある盤面ごとの、動物が遊ぶ範囲（大きさがまだ測れていない盤面は入らない） */
+export function waitingGroups(nodes: CritterNode[]): CritterGroup[] {
+  return [...waitingParentIds(nodes)].map((id) => groupAround(nodes, id)).filter((group): group is CritterGroup => group !== null);
 }
 
 /**
@@ -141,6 +146,55 @@ export function previewGroup(nodes: CritterNode[], focusedId: string | null, cen
     group = groupAround(nodes, hasChildren ? focused.id : (focused.data.parentId ?? focused.id));
   }
   return group && { ...group, cards: group.cards.map((card) => (card.center ? card : { ...card, empty: true })) };
+}
+
+// ---- 待ちの出入り ----
+
+/** 動物が遊ぶ範囲（待ち）。waitNo は待ちごとの通し番号（同じカードを広げ直したら別の待ち = 新しい場面にする） */
+export type CritterWait = CritterGroup & { waitNo: number };
+
+/**
+ * 待ちの出入りの記録。live は待っている範囲、leaving は待ちが終わって消える途中の範囲。
+ * 同じカードの範囲は live か leaving のどちらかに1つだけ。lastNo は最後に付けた待ち番号
+ */
+export type WaitTrack = { live: CritterWait[]; leaving: CritterWait[]; lastNo: number };
+
+export const NO_WAITS: WaitTrack = { live: [], leaving: [], lastNo: 0 };
+
+/**
+ * 盤面が変わったときの、待ちの出入り。待ちが終わるのは、親のカードの空のカードが無くなったとき。
+ * 語が1つ入るたびに nodes が作り直され、大きさが一瞬測れなくなる間も、まだ待っているので前の範囲のまま続ける
+ * （終わったことにすると、同じ場面が消える途中のものとして何枚も重なり、動物が点滅する）
+ */
+export function trackWaits(prev: WaitTrack, nodes: CritterNode[]): WaitTrack {
+  const waiting = waitingParentIds(nodes);
+  const measured = new Map(waitingGroups(nodes).map((group) => [group.key, group]));
+  const live: CritterWait[] = [];
+  const ended: CritterWait[] = [];
+  for (const wait of prev.live) {
+    if (waiting.has(wait.key)) live.push({ ...(measured.get(wait.key) ?? wait), waitNo: wait.waitNo });
+    else ended.push(wait);
+    measured.delete(wait.key);
+  }
+  let lastNo = prev.lastNo;
+  for (const group of measured.values()) live.push({ ...group, waitNo: (lastNo += 1) });
+
+  // 広げ直して待ちが戻ったカードの終わりかけの場面は外す。同じ待ちを何度も積まない
+  const current = new Set([...live, ...ended].map((wait) => wait.key));
+  const kept = prev.leaving.filter((wait) => !current.has(wait.key));
+  const leaving = ended.length === 0 && kept.length === prev.leaving.length ? prev.leaving : [...kept, ...ended];
+  return { live, leaving, lastNo };
+}
+
+/**
+ * いま画面に出す待ち。番号順に並べて、終わりかけに変わっても場面の位置を動かさない
+ * （生きている順・終わりかけの順に並べると、終わった場面だけ DOM が移って、消える動き（opacity の変化）が飛ぶ）
+ */
+export function shownWaits(track: WaitTrack): { wait: CritterWait; leaving: boolean }[] {
+  return [
+    ...track.live.map((wait) => ({ wait, leaving: false })),
+    ...track.leaving.map((wait) => ({ wait, leaving: true })),
+  ].sort((a, b) => a.wait.waitNo - b.wait.waitNo);
 }
 
 // ---- 盤面から、歩ける道を作る ----
