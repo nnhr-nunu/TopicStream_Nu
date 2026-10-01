@@ -1,7 +1,7 @@
 "use client";
 
 import { CopyIcon, DownloadIcon, ImageIcon, PencilIcon, Share2Icon, SparklesIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -53,15 +53,27 @@ function imageFileName(board: Board, mode: TrailImageMode): string {
 
 /**
  * 話題の軌跡を画像にして、保存・コピー・（スマホなら）共有する。
- * X の投稿画面（intent）には画像を添付できないので、コピーして貼るか保存して添付してもらう。
+ * X の投稿画面（intent）には画像を添付できないので、「X でポスト」を押したときに画像もコピーしておき、貼ってもらう。
  */
-function TrailImagePanel({ board, open }: { board: Board; open: boolean }) {
+function TrailImagePanel({
+  board,
+  open,
+  imageRef,
+}: {
+  board: Board;
+  open: boolean;
+  /** できあがった画像（「X でポスト」でコピーする） */
+  imageRef: RefObject<Blob | null>;
+}) {
   const steps = useMemo(() => buildTopicTrail(board).steps, [board]);
   // 2回以上広げていれば「たどった道」の方が伝わる。1回だけならマップ全体の方が見栄えがする
   const [mode, setMode] = useState<TrailImageMode>(steps >= 2 ? "trail" : "map");
   const [image, setImage] = useState<{ mode: TrailImageMode; blob: Blob; url: string } | null>(null);
   const [failed, setFailed] = useState(false);
   const ready = image?.mode === mode ? image : null;
+  useEffect(() => {
+    imageRef.current = ready?.blob ?? null;
+  }, [imageRef, ready]);
 
   useEffect(() => {
     if (!open) return;
@@ -170,7 +182,9 @@ function TrailImagePanel({ board, open }: { board: Board; open: boolean }) {
         ) : null}
       </div>
       <p className="text-[11px] leading-4 text-muted-foreground">
-        X の投稿画面には自動で付かないので、コピーして貼り付けるか、保存した画像を添付してください。
+        {canCopy
+          ? "「X でポスト」を押すと画像もコピーされるので、投稿画面で貼り付け（Ctrl+V）てください。"
+          : "X の投稿画面には画像が自動で付かないので、保存した画像を添付してください。"}
       </p>
     </div>
   );
@@ -189,6 +203,7 @@ export function SharePostDialog({
   // 既定は自由入力。文例は「たたき台」としてボタンで流し込む
   const [body, setBody] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const imageRef = useRef<Blob | null>(null);
   const url = siteUrl();
   const text = composeSharePost(body);
   const remaining = POST_LIMIT - weightedPostLength(text, true);
@@ -197,6 +212,18 @@ export function SharePostDialog({
   function fillExample() {
     setBody(buildShareExample(board));
     requestAnimationFrame(() => bodyRef.current?.focus());
+  }
+
+  function post() {
+    const blob = imageRef.current;
+    if (blob && "ClipboardItem" in window) {
+      // 投稿画面が前に出る前に、画像のコピーを始めておく（失敗しても投稿はできるので知らせない）
+      void navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
+        () => toast.success("画像もコピーしました", { description: "X の投稿画面で貼り付け（Ctrl+V）できます" }),
+        () => undefined,
+      );
+    }
+    window.open(tweetIntentUrl(text, url), "_blank", "noopener,noreferrer");
   }
 
   async function copyLink() {
@@ -252,7 +279,7 @@ export function SharePostDialog({
           </p>
         </div>
 
-        <TrailImagePanel board={board} open={open} />
+        <TrailImagePanel board={board} open={open} imageRef={imageRef} />
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => void copyLink()}>
@@ -262,7 +289,7 @@ export function SharePostDialog({
           <Button
             type="button"
             disabled={over}
-            onClick={() => window.open(tweetIntentUrl(text, url), "_blank", "noopener,noreferrer")}
+            onClick={post}
           >
             <XLogo className="size-3.5" />
             X でポスト

@@ -39,8 +39,9 @@ export function TopicWorkspace() {
   const [atHome, setAtHome] = useState(() => !isOpenActiveBoardRequested());
   useEffect(() => clearOpenActiveBoardRequest(), []);
   // 別ページの「このお題で始める」から来たときは、始めるのと同時に注意書きを出す
+  // （ホームから始めたときは、入力欄の下に同じ注意書きがあるので盤面では出さない）
   // 値は出すたびに変わる印（時刻）。出し終えた印は覚えてあるので、マップを開き直しても同じ注意書きは出ない
-  const [privacyNotice, setPrivacyNotice] = useState(() => (hasStartKeywordRequest() ? Date.now() : 0));
+  const [privacyNotice] = useState(() => (hasStartKeywordRequest() ? Date.now() : 0));
   // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す。
   // ボード一覧からは表示中でないボードもシェアできるので、対象のボードを覚えておく
   const [sharePostOpen, setSharePostOpen] = useState(false);
@@ -51,7 +52,6 @@ export function TopicWorkspace() {
     setSharePostKey((key) => key + 1);
     setSharePostOpen(true);
   };
-  const notifyPrivacy = () => setPrivacyNotice(Date.now());
 
   // 別ページ（みんなが作った話題マップ）の「このお題で始める」から来たら、ボードを読み込んでから始める
   const { hydrated, startWithKeyword } = controller;
@@ -196,7 +196,6 @@ export function TopicWorkspace() {
               if (id !== board.id) controller.switchBoard(id);
             }}
             onStart={(keyword, mode) => {
-              notifyPrivacy();
               setAtHome(false);
               void controller.startWithKeyword(keyword, mode);
             }}

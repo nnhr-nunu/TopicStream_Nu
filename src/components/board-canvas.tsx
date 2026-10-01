@@ -318,6 +318,33 @@ function CanvasInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- ボード・広げかたごとに1回だけ
   }, [nodesInitialized, board.id, layout]);
 
+  // 画面の向きを変えた・ウィンドウの幅や高さが大きく変わったら、合わせ直す（0 / F キーや「全体を見る」を押さなくていいように）。
+  // 少しずつ変えても、前に合わせたときの大きさから 1/3 以上ずれたら 1 回だけ動かす（コメント欄の開け閉め程度では動かさない）
+  const paneWidth = useStore((state) => state.width);
+  const paneHeight = useStore((state) => state.height);
+  const fittedSize = useRef<{ width: number; height: number } | null>(null);
+  const latestBoard = useRef(board);
+  useEffect(() => {
+    latestBoard.current = board;
+  });
+  useEffect(() => {
+    if (!paneWidth || !paneHeight) return;
+    const last = fittedSize.current;
+    if (!last) {
+      fittedSize.current = { width: paneWidth, height: paneHeight };
+      return;
+    }
+    const turned = last.width > last.height !== paneWidth > paneHeight;
+    const resized =
+      Math.abs(paneWidth - last.width) > last.width / 3 || Math.abs(paneHeight - last.height) > last.height / 3;
+    if (!turned && !resized) return;
+    const timer = window.setTimeout(() => {
+      fittedSize.current = { width: paneWidth, height: paneHeight };
+      if (latestBoard.current.nodes.length > 0) fitBoard(latestBoard.current, 260);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [paneWidth, paneHeight, fitBoard]);
+
   // ルーレットが止まったら、当たったカードを画面の真ん中へ（倍率はそのまま）。ピンで並びが変わるのを待ってから動かす
   const landedId = useRouletteLanded();
   useEffect(() => {

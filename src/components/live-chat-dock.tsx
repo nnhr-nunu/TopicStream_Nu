@@ -340,7 +340,8 @@ export function LiveChatDock({
                 </div>
               ) : null}
             </div>
-            <ListenerTopicColumn topics={topics} onAdopt={adoptTopic} />
+            {/* 空のお題箱は出さない（「お題:〇〇」の案内は下のコメントの空欄にある） */}
+            {topics.length > 0 ? <ListenerTopicColumn topics={topics} onAdopt={adoptTopic} /> : null}
             {streamRef && (live.phase === "error" || live.phase === "waiting") && log.length > 0 ? (
               <p className={cn("comment-overlay-status", live.phase === "error" && "comment-overlay-status-error")} role="status">
                 {live.message}
@@ -403,8 +404,8 @@ export function LiveChatDock({
               aria-label="配信URLまたはチャットURL"
               autoFocus
             />
-            <p className="text-[11px] leading-4 text-muted-foreground">貼るとコメントを読み始めます。視聴者ができること:</p>
-            <ViewerGuide />
+            {/* 視聴者ができることの一覧はコメント欄（貼ると開く）に出るので、ここでは繰り返さない */}
+            <p className="text-[11px] leading-4 text-muted-foreground">貼るとコメント欄が開いて、コメントを読み始めます。</p>
             <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
               視聴者への案内をコピー
             </Button>

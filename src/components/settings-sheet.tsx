@@ -28,7 +28,6 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { loadAiUsage, subscribeAiUsage, type AiUsageDay } from "@/lib/ai-usage";
-import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import type { Settings as AppSettings } from "@/lib/types";
 
 const LAYOUT_ITEMS = [
@@ -97,7 +96,10 @@ export function SettingsSheet({
 
         <div className="flex flex-col gap-3 px-4 pb-8">
           <Section icon={<Palette />} title="マップの見た目">
-            <Row label="広げかた">
+            <Row
+              label="広げかた"
+              hint={settings.generationLayout === "radial" ? "放射で広げたカードには番号（1A など）が付かないので、コメントの番号では選べません。" : undefined}
+            >
               <Select
                 items={LAYOUT_ITEMS}
                 value={settings.generationLayout}
@@ -139,38 +141,14 @@ export function SettingsSheet({
             </Row>
           </Section>
 
-          <Section
-            icon={<PawPrint />}
-            title="待ち時間の動物"
-            description="AI の返事を待つあいだ、広げた 3×3 で遊ぶ動物です。苦手な子はしまっておけます。"
-          >
-            <CritterSettings hidden={settings.hiddenCritters} style={settings.critterStyle} onChange={onPatch} />
-          </Section>
-
-          <Section icon={<Users />} title="配信" description="配信URLは画面下の「配信と連携」から設定します。">
+          {/* 配信URLは画面下の「配信と連携」、コメントの文字の大きさはコメント欄の A−/A＋ で変える（ここには置かない） */}
+          <Section icon={<Users />} title="配信">
             <Row label="経過時間" htmlFor="show-elapsed" hint="NOW の帯に、その話題を話している時間を出します。">
               <Switch
                 id="show-elapsed"
                 checked={settings.showElapsed}
                 onCheckedChange={(showElapsed) => onPatch({ showElapsed })}
               />
-            </Row>
-            <Row label="コメントの文字">
-              <div className="flex items-center gap-2">
-                <Slider
-                  min={COMMENT_SCALE_MIN}
-                  max={COMMENT_SCALE_MAX}
-                  step={0.1}
-                  value={[settings.commentScale]}
-                  onValueChange={(value) => {
-                    const next = Array.isArray(value) ? value[0] : value;
-                    if (typeof next === "number") onPatch({ commentScale: next });
-                  }}
-                />
-                <span className="w-9 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">
-                  {Math.round(settings.commentScale * 100)}%
-                </span>
-              </div>
             </Row>
           </Section>
 
@@ -183,6 +161,14 @@ export function SettingsSheet({
           />
 
           <DeviceTransfer />
+
+          <Section
+            icon={<PawPrint />}
+            title="待ち時間の動物"
+            description="AI を待つあいだ、広げた 3×3 で遊ぶ動物です。苦手な子はしまっておけます。"
+          >
+            <CritterSettings hidden={settings.hiddenCritters} style={settings.critterStyle} onChange={onPatch} />
+          </Section>
 
           <AiUsagePanel />
 

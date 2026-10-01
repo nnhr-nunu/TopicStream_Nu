@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, ChevronDown, Download, LayoutGrid, Pencil, Share2, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Download, LayoutGrid, Pencil, Trash2, Upload, X } from "lucide-react";
 
 import { ModeBadge } from "@/components/mode-picker";
+import { XLogo } from "@/components/share-post-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -138,12 +139,12 @@ function BoardRow({
           type="button"
           size="icon-sm"
           variant="ghost"
-          aria-label={`「${board.name}」をシェア`}
-          title={cards > 0 ? "シェア（X に投稿・画像で保存）" : "まだ空なのでシェアできません"}
+          aria-label={`「${board.name}」を X でシェア`}
+          title={cards > 0 ? "X でシェア（画像で保存も）" : "まだ空なのでシェアできません"}
           disabled={cards === 0}
           onClick={onShare}
         >
-          <Share2 />
+          <XLogo className="size-3.5" />
         </Button>
         <Button
           type="button"
@@ -200,6 +201,8 @@ export function BoardPanel({
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const sorted = [...boards].sort((a, b) => b.updatedAt - a.updatedAt);
+  // まだ空のボード（始める前の入れ物）は数えない
+  const used = boards.filter((board) => board.nodes.length > 0).length;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -214,7 +217,7 @@ export function BoardPanel({
         }
       >
         {atHome ? <LayoutGrid className="size-3.5 shrink-0 opacity-70" /> : null}
-        <span className="truncate font-semibold">{atHome ? `ボード一覧（${boards.length}）` : activeBoard.name}</span>
+        <span className="truncate font-semibold">{atHome ? (used > 0 ? `ボード一覧（${used}）` : "ボード一覧") : activeBoard.name}</span>
         {atHome ? null : <ModeBadge mode={activeBoard.mode} className="max-sm:hidden!" />}
         <ChevronDown className="size-3.5 shrink-0 opacity-60" />
       </SheetTrigger>

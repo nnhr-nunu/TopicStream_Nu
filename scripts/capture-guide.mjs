@@ -300,7 +300,7 @@ try {
   // ② 広げる（最初の 8 つ → 1 枚タップしてもう 1 段）
   await evaluate(`[...document.querySelectorAll('button')].find((el) => el.textContent.trim().startsWith('始める'))?.click(); true`);
   await waitFor(`document.querySelectorAll('.topic-chip:not(.topic-chip-skeleton)').length >= 9`);
-  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('抽象展開'))?.click(); true`);
+  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('広げる'))?.click(); true`);
   await sleep(2200);
   const firstKeyword = EXPAND_LABEL;
   const target = await cardCenter(firstKeyword);
@@ -380,8 +380,8 @@ try {
     .find((el) => el.querySelector('.topic-label')?.textContent === ${JSON.stringify(DETAIL_LABEL)})
     .querySelector('[aria-label^="具体化"]').click(); true`);
   await waitFor(`${chipCount} >= ${before + 8} && !document.querySelector('.topic-chip-skeleton, .topic-chip-busy')`);
-  // 写すときは「具体的」に切り替えた状態にする（タップで具体化するモード）
-  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('具体的'))?.click(); true`);
+  // 写すときは「具体化」に切り替えた状態にする（タップで具体化するモード）
+  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('具体化'))?.click(); true`);
   await sleep(2600);
   await mouse("mouseMoved", 5, 5, { button: "none" });
   await sleep(800);
@@ -394,7 +394,7 @@ try {
   })()`;
   // 出た答えのところに寄ったまま、8 つと元のカードを切り抜く
   await shot("detail", await focusOn(detailCards, { minWidth: 480 }));
-  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('抽象展開'))?.click(); true`);
+  await evaluate(`[...document.querySelectorAll('.mode-dock-option')].find((el) => el.textContent.includes('広げる'))?.click(); true`);
 
   // ③ 長押しでメニュー（スマホの形: 下から出るメニュー）。指の端末として開き直し、続きからボードを開く
   await evaluate(`sessionStorage.setItem('ts-capture-coarse', '1'); true`);

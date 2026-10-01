@@ -45,7 +45,7 @@ function TopicList({ topics, onAdopt }: { topics: ListenerTopic[]; onAdopt: (top
   );
 }
 
-/** コメント欄の一番上: 多い順に 4 件まで。残りは下の帯のボタン（ListenerTopicPill）から */
+/** コメント欄の一番上: 多い順に 4 件まで。残りは下の帯のボタン（ListenerTopicPill）から。お題が届いたときだけ出す */
 export function ListenerTopicColumn({
   topics,
   onAdopt,
@@ -56,13 +56,9 @@ export function ListenerTopicColumn({
   return (
     <section className="odai-box" aria-label="お題箱">
       <p className="comment-overlay-title">
-        お題箱{topics.length > 0 ? <span className="comment-overlay-count">{topics.length}</span> : null}
+        お題箱<span className="comment-overlay-count">{topics.length}</span>
       </p>
-      {topics.length === 0 ? (
-        <p className="odai-empty">視聴者が「お題:〇〇」と書くと、ここに並びます。</p>
-      ) : (
-        <TopicList topics={topics.slice(0, COLUMN_LIMIT)} onAdopt={onAdopt} />
-      )}
+      <TopicList topics={topics.slice(0, COLUMN_LIMIT)} onAdopt={onAdopt} />
     </section>
   );
 }
