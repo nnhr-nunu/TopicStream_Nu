@@ -22,6 +22,8 @@ import {
   talkDuration,
   talkPost,
   talkSessions,
+  chapterLines,
+  MIN_CHAPTERS,
   talkTimestamps,
   usesManyThemes,
   type TalkSession,
@@ -157,6 +159,11 @@ export function TalkSummary() {
           })}
         </ol>
       )}
+      {shown.length > 0 && chapterLines(session.rows, origin).length < MIN_CHAPTERS ? (
+        <p className="text-[11px] leading-4 text-muted-foreground">
+          YouTube のチャプターになるのは {MIN_CHAPTERS} つ以上からです（今は {chapterLines(session.rows, origin).length} つ）。
+        </p>
+      ) : null}
       {shown.length < session.rows.length && shown.length > 0 ? (
         <p className="text-[11px] leading-4 text-muted-foreground">
           配信を始める前の {session.rows.length - shown.length} 件は入れていません。
