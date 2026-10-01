@@ -218,6 +218,10 @@
     width: min(9.5rem, 38vw);
     padding-top: 5.5rem;
   }
+  /* 見出し・?・文字の大きさが 1 行に入らないので、文字の大きさを次の行へ */
+  .comment-overlay-head {
+    flex-wrap: wrap;
+  }
   .map-bottom-bar {
     padding: 0.4rem 0.5rem 0.6rem;
   }
@@ -985,4 +989,210 @@
 
 .comment-overlay-status-error {
   background: color-mix(in oklab, var(--destructive) 12%, var(--card));
+}
+
+/* リスナーのお題箱（コメント欄の一番上と、下の帯のボタン）。NOW の色・ハートの色と見分けられる青緑 */
+:root {
+  --listener: oklch(0.66 0.11 195);
+}
+
+.comment-overlay-empty p {
+  margin: 0;
+}
+
+.comment-overlay-empty .comment-overlay-guide-title {
+  margin-top: 0.6rem;
+  font-weight: 800;
+  color: var(--foreground);
+}
+
+.comment-help {
+  display: inline-grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-right: auto;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--muted-foreground);
+}
+
+.comment-help:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+/* 視聴者がコメントでできること（配信 URL の欄・コメント欄の ?・コメントが無いとき） */
+.viewer-guide {
+  display: flex;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  list-style: none;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--muted-foreground);
+}
+
+.viewer-guide li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.4rem;
+}
+
+.viewer-guide code {
+  flex-shrink: 0;
+  border-radius: 0.35rem;
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: inherit;
+  font-weight: 750;
+  padding: 0.05rem 0.35rem;
+}
+
+.odai-box {
+  flex-shrink: 0;
+  padding: 0 0.6rem 0.4rem 0.7rem;
+  border-bottom: 1px dashed color-mix(in oklab, var(--listener) 35%, var(--border));
+}
+
+.odai-box .comment-overlay-title {
+  padding: 0.2rem 0 0.3rem;
+  color: color-mix(in oklab, var(--listener) 70%, var(--foreground));
+}
+
+.odai-empty {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.odai-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  list-style: none;
+}
+
+.odai-item {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  border: 1px solid color-mix(in oklab, var(--listener) 45%, var(--border));
+  background: color-mix(in oklab, var(--listener) 12%, var(--card));
+  animation: odai-arrive 900ms ease-out;
+}
+
+.odai-adopt {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: calc(0.3rem * var(--comment-scale, 1)) 0.5rem;
+  color: var(--foreground);
+  font-size: calc(0.78rem * var(--comment-scale, 1));
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.odai-adopt:hover {
+  background: color-mix(in oklab, var(--listener) 22%, transparent);
+}
+
+.odai-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.odai-count {
+  flex-shrink: 0;
+  color: color-mix(in oklab, var(--listener) 75%, var(--foreground));
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.odai-remove {
+  display: grid;
+  width: 1.6rem;
+  flex-shrink: 0;
+  place-items: center;
+  color: var(--muted-foreground);
+}
+
+.odai-remove:hover {
+  background: color-mix(in oklab, var(--destructive) 14%, transparent);
+  color: var(--foreground);
+}
+
+/* 一覧（下の帯のボタンから開く）は長くなるので、中だけ流す */
+[data-slot="popover-content"] .odai-list {
+  max-height: min(50vh, 22rem);
+  overflow-y: auto;
+}
+
+@keyframes odai-arrive {
+  0% {
+    background: color-mix(in oklab, var(--listener) 45%, var(--card));
+  }
+}
+
+.map-odai-pill {
+  display: inline-flex;
+  height: 2rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--listener) 55%, var(--border));
+  background: color-mix(in oklab, var(--listener) 16%, var(--card));
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0 0.7rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.map-odai-pill:hover {
+  background: color-mix(in oklab, var(--listener) 26%, var(--card));
+}
+
+/* コメント欄の中で、お題箱に入ったコメント */
+.comment-overlay-log li.comment-topic {
+  background: color-mix(in oklab, var(--listener) 12%, var(--card));
+}
+
+.comment-topic-tag {
+  margin-right: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--listener) 30%, transparent);
+  font-size: 0.85em;
+  font-weight: 800;
+  padding: 0 0.4rem;
+}
+
+.pin-banner-listener {
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--listener) 22%, var(--background));
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 0.2rem 0.6rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .odai-item {
+    animation: none;
+  }
 }

@@ -227,6 +227,38 @@ export function useBoardController() {
   );
 
   /**
+   * お題箱のお題を採用する: 今のボードに新しいカードを足して NOW にし、8 つに広げる。
+   * 「1つ戻る」1 回目で広げた 8 枚、2 回目でカードが消える（ルーレットの新しいきっかけ → 広げると同じ）
+   */
+  const adoptListenerTopic = useCallback(
+    async (topic: string) => {
+      const current = currentSnapshot();
+      const board = current.boards.find((item) => item.id === current.activeBoardId);
+      if (!board || !topic.trim()) return;
+      const previousFocus =
+        board.nodes.find((node) => node.id === board.focusedNodeId)?.id ?? board.nodes.find((node) => node.data.parentId === null)?.id;
+      updateBoard((item) => {
+        const next = ops.addRootNode(item, topic, prefsFromSettings(current.settings, false, item.pinnedNodeId));
+        return {
+          ...next,
+          nodes: next.nodes.map((node) =>
+            node.id === next.focusedNodeId ? { ...node, data: { ...node.data, fromListener: true } } : node,
+          ),
+        };
+      });
+      const added = currentSnapshot().boards.find((item) => item.id === board.id);
+      const rootId = added?.focusedNodeId;
+      if (!added || !rootId) return;
+      if (previousFocus) pushUndo(board.id, ops.historyFromChildren(added, previousFocus, [rootId], []));
+      else updateHistory(board.id, (history) => ({ ...history, redo: [] }));
+      pinNode(rootId);
+      toast.success(`リスナーのお題: ${topic}`, { description: "やめるときは「1つ戻る」を 2 回" });
+      await expandNode(rootId);
+    },
+    [expandNode, pinNode, updateBoard],
+  );
+
+  /**
    * 話題ルーレット: まだ話していないカードを順に光らせて、止まったカードを NOW にする。
    * 視聴者のハートが多いカードほど当たりやすい。偶然選んだだけなので、図鑑の票には数えない
    */
@@ -331,6 +363,7 @@ export function useBoardController() {
     setLabel,
     pinNode,
     focusNode,
+    adoptListenerTopic,
     spinRoulette,
     spinning,
     switchBoard,

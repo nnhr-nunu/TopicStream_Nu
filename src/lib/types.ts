@@ -43,6 +43,8 @@ export type TopicNodeData = {
   mixedFromId?: string;
   /** 話し終えた時刻（NOW を別のカードへ移した・外したとき）。ルーレットはこのカードを選ばない */
   talkedAt?: number;
+  /** 視聴者がコメントで出したお題（お題箱から採用したカード）。カードと NOW の帯に「リスナーのお題」と出す */
+  fromListener?: boolean;
 };
 
 export type TNode = {

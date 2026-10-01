@@ -420,3 +420,11 @@
   line-height: 1.25;
   color: color-mix(in oklab, var(--foreground) 68%, transparent);
 }
+
+/* お題箱から採用したカード: 「はじまり」の代わりに「リスナーのお題」（NOW の印と重ならない下の縁） */
+.topic-root-ribbon-listener {
+  background: color-mix(in oklab, var(--listener) 78%, black);
+  color: white;
+  box-shadow: 0 3px 10px color-mix(in oklab, var(--listener) 40%, transparent);
+  letter-spacing: 0.04em;
+}

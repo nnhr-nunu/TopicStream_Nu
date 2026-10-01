@@ -2,17 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { ChevronUp, MessageSquareText, Radio } from "lucide-react";
+import { ChevronUp, CircleHelp, MessageSquareText, Radio } from "lucide-react";
 import { toast } from "sonner";
 
+import { ListenerTopicColumn, ListenerTopicPill } from "@/components/listener-topic-box";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { copyViewerGuide, ViewerGuide } from "@/components/viewer-guide";
+import { addListenerTopic, removeListenerTopic, useListenerTopics } from "@/hooks/use-listener-topics";
 import { useSettled } from "@/hooks/use-settled";
 import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
+import { parseListenerTopic, type ListenerTopic } from "@/lib/listener-topics";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -26,7 +30,22 @@ type LiveState = {
 type ChatLine = {
   id: number;
   text: string;
+  /** お題箱に入ったコメント */
+  topic?: boolean;
 };
+
+/** 読み始めたときの案内を出した配信（ホームへ戻ってまた開いても、同じ配信では出し直さない） */
+const announcedStreams = new Set<string>();
+
+function announce(url: string) {
+  if (announcedStreams.has(url)) return;
+  announcedStreams.add(url);
+  toast.success("コメントを読み始めました", {
+    description: "視聴者は「1E」でカードを光らせ、「1E ❤」でハート、「お題:〇〇」でお題を送れます。",
+    duration: 10_000,
+    action: { label: "案内をコピー", onClick: () => void copyViewerGuide() },
+  });
+}
 
 export function LiveChatDock({
   board,
@@ -36,6 +55,7 @@ export function LiveChatDock({
   commentScale = 1,
   onCommentScaleChange,
   onHeart,
+  onAdoptTopic,
   onStreamUrlChange,
   onShowCommentsChange,
   children,
@@ -49,6 +69,8 @@ export function LiveChatDock({
   /** コメントで届いたハートをカードに +1 する。 */
   /** コメントのハート。届いた分をまとめて、カードごとに数を足す */
   onHeart: (nodeId: string, delta: number) => void;
+  /** お題箱のお題を押した: カードにして広げ、NOW にする */
+  onAdoptTopic: (label: string) => void;
   onStreamUrlChange: (url: string) => void;
   onShowCommentsChange: (show: boolean) => void;
   children: ReactNode;
@@ -63,6 +85,11 @@ export function LiveChatDock({
   const logEnd = useRef<HTMLDivElement | null>(null);
   const nextLine = useRef(1);
   const status = streamRef ? live.message : "";
+  const { topics } = useListenerTopics();
+  const adoptTopic = (topic: ListenerTopic) => {
+    removeListenerTopic(topic.key);
+    onAdoptTopic(topic.label);
+  };
 
   // 接続（WebSocket / ポーリング）はハートで board が変わるたびに張り直さない。最新値は ref で読む。
   const latest = useRef({ board, pinnedCode, onHeart, showComments });
@@ -89,6 +116,17 @@ export function LiveChatDock({
   const applyText = useCallback((text: string) => {
     const { board: current, pinnedCode: pinned } = latest.current;
     if (!current) return;
+    const addLine = (line: Omit<ChatLine, "id">) => {
+      setLog((lines) => [...lines, { id: nextLine.current++, ...line }].slice(-80));
+      if (!latest.current.showComments) setUnread((count) => count + 1);
+    };
+    // お題のコメントは番号・ハートとしては数えない（「お題:2Dアニメ」でカードを光らせない）
+    const listener = parseListenerTopic(text);
+    if (listener) {
+      if (listener.topic) addListenerTopic(listener.topic);
+      addLine({ text, topic: Boolean(listener.topic) });
+      return;
+    }
     const parsed = parseChatComment(text, pinned ?? "");
     // 「3Dゲーム」のような語を拾っても、盤面に無い番号は光らせない
     const onBoard = parsed.highlightCodes.filter((code) => findNodeByCode(current.nodes, code));
@@ -102,8 +140,7 @@ export function LiveChatDock({
     }
     if (hit.length > 0 && heartTimer.current === undefined) heartTimer.current = window.setTimeout(flushHearts, 400);
     emitChatHearts(hit, 1);
-    setLog((lines) => [...lines, { id: nextLine.current++, text }].slice(-80));
-    if (!latest.current.showComments) setUnread((count) => count + 1);
+    addLine({ text });
   }, [flushHearts]);
 
   useEffect(() => {
@@ -146,6 +183,7 @@ export function LiveChatDock({
             }
             if (/ JOIN #/.test(line) || / 366 /.test(line)) {
               setLive({ phase: "live", message: `Twitch #${ref.channel} のチャットを読んでいます。` });
+              announce(connectUrl);
             }
             const match = line.match(/PRIVMSG #[^ ]+ :(.+)/);
             if (match?.[1]) applyText(match[1].trim());
@@ -212,6 +250,7 @@ export function LiveChatDock({
           return;
         }
         setLive({ phase: "live", message: "YouTube のチャットを読んでいます。" });
+        announce(connectUrl);
         token = json.nextPageToken ?? token;
         if (seen.current.size > 5_000) seen.current = new Set([...seen.current].slice(-1_000));
         for (const message of json.messages ?? []) {
@@ -257,6 +296,27 @@ export function LiveChatDock({
               <p className="comment-overlay-title">
                 コメント{log.length > 0 ? <span className="comment-overlay-count">{log.length}</span> : null}
               </p>
+              <Popover>
+                <PopoverTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="comment-help"
+                      aria-label="視聴者がコメントでできること"
+                      title="視聴者がコメントでできること"
+                    />
+                  }
+                >
+                  <CircleHelp className="size-3.5" aria-hidden />
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="start" className="w-[min(92vw,20rem)] gap-2 p-3">
+                  <p className="text-xs font-semibold">視聴者がコメントでできること</p>
+                  <ViewerGuide />
+                  <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
+                    視聴者への案内をコピー
+                  </Button>
+                </PopoverContent>
+              </Popover>
               {onCommentScaleChange ? (
                 <div className="comment-size" role="group" aria-label="コメントの文字の大きさ">
                   <button
@@ -280,6 +340,7 @@ export function LiveChatDock({
                 </div>
               ) : null}
             </div>
+            <ListenerTopicColumn topics={topics} onAdopt={adoptTopic} />
             {streamRef && (live.phase === "error" || live.phase === "waiting") && log.length > 0 ? (
               <p className={cn("comment-overlay-status", live.phase === "error" && "comment-overlay-status-error")} role="status">
                 {live.message}
@@ -287,13 +348,18 @@ export function LiveChatDock({
             ) : null}
             <div className="comment-overlay-log">
               {log.length === 0 ? (
-                <p className="comment-overlay-empty">
-                  {status || "まだありません。配信と連携するか、下のテストコメントで試せます。"}
-                </p>
+                <div className="comment-overlay-empty">
+                  <p>{status || "まだありません。配信と連携するか、下のテストコメントで試せます。"}</p>
+                  <p className="comment-overlay-guide-title">視聴者ができること</p>
+                  <ViewerGuide />
+                </div>
               ) : (
                 <ul>
                   {log.map((line) => (
-                    <li key={line.id}>{line.text}</li>
+                    <li key={line.id} className={cn(line.topic && "comment-topic")}>
+                      {line.topic ? <span className="comment-topic-tag">お題</span> : null}
+                      {line.text}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -337,9 +403,11 @@ export function LiveChatDock({
               aria-label="配信URLまたはチャットURL"
               autoFocus
             />
-            <p className="text-[11px] leading-4 text-muted-foreground">
-              貼るとコメントを読み始めます。視聴者が「1E」「1E ❤」と書くと、そのカードが光ってハートが付きます。
-            </p>
+            <p className="text-[11px] leading-4 text-muted-foreground">貼るとコメントを読み始めます。視聴者ができること:</p>
+            <ViewerGuide />
+            <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
+              視聴者への案内をコピー
+            </Button>
             {status ? <p className="map-link-status">{status}</p> : null}
             {streamUrl ? (
               <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => onStreamUrlChange("")}>
@@ -363,6 +431,8 @@ export function LiveChatDock({
           {!showComments && unread > 0 ? <span className="map-comment-unread">{unread > 99 ? "99+" : unread}</span> : null}
         </button>
 
+        <ListenerTopicPill topics={topics} columnOpen={showComments} onAdopt={adoptTopic} />
+
         <form
           // スマホでは、コメント欄を開くか配信と連携するまで出さない（2 段になって盤面が狭くなるので）
           className={cn("map-test-comment", !showComments && !linked && "map-test-comment-idle")}
@@ -377,7 +447,7 @@ export function LiveChatDock({
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="テストコメント（例: 1E ❤）"
+            placeholder="テストコメント（例: 1E ❤ / お題:夏）"
             aria-label="テストコメント"
             className="h-8 bg-background/90 text-xs"
           />
