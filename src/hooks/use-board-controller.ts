@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import * as ops from "@/lib/board-ops";
@@ -18,169 +18,20 @@ import {
   subscribeHistory,
   updateHistory,
 } from "@/lib/board-history";
-import { catalogBoardToBoard, type CatalogBoard } from "@/lib/catalog-data";
-import { addMixNode, canCombine, existingMix } from "@/lib/board-combine";
-import { addSpares, SPARE_COUNT, spareHolderId, takeSpare } from "@/lib/board-spares";
-import { generateRelatedTopics } from "@/lib/gemini";
-import type { GeminiWaitStage } from "@/lib/gemini-core";
-import { createPacer, REVEAL_GAP_MS, STAGGER_REVEAL, WAIT_QUIPS, waitNote } from "@/lib/expand-wait";
-import { topicContext } from "@/lib/topic-context";
-import { detailRecordSeed } from "@/lib/detail-modes";
-import { fetchSharedRelated, notePick, recallTopicsNow } from "@/lib/knowledge-client";
-import { loadIdentity } from "@/lib/identity";
-import { layoutBoard, prefsFromSettings } from "@/lib/layout";
-import { pickWeightedStarter, preferredForSeed } from "@/lib/popularity";
-import { nextBoardName } from "@/lib/ids";
-import { emptyBoard, exportSnapshot, parseImportedBoards, withoutMemos } from "@/lib/storage";
+import { currentSnapshot, expandKey, pushUndo } from "@/lib/board-controller-helpers";
+import { notePick } from "@/lib/knowledge-client";
+import { prefsFromSettings } from "@/lib/layout";
+import { pickWeightedStarter } from "@/lib/popularity";
+import { emptyBoard } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
 import { pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
+import { useBoardExpand } from "@/hooks/use-board-expand";
+import { useBoardLibrary } from "@/hooks/use-board-library";
+import { useBoardRegenerate } from "@/hooks/use-board-regenerate";
+import { useWatchShare } from "@/hooks/use-watch-share";
 import { setRouletteHighlight } from "@/hooks/use-roulette";
 import { boardMode, DEFAULT_MODE, pickModeStarter, isChatMode, withMode } from "@/lib/modes";
-import type { AppSnapshot, Board, BoardMode, GenerateResult, HistoryEntry, Settings } from "@/lib/types";
-
-function currentSnapshot(): AppSnapshot {
-  return getBoardSnapshot();
-}
-
-const SHARE_KEY = "topicstream-nu:share-id";
-/** いっしょに見るリンクを書き換えるための鍵（作ったタブだけが持つ） */
-const SHARE_OWNER_KEY = "topicstream-nu:share-key";
-
-export function readShareSession(): { id: string | null; key: string | null } {
-  try {
-    return { id: window.sessionStorage.getItem(SHARE_KEY), key: window.sessionStorage.getItem(SHARE_OWNER_KEY) };
-  } catch {
-    return { id: null, key: null };
-  }
-}
-
-function writeShareSession(value: { id: string; key: string } | null) {
-  try {
-    if (value) {
-      window.sessionStorage.setItem(SHARE_KEY, value.id);
-      window.sessionStorage.setItem(SHARE_OWNER_KEY, value.key);
-    } else {
-      window.sessionStorage.removeItem(SHARE_KEY);
-      window.sessionStorage.removeItem(SHARE_OWNER_KEY);
-    }
-  } catch {
-    /* 残せなくても、このページを開いている間は共有を続けられる */
-  }
-}
-
-/** 共有ボードを送る。forbidden はリンクの持ち主ではない（別の端末・鍵が無い） */
-async function postShare(
-  share: { id: string | null; key: string | null },
-  board: Board,
-  nickname: string,
-): Promise<{ id: string; key: string } | "forbidden" | null> {
-  const response = await fetch("/api/share", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: share.id ?? undefined, key: share.key ?? undefined, board: withoutMemos(board), nickname }),
-  }).catch(() => null);
-  if (response?.status === 403) return "forbidden";
-  if (!response?.ok) return null;
-  const json = (await response.json().catch(() => null)) as { id?: unknown; key?: unknown } | null;
-  return typeof json?.id === "string" && typeof json.key === "string" ? { id: json.id, key: json.key } : null;
-}
-
-/** 予備が尽きて AI に作り直しを頼んだあと、次に頼めるまでの間隔（無料枠を連打で使い切らないため） */
-export const REGEN_COOLDOWN_MS = 15_000;
-
-/**
- * 待ちが長引いたら、今の状況（別の AI に聞き直している等）と和ませる一言を小さく出し続ける。
- * 10 秒より早く終われば何も出さない。stop で消す
- */
-function startWaitNotes(key: string) {
-  const started = Date.now();
-  const id = `wait-${key}`;
-  const offset = Math.floor(Math.random() * WAIT_QUIPS.length);
-  let stage: GeminiWaitStage | undefined;
-  let shown = false;
-  const tick = () => {
-    const note = waitNote(Date.now() - started, stage, offset);
-    if (!note) return;
-    shown = true;
-    toast.loading(note.title, { id, description: note.quip });
-  };
-  const timer = window.setInterval(tick, 1_000);
-  return {
-    stage(next: GeminiWaitStage) {
-      stage = next;
-      tick();
-    },
-    stop() {
-      window.clearInterval(timer);
-      if (shown) toast.dismiss(id);
-    },
-  };
-}
-
-/** AI のお知らせは同じ種類を連続で出さない（上限は再読み込みまで1回、それ以外は10分に1回） */
-const noticeShownAt = new Map<string, number>();
-function showGenerateNotice(result: GenerateResult) {
-  if (!result.warning) return;
-  const kind = result.noticeKind ?? result.warning;
-  const last = noticeShownAt.get(kind);
-  const now = Date.now();
-  if (last !== undefined && (kind === "quota" || now - last < 10 * 60_000)) return;
-  noticeShownAt.set(kind, now);
-  if (kind === "quota") toast.warning(result.warning, { duration: 8_000 });
-  else toast.message(result.warning);
-}
-
-/**
- * お悩み相談などで深く広げたとき、中心のお題に寄せて広げていることを一度だけ知らせる（ボードごと・再読み込みまで）。
- * 雑談は話が広がるのが楽しいので寄せない（知らせもしない）。
- */
-const anchorNoticeShown = new Set<string>();
-function showAnchorNotice(board: Board, context: string[]) {
-  const root = context[context.length - 1];
-  if (isChatMode(boardMode(board)) || context.length < 2 || !root || anchorNoticeShown.has(board.id)) return;
-  anchorNoticeShown.add(board.id);
-  toast.message(`中心の「${root}」から離れないように広げています`, {
-    description: "もっと寄せたいときは、カードを中心のカードに重ねると掛け合わせられます。",
-    duration: 6_000,
-  });
-}
-
-/** 新しい操作をしたら、進む履歴は捨てる */
-const expandKey = (boardId: string, nodeId: string) => `${boardId}:${nodeId}`;
-
-function sameEntry(entry: HistoryEntry, parentId: string, childIds: string[]) {
-  return (
-    entry.parentId === parentId &&
-    entry.childIds.length === childIds.length &&
-    entry.childIds.every((id, index) => id === childIds[index])
-  );
-}
-
-/**
- * AI に「重ならないように」と渡す盤面の語。空のカード（…）は外し、広げるカードのまわり（同じ 3×3・たどってきたカード）を先に置く
- * （AI へ渡すのは先頭の数十語だけなので、古い 3×3 の語より、並ぶと目立つ近くの語を優先する）
- */
-function existingForPrompt(board: Board, nodeId: string): string[] {
-  const byId = new Map(board.nodes.map((node) => [node.id, node]));
-  const near: string[] = [];
-  const parentId = byId.get(nodeId)?.data.parentId ?? null;
-  for (const node of board.nodes) {
-    if (node.data.parentId === nodeId || (parentId !== null && node.data.parentId === parentId)) near.push(node.data.label);
-  }
-  for (let id: string | null = nodeId, guard = 0; id && guard < 64; guard += 1) {
-    const node = byId.get(id);
-    if (!node) break;
-    near.push(node.data.label);
-    id = node.data.parentId;
-  }
-  const rest = [...board.nodes].reverse().map((node) => node.data.label);
-  const placeholders = new Set(board.nodes.filter((node) => node.data.placeholder).map((node) => node.data.label));
-  return [...new Set([...near, ...rest])].filter((label) => label.trim() && !placeholders.has(label));
-}
-
-function pushUndo(boardId: string, entry: HistoryEntry) {
-  updateHistory(boardId, (history) => ({ undo: [...history.undo, entry], redo: [] }));
-}
+import type { AppSnapshot, Board, BoardMode } from "@/lib/types";
 
 export function useBoardController() {
   const snapshot = useSyncExternalStore(subscribeBoardStore, getBoardSnapshot, getServerBoardSnapshot);
@@ -191,14 +42,8 @@ export function useBoardController() {
   );
   // 戻す／進むの履歴はボードごと。切り替えや再読み込みをしても消さない
   const histories = useSyncExternalStore(subscribeHistory, getHistories, getServerHistories);
-  // 同時に広げている数（最初に終わった方で「待ち」が解けないよう、数で持つ）
-  const [busyCount, setBusyCount] = useState(0);
-  const busy = busyCount > 0;
-  const [shareId, setShareId] = useState<string | null>(null);
+  // 広げ直し・戻すたびに進めて、遅れて届いた広げ結果を捨てる（広げる側と共有する）
   const expandTokens = useRef(new Map<string, number>());
-  const regeneratingRef = useRef(new Set<string>());
-  const [regeneratingIds, setRegeneratingIds] = useState<string[]>([]);
-  const [regenReadyAt, setRegenReadyAt] = useState(0);
   /** 「ずれている」の印を付けた語。盤面から消えても、このあと AI・図鑑から出し直さない */
   const rejectedRef = useRef(new Set<string>());
   const spinningRef = useRef(false);
@@ -234,269 +79,12 @@ export function useBoardController() {
     [snapshot],
   );
 
-  /**
-   * カードを広げる。detail（「具体的にする」）は、切り口ではなく対応策・答え・話し方の例を短い文で出す
-   * （形はふつうの広げ方と同じ 3×3。出した答えのカードも、ふつうのカードと同じように広げられる）。
-   */
-  const expandNode = useCallback(
-    async (
-      nodeId: string,
-      replace = false,
-      overlay = false,
-      detail = false,
-      /** 掛け合わせ: 「1つ戻る」で掛け合わせのカードごと消えるよう、重ねた先を親として記録する */
-      historyRoot?: { parentId: string; childIds: string[]; edgeIds: string[] },
-    ) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      if (!board) return;
-      let working = board;
-      /** 作り直しで消した前の 8 枚（AI が答えなかったときに戻す） */
-      let clearedHistory: HistoryEntry | null = null;
-      if (replace) {
-        const cleared = ops.clearChildren(working, nodeId);
-        clearedHistory = cleared.history;
-        // 前に広げたときの予備は捨てる（「具体的にする」で作り直した後に、元の切り口の語が混ざらないように）
-        working = {
-          ...cleared.board,
-          nodes: cleared.board.nodes.map((node) =>
-            node.id === nodeId ? { ...node, data: { ...node.data, spares: undefined } } : node,
-          ),
-        };
-      }
-      const parent = working.nodes.find((node) => node.id === nodeId);
-      if (!parent || parent.data.expanding || parent.data.placeholder) return;
-      // 広げ済みのカードは作り直し（replace）のときだけ広げ直す（E キーの連打で 3×3 が増えないように）
-      if (!replace && parent.data.expanded) return;
-      // この語を選んで広げた＝図鑑での票（掛け合わせの「A × B」は選ばれた語ではないので数えない）
-      if (!parent.data.mixedFromId) notePick(working, nodeId, "expand");
-
-      const prefs = prefsFromSettings(current.settings, overlay, working.pinnedNodeId);
-      const begun = ops.beginExpand(working, nodeId, 8, prefs);
-      if (!begun) return;
-      const started = detail ? { ...begun, board: ops.markDetail(begun.board, begun.childIds) } : begun;
-
-      // 同じカードの ID が別のボードにもある（みんなのマップを 2 回写した等）ので、ボードごとに数える
-      const tokenKey = expandKey(started.board.id, nodeId);
-      const token = (expandTokens.current.get(tokenKey) ?? 0) + 1;
-      expandTokens.current.set(tokenKey, token);
-      persist({
-        ...current,
-        boards: current.boards.map((item) => (item.id === started.board.id ? started.board : item)),
-      });
-      const hist = historyRoot ?? { parentId: nodeId, childIds: started.childIds, edgeIds: started.edgeIds };
-      // 作り直しは、差し替える前の 8 枚も同じ履歴に持たせる（「1つ戻る」で元の 8 枚に戻る）
-      pushUndo(started.board.id, {
-        ...ops.historyFromChildren(started.board, hist.parentId, hist.childIds, hist.edgeIds),
-        replaced: clearedHistory ?? undefined,
-      });
-      const boardId = started.board.id;
-      /** 広げる前（掛け合わせならカードを置く前）へ戻し、この広げ方の履歴だけを消す（同じカードを前に広げた分は残す） */
-      const rollback = () => {
-        const latest = currentSnapshot();
-        const latestBoard = latest.boards.find((item) => item.id === boardId);
-        if (!latestBoard) return;
-        const entry = ops.historyFromChildren(latestBoard, hist.parentId, hist.childIds, hist.edgeIds);
-        const undone = ops.undoExpand(latestBoard, entry);
-        const restored = clearedHistory ? ops.redoExpand(undone, clearedHistory) : undone;
-        persist({ ...latest, boards: latest.boards.map((item) => (item.id === restored.id ? restored : item)) });
-        updateHistory(boardId, (history) => {
-          const undo = [...history.undo];
-          for (let i = undo.length - 1; i >= 0; i -= 1) {
-            if (sameEntry(undo[i]!, hist.parentId, hist.childIds)) {
-              undo.splice(i, 1);
-              break;
-            }
-          }
-          return { ...history, undo };
-        });
-      };
-      setBusyCount((count) => count + 1);
-      try {
-        const existingLabels = [...existingForPrompt(started.board, nodeId), ...rejectedRef.current];
-        const slots = started.board.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
-        const fillPrefs = () => {
-          const snap = currentSnapshot();
-          const target = snap.boards.find((item) => item.id === boardId);
-          return prefsFromSettings(snap.settings, overlay, target?.pinnedNodeId ?? null);
-        };
-        const context = topicContext(started.board, nodeId);
-        showAnchorNotice(started.board, context);
-        // 予備を少し多めにもらい、「作り直す」を API なしで出せるようにする。届いた語はすぐカードへ（STAGGER_REVEAL なら少しずつずらす）
-        const pacer = createPacer(STAGGER_REVEAL ? REVEAL_GAP_MS : 0);
-        const revealed = () => expandTokens.current.get(tokenKey) === token;
-        const reveal = (label: string) =>
-          pacer.push(() => {
-            if (!revealed()) return;
-            updateBoardById(boardId, (item) => ops.fillNextPlaceholder(item, started.childIds, label, fillPrefs()).board);
-          });
-        // 配信画面（オーバーレイ）には内部の事情を出さない
-        const notes = overlay ? null : startWaitNotes(nodeId);
-        const result = await generateRelatedTopics({
-          seed: parent.data.label,
-          existing: existingLabels,
-          // 設定に自分の AI キーがあれば、みんなの枠ではなくそのキーで頼む
-          apiKey: current.settings.geminiApiKey,
-          model: current.settings.geminiModel,
-          count: slots + SPARE_COUNT,
-          // カードの分だけそろえばよい。予備が足りないだけで AI を呼び直さない
-          minimum: slots,
-          preferred: detail ? [] : preferredForSeed(parent.data.label),
-          // 「一番の失敗談」のような汎用のカードでも、何の話の中のお題かが伝わるように（最初のお題も必ず含む）
-          context,
-          // 掛け合わせのカードなら、持ってきた側のカードが何の話から出た語かも渡す
-          mixFrom: parent.data.mixedFromId ? topicContext(started.board, parent.data.mixedFromId, 2) : undefined,
-          mode: started.board.mode,
-          // トピック図鑑に十分たまっているお題は AI を呼ばずに出す（答えは図鑑に無いので毎回作る）
-          recall: !detail,
-          detail,
-          onTopic: (label) => {
-            if (revealed()) reveal(label);
-          },
-          onStage: (stage) => notes?.stage(stage),
-        }).finally(() => notes?.stop());
-
-        const boardNow = () => {
-          const snap = currentSnapshot();
-          return { latest: snap, latestBoard: snap.boards.find((item) => item.id === boardId) ?? started.board };
-        };
-        // ボードごと消された・広げたカードが戻された
-        const gone = (latestBoard: Board) =>
-          !currentSnapshot().boards.some((item) => item.id === boardId) ||
-          !started.childIds.some((id) => latestBoard.nodes.some((node) => node.id === id));
-
-        if (!revealed() || gone(boardNow().latestBoard)) {
-          pacer.cancel();
-          return;
-        }
-
-        if (!result.retryLater && STAGGER_REVEAL) {
-          // 流れてこなかった分（図鑑・まとめて届いた答え）も、空のカードへ1枚ずつ入れる（ずらさないときは下の fillExpand でまとめて埋める）
-          await pacer.drain();
-          const { latestBoard } = boardNow();
-          const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
-          const open = latestBoard.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
-          for (const label of result.topics.filter((item) => !onBoard.has(item)).slice(0, open)) reveal(label);
-          await pacer.drain();
-          if (!revealed() || gone(boardNow().latestBoard)) return;
-        } else {
-          pacer.cancel();
-        }
-
-        const { latest, latestBoard } = boardNow();
-
-        // AI が答えず図鑑にも足りる語が無い: 定型の候補は並べずに、広げる前へ戻す
-        if (result.retryLater) {
-          rollback();
-          toast.warning(result.warning, { duration: 8_000 });
-          return;
-        }
-
-        // 流れてきた語で埋まっていない分を最終結果で埋め、余りは予備として中央に持たせる
-        const onBoard = new Set(latestBoard.nodes.map((node) => node.data.label));
-        const unused = result.topics.filter((label) => !onBoard.has(label));
-        const openSlots = latestBoard.nodes.filter((node) => started.childIds.includes(node.id) && node.data.placeholder).length;
-        const holder = spareHolderId(latestBoard, started.childIds, nodeId);
-        const filled = addSpares(
-          ops.fillExpand(
-            latestBoard,
-            nodeId,
-            started.childIds,
-            unused.slice(0, openSlots),
-            prefsFromSettings(latest.settings, overlay, latestBoard.pinnedNodeId),
-          ),
-          holder,
-          unused.slice(openSlots),
-        );
-        persist({
-          ...latest,
-          boards: latest.boards.map((item) => (item.id === filled.id ? filled : item)),
-        });
-        updateHistory(boardId, (history) => {
-          const next = [...history.undo];
-          for (let i = next.length - 1; i >= 0; i -= 1) {
-            const entry = next[i]!;
-            if (sameEntry(entry, hist.parentId, hist.childIds)) {
-              next[i] = { ...ops.historyFromChildren(filled, hist.parentId, hist.childIds, hist.edgeIds), replaced: entry.replaced };
-              break;
-            }
-          }
-          return { ...history, undo: next };
-        });
-        if (isChatMode(started.board.mode)) recordUsage(parent.data.label, "expands");
-        showGenerateNotice(result);
-      } catch (error) {
-        // 途中で投げたら、空のカード（…）と「広げている途中」の印を残さない（残すとそのカードを広げ直せない）
-        console.error(error);
-        if (expandTokens.current.get(tokenKey) === token) rollback();
-        toast.error("話題を広げられませんでした。もう一度お試しください");
-      } finally {
-        setBusyCount((count) => Math.max(0, count - 1));
-      }
-    },
-    [persist, updateBoardById],
-  );
-
-  /**
-   * 「具体的にする」。まだ広げていないカードは答えを 8 つ出す。広げ済みのカード（中心のお題・3×3 の中央）は、
-   * 周りの 8 枚を答えで作り直す（その先に広げたカードも消える。「1つ戻る」で元に戻せる）
-   */
-  const detailNode = useCallback(
-    (nodeId: string) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      const node = board?.nodes.find((item) => item.id === nodeId);
-      if (!board || !node || node.data.placeholder || node.data.expanding) return;
-      if (!node.data.expanded) {
-        void expandNode(nodeId, false, false, true);
-        return;
-      }
-      // マンダラートの中央は写しなので、元のマスから広げ直す（新しい 3×3 ごと作り直す）
-      const original = node.data.copiedFromId
-        ? board.nodes.find((item) => item.id === node.data.copiedFromId)
-        : undefined;
-      const target = original ?? node;
-      const busyChild = board.nodes.some(
-        (item) => item.data.parentId === target.id && (item.data.placeholder || item.data.expanding),
-      );
-      if (target.data.expanding || busyChild) return;
-      toast.message("周りの 8 枚を具体的な内容に作り直します", { description: "元に戻すときは「1つ戻る」" });
-      void expandNode(target.id, true, false, true);
-    },
-    [expandNode],
-  );
-
-  /**
-   * 掛け合わせ: source を target に重ねた。target の子に「target × source」のカードを置き、
-   * 2 つを組み合わせた話題で周りを埋める（キー無しでも「A×B」の定型で埋まる）。
-   */
-  const combineNodes = useCallback(
-    (sourceId: string, targetId: string) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      if (!board) return;
-      const check = canCombine(board, sourceId, targetId);
-      if (!check.ok) {
-        const mix = existingMix(board, sourceId, targetId);
-        if (mix) persist({ ...current, boards: current.boards.map((item) => (item.id === board.id ? ops.focusNode(board, mix.id) : item)) });
-        toast.message(check.reason);
-        return;
-      }
-      const added = addMixNode(board, sourceId, targetId, prefsFromSettings(current.settings, false, board.pinnedNodeId));
-      if (!added) return;
-      persist({ ...current, boards: current.boards.map((item) => (item.id === added.board.id ? added.board : item)) });
-      const mix = added.board.nodes.find((node) => node.id === added.mixId);
-      toast.message(`「${mix?.data.label ?? ""}」を作りました`, {
-        description: "やめるときは「1つ戻る」",
-      });
-      void expandNode(added.mixId, false, false, false, {
-        parentId: targetId,
-        childIds: [added.mixId],
-        edgeIds: added.edgeIds,
-      });
-    },
-    [expandNode, persist],
-  );
+  const { busy, expandNode, detailNode, combineNodes } = useBoardExpand({
+    persist,
+    updateBoardById,
+    expandTokensRef: expandTokens,
+    rejectedRef,
+  });
 
   const startWithKeyword = useCallback(
     async (label: string, mode: BoardMode = DEFAULT_MODE) => {
@@ -594,132 +182,10 @@ export function useBoardController() {
     toast.success("進みました");
   }, [updateBoard]);
 
-  const regenerateNode = useCallback(
-    async (nodeId: string) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      const node = board?.nodes.find((item) => item.id === nodeId);
-      if (!board || !node || node.data.placeholder || regeneratingRef.current.has(nodeId)) return;
-      // 中心のカード（最初の語・広げたカード）を変えると周りの話題とつながらなくなるので作り直さない
-      if (node.data.parentId === null || node.data.expanded) {
-        toast.message("中心のカードは作り直せません（文を直すことはできます）");
-        return;
-      }
-      const holderId = node.data.parentId;
-      const parent = board.nodes.find((item) => item.id === node.data.parentId);
-      const seed = parent?.data.label || node.data.label;
-      let spare = holderId ? takeSpare(board, holderId) : { board, label: null };
-      let recalled: string[] = [];
-      const detail = Boolean(node.data.detail);
-      if (!spare.label && !detail) {
-        // 予備が尽きたら、まずトピック図鑑（自分とみんなの過去の結果・似たお題）から探す。AI は呼ばない。
-        // みんなの分は広げたときに取ってきてある。読み込み直した後などで無ければ、次の作り直しに向けて取りに行く
-        const mode = boardMode(board);
-        void fetchSharedRelated(seed, mode);
-        recalled = recallTopicsNow(
-          seed,
-          [...board.nodes.map((item) => item.data.label), ...rejectedRef.current],
-          1 + SPARE_COUNT,
-          mode,
-        ).topics;
-        if (recalled[0]) spare = { board, label: recalled[0] };
-      }
-      // 予備も図鑑の候補も無く、クールダウン中なら AI は呼ばない（ボタン側でも残り秒数を出している）
-      if (!spare.label && Date.now() < regenReadyAt) {
-        toast.message(`AI の作り直しは、あと ${Math.ceil((regenReadyAt - Date.now()) / 1000)} 秒で使えます`);
-        return;
-      }
-      regeneratingRef.current.add(nodeId);
-      setRegeneratingIds([...regeneratingRef.current]);
-      const prefs = () => {
-        const snap = currentSnapshot();
-        const target = snap.boards.find((item) => item.id === board.id);
-        return prefsFromSettings(snap.settings, false, target?.pinnedNodeId ?? null);
-      };
-      /** 文を差し替える。文が変わるので「いま話している」は外す（作り直せなかったときは NOW のまま残す） */
-      const relabel = (item: Board, label: string) => {
-        const unpinned = item.pinnedNodeId === nodeId ? ops.pinNode(item, null, prefs()) : item;
-        return ops.setLabel(unpinned, nodeId, label, prefs());
-      };
-      try {
-        if (recalled.length > 0) {
-          // 図鑑から出す。残りは次の作り直し用の予備にする
-          const [label, ...rest] = recalled;
-          await new Promise((resolve) => window.setTimeout(resolve, 350));
-          updateBoardById(board.id, (item) => {
-            const relabeled = relabel(item, label!);
-            return holderId ? addSpares(relabeled, holderId, rest) : relabeled;
-          });
-          return;
-        }
-        if (spare.label) {
-          // 展開のときにもらっておいた予備を使う（API を呼ばないので速い・枠も減らない）
-          const label = spare.label;
-          await new Promise((resolve) => window.setTimeout(resolve, 350));
-          updateBoardById(board.id, (item) => {
-            const taken = holderId ? takeSpare(item, holderId) : { board: item, label };
-            return relabel(taken.board, taken.label ?? label);
-          });
-          return;
-        }
-        setRegenReadyAt(Date.now() + REGEN_COOLDOWN_MS);
-        // 1語だけのために呼ぶのはもったいないので、次の分の予備もまとめてもらう
-        const [result] = await Promise.all([
-          generateRelatedTopics({
-            seed,
-            existing: [...existingForPrompt(board, nodeId), ...rejectedRef.current],
-            apiKey: currentSnapshot().settings.geminiApiKey,
-            model: currentSnapshot().settings.geminiModel,
-            count: 1 + SPARE_COUNT,
-            minimum: 1,
-            preferred: detail ? [] : preferredForSeed(seed),
-            context: parent ? topicContext(board, parent.id) : [],
-            mode: board.mode,
-            detail,
-          }),
-          new Promise((resolve) => window.setTimeout(resolve, 600)),
-        ]);
-        if (result.retryLater) {
-          // 定型の埋め合わせで今のカードを置き換えない
-          toast.warning(result.warning, { duration: 8_000 });
-          return;
-        }
-        const [nextLabel, ...rest] = result.topics;
-        if (nextLabel) {
-          updateBoardById(board.id, (item) => {
-            const relabeled = relabel(item, nextLabel);
-            return holderId ? addSpares(relabeled, holderId, rest) : relabeled;
-          });
-        }
-        showGenerateNotice(result);
-      } finally {
-        regeneratingRef.current.delete(nodeId);
-        setRegeneratingIds([...regeneratingRef.current]);
-      }
-    },
-    [regenReadyAt, updateBoardById],
-  );
-
-  /**
-   * 「ずれている」の印: お題に合わない・間違った生成を図鑑に伝え（マイナスの票）、そのカードを作り直す。
-   * 「具体的にする」の答えは、答えを記録したお題（汎用の切り口なら元のお題）の下で減らす
-   */
-  const rejectNode = useCallback(
-    (nodeId: string) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === current.activeBoardId);
-      const node = board?.nodes.find((item) => item.id === nodeId);
-      if (!board || !node || node.data.placeholder || node.data.parentId === null) return;
-      const parent = board.nodes.find((item) => item.id === node.data.parentId);
-      const seed =
-        node.data.detail && parent ? detailRecordSeed(parent.data.label, topicContext(board, parent.id)) : undefined;
-      notePick(board, nodeId, "wrong", seed);
-      rejectedRef.current.add(node.data.label.trim());
-      toast.success("「ずれている」と記録しました。作り直します", { description: "図鑑でもこの語は出にくくなります" });
-      void regenerateNode(nodeId);
-    },
-    [regenerateNode],
-  );
+  const { regeneratingIds, regenReadyAt, regenerateNode, rejectNode } = useBoardRegenerate({
+    updateBoardById,
+    rejectedRef,
+  });
 
   const setMemo = useCallback(
     (nodeId: string, memo: string) =>
@@ -803,11 +269,6 @@ export function useBoardController() {
       setSpinning(false);
     }
   }, [updateBoardById]);
-  const syncPositions = useCallback(
-    (positions: Record<string, { x: number; y: number }>) =>
-      updateBoard((board) => ops.syncPositions(board, positions)),
-    [updateBoard],
-  );
 
   const toggleHeart = useCallback(
     (nodeId: string) =>
@@ -816,10 +277,6 @@ export function useBoardController() {
         if (liked) notePick(board, nodeId, "heart");
         return ops.toggleHeart(board, nodeId);
       }),
-    [updateBoard],
-  );
-  const bumpHeart = useCallback(
-    (nodeId: string, delta = 1) => updateBoard((board) => ops.bumpHeart(board, nodeId, delta)),
     [updateBoard],
   );
   const bumpFrameHearts = useCallback(
@@ -832,177 +289,8 @@ export function useBoardController() {
     [updateBoard],
   );
 
-  const createBoard = useCallback(
-    (name?: string) => {
-      const current = currentSnapshot();
-      const board = emptyBoard(name ?? nextBoardName(current.boards.map((item) => item.name)));
-      persist({
-        ...current,
-        boards: [...current.boards, board],
-        activeBoardId: board.id,
-      });
-      toast.success(`「${board.name}」を始めます`);
-    },
-    [persist],
-  );
-
-  const duplicateBoard = useCallback(
-    (boardId?: string) => {
-      const current = currentSnapshot();
-      const board = current.boards.find((item) => item.id === (boardId ?? current.activeBoardId));
-      if (!board) return;
-      const copy = ops.duplicateBoard(board);
-      persist({
-        ...current,
-        boards: [...current.boards, copy],
-        activeBoardId: copy.id,
-      });
-      toast.success(`「${copy.name}」を複製しました`);
-    },
-    [persist],
-  );
-
-  const switchBoard = useCallback(
-    (boardId: string) => {
-      persist({ ...currentSnapshot(), activeBoardId: boardId });
-    },
-    [persist],
-  );
-
-  const renameBoard = useCallback(
-    (name: string, boardId?: string) => {
-      const current = currentSnapshot();
-      const targetId = boardId ?? current.activeBoardId;
-      persist({
-        ...current,
-        boards: current.boards.map((board) => (board.id === targetId ? ops.renameBoard(board, name) : board)),
-      });
-    },
-    [persist],
-  );
-
-  const deleteBoard = useCallback(
-    (boardId?: string) => {
-      const current = currentSnapshot();
-      if (current.boards.length <= 1) {
-        toast.error("最後のボードは削除できません");
-        return;
-      }
-      const targetId = boardId ?? current.activeBoardId;
-      const remaining = current.boards.filter((board) => board.id !== targetId);
-      const activeGone = targetId === current.activeBoardId;
-      persist({
-        ...current,
-        boards: remaining,
-        activeBoardId: activeGone ? remaining[0]!.id : current.activeBoardId,
-      });
-      clearHistory(targetId);
-      toast.success("ボードを削除しました");
-    },
-    [persist],
-  );
-
-  const resetActive = useCallback(() => {
-    clearHistory(currentSnapshot().activeBoardId);
-    updateBoard((board) => ({
-      ...board,
-      nodes: [],
-      edges: [],
-      pinnedNodeId: null,
-      focusedNodeId: null,
-      updatedAt: Date.now(),
-    }));
-    toast.success("ボードを空にしました");
-  }, [updateBoard]);
-
-  const importCatalogBoard = useCallback(
-    (catalog: CatalogBoard) => {
-      const current = currentSnapshot();
-      const board = layoutBoard(
-        catalogBoardToBoard(catalog),
-        prefsFromSettings(current.settings, false, catalog.nodes[0]?.id ?? null),
-      );
-      persist({
-        ...current,
-        boards: [...current.boards, board],
-        activeBoardId: board.id,
-      });
-      toast.success(`「${board.name}」をコピーしました`, { description: "自分のボードとして、続きから広げられます" });
-    },
-    [persist],
-  );
-
-  const patchSettings = useCallback(
-    (patch: Partial<Settings>) => {
-      const current = currentSnapshot();
-      const settings = { ...current.settings, ...patch };
-      const relayout =
-        patch.generationLayout !== undefined ||
-        patch.density !== undefined ||
-        patch.fontScale !== undefined;
-      const boards = relayout
-        ? current.boards.map((board) =>
-            layoutBoard(board, prefsFromSettings(settings, false, board.pinnedNodeId)),
-          )
-        : current.boards;
-      persist({ ...current, settings, boards });
-    },
-    [persist],
-  );
-
-  const exportJson = useCallback(() => {
-    const blob = new Blob([exportSnapshot(currentSnapshot(), false)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `topicstream-${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    // すぐ消すと、ブラウザによっては保存が始まる前に取り消される
-    window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    toast.success("JSONを書き出しました（APIキーは含みません）");
-  }, []);
-
-  /**
-   * 書き出した JSON のボードを今のボード一覧に足す（同じボードは読み込んだ内容で置き換える）。
-   * 今のボードや設定は消さない。読み込めたら true
-   */
-  const importJson = useCallback((text: string): boolean => {
-    let imported: Board[] | null = null;
-    try {
-      imported = parseImportedBoards(JSON.parse(text));
-    } catch {
-      imported = null;
-    }
-    if (!imported) {
-      toast.error("JSONを読み込めませんでした", { description: "TopicStream で書き出したファイルを選んでください。" });
-      return false;
-    }
-    const current = currentSnapshot();
-    const byId = new Map(current.boards.map((board) => [board.id, board]));
-    const replaced = new Map<string, Board>();
-    const added: Board[] = [];
-    let kept = 0;
-    for (const raw of imported) {
-      const board = layoutBoard(raw, prefsFromSettings(current.settings, false, raw.pinnedNodeId));
-      const mine = byId.get(board.id);
-      if (!mine || mine.updatedAt <= board.updatedAt) {
-        if (mine) replaced.set(board.id, board);
-        else added.push(board);
-        continue;
-      }
-      // 手元の方が新しい: 古いファイルで上書きして手元の続きを消さないよう、読み込んだ方は別のボードとして足す
-      added.push(ops.duplicateBoard(board, `${board.name}（読み込み）`));
-      kept += 1;
-    }
-    const boards = [...current.boards.map((board) => replaced.get(board.id) ?? board), ...added];
-    const first = replaced.get(imported[0]!.id) ?? added[0] ?? null;
-    persist({ ...current, boards, activeBoardId: first?.id ?? current.activeBoardId });
-    for (const board of [...replaced.values(), ...added]) clearHistory(board.id);
-    toast.success(`ボードを ${imported.length} 件読み込みました`, {
-      description: kept > 0 ? "手元の方が新しいボードは残し、読み込んだ方を「（読み込み）」として足しました" : undefined,
-    });
-    return true;
-  }, [persist]);
+  const { switchBoard, renameBoard, deleteBoard, importCatalogBoard, patchSettings, exportJson, importJson } =
+    useBoardLibrary(persist);
 
   const copyLabel = useCallback(async (nodeId: string) => {
     const current = currentSnapshot();
@@ -1019,68 +307,7 @@ export function useBoardController() {
     }
   }, []);
 
-  const publishWatchLink = useCallback(async () => {
-    const current = currentSnapshot();
-    const board = current.boards.find((item) => item.id === current.activeBoardId);
-    if (!board || board.nodes.length === 0) {
-      toast.error("共有する話題がまだありません");
-      return;
-    }
-    const nickname = current.settings.nickname || loadIdentity().nickname;
-    const session = readShareSession();
-    let saved = await postShare({ id: shareId ?? session.id, key: session.key }, board, nickname);
-    // 書き換えられないリンク（別のタブで作った等）なら、新しいリンクを作り直す
-    if (saved === "forbidden") saved = await postShare({ id: null, key: null }, board, nickname);
-    if (!saved || saved === "forbidden") {
-      toast.error("共有リンクを作れませんでした");
-      return;
-    }
-    const json = saved;
-    setShareId(json.id);
-    writeShareSession(json);
-    const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-    const url = `${window.location.origin}${base}/watch?id=${encodeURIComponent(json.id)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("いっしょに見るリンクをコピーしました", {
-        description: "リンクを知っている人はボードを見られます。個人情報は書かないでください。",
-      });
-    } catch {
-      // コピーできない環境（権限が無い・古いブラウザ）では、リンクを読める形で長めに出す
-      toast.message("いっしょに見るリンクを作りました（自動でコピーできなかったので、下のリンクを写してください）", {
-        description: url,
-        duration: 20_000,
-      });
-    }
-  }, [shareId]);
-
-  // 再読み込みしても共有を続ける（下の自動送信でサーバー側が消えていても載せ直す）
-  useEffect(() => {
-    const saved = readShareSession().id;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage はマウント後にしか読めない
-    if (saved) setShareId(saved);
-  }, []);
-
-  useEffect(() => {
-    if (!shareId || !activeBoard || activeBoard.nodes.length === 0) return;
-    const timer = window.setTimeout(() => {
-      const current = currentSnapshot();
-      const nickname = current.settings.nickname || loadIdentity().nickname;
-      void postShare({ id: shareId, key: readShareSession().key }, activeBoard, nickname).then((saved) => {
-        if (saved === "forbidden") {
-          // 別の端末で作ったリンクなど。黙って送り続けず、作り直してもらう
-          writeShareSession(null);
-          setShareId(null);
-          toast.message("いっしょに見るリンクの更新を止めました", {
-            description: "上の共有ボタンから、新しいリンクを作り直してください。",
-          });
-        } else if (saved) {
-          writeShareSession(saved);
-        }
-      });
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [activeBoard, shareId]);
+  const { shareId, publishWatchLink } = useWatchShare(activeBoard);
 
   return {
     hydrated: mounted,
@@ -1106,13 +333,9 @@ export function useBoardController() {
     focusNode,
     spinRoulette,
     spinning,
-    syncPositions,
-    createBoard,
-    duplicateBoard,
     switchBoard,
     renameBoard,
     deleteBoard,
-    resetActive,
     importCatalogBoard,
     patchSettings,
     exportJson,
@@ -1122,7 +345,6 @@ export function useBoardController() {
     toggleHeart,
     regeneratingIds,
     regenReadyAt,
-    bumpHeart,
     bumpFrameHearts,
   };
 }
