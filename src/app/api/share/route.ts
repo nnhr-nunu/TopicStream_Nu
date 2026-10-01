@@ -13,7 +13,7 @@ const MAX_BODY = 700_000;
 export async function POST(request: Request) {
   const client = clientKeyFromHeaders(request.headers);
   if (!limit(client)) return tooManyRequests(30);
-  const body = await readJsonBody<{ id?: unknown; key?: unknown; board?: unknown; nickname?: unknown }>(request, MAX_BODY);
+  const body = await readJsonBody<{ id?: unknown; key?: unknown; board?: unknown; nickname?: unknown; chat?: unknown }>(request, MAX_BODY);
   if (!body) return Response.json({ error: "ボードが大きすぎるか、形が正しくありません" }, { status: 413 });
   // 付箋は自分用。古い画面・別のクライアントから送られても残さない
   const parsed = asBoard(body.board);
@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     key: typeof body.key === "string" ? body.key : null,
     board,
     nickname: typeof body.nickname === "string" ? body.nickname.slice(0, 24) : "",
+    chat: body.chat === true,
     allowCreate: () => createLimit(client),
   });
   if (!result.ok) {

@@ -85,6 +85,7 @@ function asNode(value: unknown): TNode | null {
             .map((item) => item.slice(0, 160))
         : undefined,
       detail: node.data.detail === true ? true : undefined,
+      fromListener: node.data.fromListener === true ? true : undefined,
       talkedAt:
         typeof node.data.talkedAt === "number" && Number.isFinite(node.data.talkedAt) ? node.data.talkedAt : undefined,
     },

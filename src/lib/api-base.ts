@@ -14,3 +14,8 @@ export function isNoServerResponse(response: Pick<Response, "status" | "ok" | "h
   if (response.status === 404 || response.status === 405 || response.status === 501) return true;
   return response.ok && !/json/i.test(response.headers.get("content-type") ?? "");
 }
+
+/** 時間切れで止める signal。AbortSignal.timeout が無い古いブラウザ（iOS 15 以下）では止めずに待つ */
+export function timeoutSignal(ms: number): AbortSignal | undefined {
+  return typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(ms) : undefined;
+}

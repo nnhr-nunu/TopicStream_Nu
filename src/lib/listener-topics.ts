@@ -74,10 +74,13 @@ export function addTopic(box: TopicBox, label: string, now: number): TopicBox {
   const key = topicKey(label);
   if (box.handled.includes(key)) return box;
   const existing = box.topics.find((topic) => topic.key === key);
-  const topics = existing
-    ? box.topics.map((topic) => (topic.key === key ? { ...topic, count: topic.count + 1, lastAt: now } : topic))
-    : [...box.topics, { key, label, count: 1, lastAt: now }];
-  return { ...box, topics: sortTopics(topics).slice(0, BOX_LIMIT) };
+  if (existing) {
+    const topics = box.topics.map((topic) => (topic.key === key ? { ...topic, count: topic.count + 1, lastAt: now } : topic));
+    return { ...box, topics: sortTopics(topics).slice(0, BOX_LIMIT) };
+  }
+  // 満杯なら、いちばん後ろ（少なくて古い）を 1 件どけて新しいお題を入れる（みんな 2 票以上のときも、新しいお題が届くように）
+  const kept = sortTopics(box.topics).slice(0, BOX_LIMIT - 1);
+  return { ...box, topics: sortTopics([...kept, { key, label, count: 1, lastAt: now }]) };
 }
 
 function handle(box: TopicBox, keys: string[]): string[] {

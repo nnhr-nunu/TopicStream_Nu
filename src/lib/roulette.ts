@@ -21,6 +21,20 @@ export function rouletteCandidates(board: Board): TNode[] {
   return fresh.length > 0 ? fresh : usable;
 }
 
+/** 「話した」の印が付いたカードがあるか（全部話し終えたとき、印を戻して回し直せるか） */
+export function hasTalked(board: Board): boolean {
+  return board.nodes.some((node) => Boolean(node.data.talkedAt));
+}
+
+/** 「話した」の印を全部外す（前の配信のボードを使い直すとき・ルーレットで全部話し終えたとき） */
+export function clearTalked(board: Board): Board {
+  if (!hasTalked(board)) return board;
+  return {
+    ...board,
+    nodes: board.nodes.map((node) => (node.data.talkedAt ? { ...node, data: { ...node.data, talkedAt: undefined } } : node)),
+  };
+}
+
 /** 視聴者のハート（コメントの ❤・配信者の ♡）が多いカードほど当たりやすい（多くても 1 枚が独占しない程度に） */
 export function rouletteWeight(node: TNode): number {
   return 1 + Math.min(20, totalHearts(node.data));

@@ -6,6 +6,7 @@ import { ChevronUp, CircleHelp, MessageSquareText, Radio } from "lucide-react";
 import { toast } from "sonner";
 
 import { ListenerTopicColumn, ListenerTopicPill } from "@/components/listener-topic-box";
+import { TimestampCopyButton } from "@/components/talk-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -14,6 +15,7 @@ import { addListenerTopic, removeListenerTopic, useListenerTopics } from "@/hook
 import { useSettled } from "@/hooks/use-settled";
 import { commentHeartCodes, findNodeByCode, parseChatComment } from "@/lib/chat-parse";
 import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN } from "@/lib/constants";
+import { timeoutSignal } from "@/lib/api-base";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseListenerTopic, type ListenerTopic } from "@/lib/listener-topics";
@@ -41,7 +43,7 @@ function announce(url: string) {
   if (announcedStreams.has(url)) return;
   announcedStreams.add(url);
   toast.success("コメントを読み始めました", {
-    description: "視聴者は「1E」でカードを光らせ、「1E ❤」でハート、「お題:〇〇」でお題を送れます。",
+    description: "視聴者ができることは、コメント欄の ? にあります。",
     duration: 10_000,
     action: { label: "案内をコピー", onClick: () => void copyViewerGuide() },
   });
@@ -186,7 +188,8 @@ export function LiveChatDock({
               announce(connectUrl);
             }
             const match = line.match(/PRIVMSG #[^ ]+ :(.+)/);
-            if (match?.[1]) applyText(match[1].trim());
+            // /me のコメントは「\u0001ACTION 本文\u0001」で届くので、包みを外して読む
+            if (match?.[1]) applyText(match[1].replace(/^\u0001ACTION /, "").replace(/\u0001$/, "").trim());
           }
         };
         ws.onclose = () => {
@@ -214,7 +217,7 @@ export function LiveChatDock({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: connectUrl, pageToken: token || undefined, liveChatId: liveChatId || undefined }),
-          signal: AbortSignal.timeout(15_000),
+          signal: timeoutSignal(15_000),
         });
         if (cancelled) return;
         if (response.status === 404 || response.status === 405) {
@@ -310,7 +313,7 @@ export function LiveChatDock({
                   <CircleHelp className="size-3.5" aria-hidden />
                 </PopoverTrigger>
                 <PopoverContent side="bottom" align="start" className="w-[min(92vw,20rem)] gap-2 p-3">
-                  <p className="text-xs font-semibold">視聴者がコメントでできること</p>
+                  <p className="text-xs font-semibold">視聴者ができること</p>
                   <ViewerGuide />
                   <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
                     視聴者への案内をコピー
@@ -350,7 +353,7 @@ export function LiveChatDock({
             <div className="comment-overlay-log">
               {log.length === 0 ? (
                 <div className="comment-overlay-empty">
-                  <p>{status || "まだありません。配信と連携するか、下のテストコメントで試せます。"}</p>
+                  <p>{status || "コメントはまだありません。配信と連携するか、下のテストコメントで試せます。"}</p>
                   <p className="comment-overlay-guide-title">視聴者ができること</p>
                   <ViewerGuide />
                 </div>
@@ -395,6 +398,8 @@ export function LiveChatDock({
             <Input
               id="map-stream-url"
               value={streamUrl}
+              // 前の配信の URL が入っていても、そのまま貼れば置き換わるように全体を選んでおく
+              onFocus={(event) => event.currentTarget.select()}
               placeholder="YouTube の watch / Studio / チャット、または Twitch"
               onChange={(event) => {
                 const next = event.target.value;
@@ -409,6 +414,7 @@ export function LiveChatDock({
             <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => void copyViewerGuide()}>
               視聴者への案内をコピー
             </Button>
+            <TimestampCopyButton />
             {status ? <p className="map-link-status">{status}</p> : null}
             {streamUrl ? (
               <Button type="button" size="sm" variant="ghost" className="self-start" onClick={() => onStreamUrlChange("")}>
@@ -448,7 +454,7 @@ export function LiveChatDock({
           <Input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="テストコメント（例: 1E ❤ / お題:夏）"
+            placeholder="テストコメント（例: 1E / ❤ / お題:夏）"
             aria-label="テストコメント"
             className="h-8 bg-background/90 text-xs"
           />

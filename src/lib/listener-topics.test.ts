@@ -88,6 +88,19 @@ describe("お題箱", () => {
     expect(labels).toContain(`お題${BOX_LIMIT - 1}`);
   });
 
+  it("満杯でみんな 2 票以上でも、新しいお題は入る（いちばん後ろと入れ替える）", () => {
+    let box = emptyTopicBox();
+    for (let index = 0; index < BOX_LIMIT; index += 1) {
+      box = addTopic(box, `お題${index}`, index + 1);
+      box = addTopic(box, `お題${index}`, index + 1);
+    }
+    box = addTopic(box, "新しい", 100);
+    expect(box.topics).toHaveLength(BOX_LIMIT);
+    const labels = box.topics.map((topic) => topic.label);
+    expect(labels).toContain("新しい");
+    expect(labels).not.toContain("お題0");
+  });
+
   it("消した・使ったお題は、同じ言葉が来ても戻さない", () => {
     let box = addTopic(emptyTopicBox(), "夏の思い出", 1);
     box = removeTopic(box, topicKey("夏の思い出"));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
 import * as ops from "@/lib/board-ops";
@@ -24,7 +24,7 @@ import { prefsFromSettings } from "@/lib/layout";
 import { pickWeightedStarter } from "@/lib/popularity";
 import { emptyBoard } from "@/lib/storage";
 import { recordUsage } from "@/lib/usage";
-import { pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
+import { clearTalked, hasTalked, pickWeighted, rouletteCandidates, spinSequence } from "@/lib/roulette";
 import { useBoardExpand } from "@/hooks/use-board-expand";
 import { useBoardLibrary } from "@/hooks/use-board-library";
 import { useBoardRegenerate } from "@/hooks/use-board-regenerate";
@@ -47,6 +47,8 @@ export function useBoardController() {
   /** 「ずれている」の印を付けた語。盤面から消えても、このあと AI・図鑑から出し直さない */
   const rejectedRef = useRef(new Set<string>());
   const spinningRef = useRef(false);
+  /** 全部話し終えたときの「印を戻して回す」から、もう一度回す */
+  const spinAgainRef = useRef<() => void>(() => undefined);
   const [spinning, setSpinning] = useState(false);
 
   const persist = useCallback((next: AppSnapshot) => {
@@ -269,6 +271,20 @@ export function useBoardController() {
     const candidates = rouletteCandidates(board);
     const winner = pickWeighted(candidates);
     if (!winner) {
+      if (hasTalked(board)) {
+        // 全部話し終えた（前の配信のボードを使い直したときも）。印を戻せば、また同じカードから選べる
+        toast.message("まだ話していないカードがありません", {
+          description: "カードを広げて増やすか、「話した」の印を戻して回せます",
+          action: {
+            label: "印を戻して回す",
+            onClick: () => {
+              updateBoardById(board.id, clearTalked);
+              spinAgainRef.current();
+            },
+          },
+        });
+        return;
+      }
       toast.message(board.nodes.length > 1 ? "まだ話していないカードがありません" : "先にお題を広げてください", {
         description: "カードを広げると、ルーレットで選べる話題が増えます",
       });
@@ -301,6 +317,9 @@ export function useBoardController() {
       setSpinning(false);
     }
   }, [updateBoardById]);
+  useEffect(() => {
+    spinAgainRef.current = () => void spinRoulette();
+  }, [spinRoulette]);
 
   const toggleHeart = useCallback(
     (nodeId: string) =>
@@ -339,7 +358,7 @@ export function useBoardController() {
     }
   }, []);
 
-  const { shareId, publishWatchLink } = useWatchShare(activeBoard);
+  const { shareId, publishWatchLink } = useWatchShare(activeBoard, snapshot.settings.streamUrl);
 
   return {
     hydrated: mounted,
