@@ -1,4 +1,4 @@
-import type { GeminiWaitStage } from "@/lib/gemini-core";
+import type { GeminiWaitStage } from "@/lib/topic-parse";
 
 /**
  * 語がまとめて届いても、カードは REVEAL_GAP_MS ずつずらして1枚ずつ出す。

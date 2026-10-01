@@ -6,7 +6,7 @@ import { DETAIL_LABEL_MAX, ROOT_LABEL_MAX } from "@/lib/constants";
 
 /** 票で入る語の長さの上限（自分で書き直した語は少し長いこともある） */
 const PICK_TOPIC_MAX = DETAIL_LABEL_MAX;
-import { isJunkTopic } from "@/lib/gemini-core";
+import { isJunkTopic } from "@/lib/topic-parse";
 import { isPublicSafe, looksPersonal } from "@/lib/public-text";
 import { redisCommand, redisConfig } from "@/lib/redis";
 import { isRecordableSeed, isTruncatedLabel } from "@/lib/label-quality";

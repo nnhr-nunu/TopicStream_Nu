@@ -2,7 +2,7 @@ import { apiPath, isNoServerResponse } from "@/lib/api-base";
 import { CHILD_COUNT, DEFAULT_MODEL } from "@/lib/constants";
 import { sanitizeSecret } from "@/lib/env-secret";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
-import { isJunkTopic, padTopics, type GeminiWaitStage } from "@/lib/gemini-core";
+import { isJunkTopic, padTopics, type GeminiWaitStage } from "@/lib/topic-parse";
 import { recordAiUsage } from "@/lib/ai-usage";
 import { splitMix } from "@/lib/combine";
 import { fetchSharedRelated, markFillers, recallTopicsNow, rememberTopics } from "@/lib/knowledge-client";
