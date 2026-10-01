@@ -21,12 +21,13 @@ import "@xyflow/react/dist/style.css";
 
 import { CombineGhost, CombinePickBanner, CombineProvider, nodeIdAt, type CombineApi } from "@/components/combine-drag";
 import { FlowEdge } from "@/components/flow-edge";
-import { TopicNode, type TopicFlowNode } from "@/components/topic-node";
+import { TopicNode } from "@/components/topic-node";
 import { WaitCritters } from "@/components/wait-critters";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { useRouletteLanded } from "@/hooks/use-roulette";
+import { toFlowNodes, type TopicFlowNode } from "@/lib/flow-nodes";
 import { isTypingTarget, modalOpen, shortcutKey } from "@/lib/key-guards";
-import { cellCode, CENTER_CELL_INDEX } from "@/lib/mandala-ids";
+import { CENTER_CELL_INDEX } from "@/lib/mandala-ids";
 import type { Board, GenerationLayout } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -97,31 +98,6 @@ function resumeCluster(board: Board, layout: GenerationLayout): string[] {
   return board.nodes.filter(near).map((node) => node.id);
 }
 
-/** マンダラートで開いたマス → 開いた先の3×3の中央コード（例: 1F → 2E）。 */
-function openedCodes(board: Board): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const node of board.nodes) {
-    const from = node.data.copiedFromId;
-    if (!from || typeof node.data.groupId !== "number" || typeof node.data.cellIndex !== "number") continue;
-    const code = cellCode(node.data.groupId, node.data.cellIndex);
-    if (code) map.set(from, code);
-  }
-  return map;
-}
-
-/** draggable: PC で掛け合わせができるとき（スマホは長押ししてから動かすので、React Flow のドラッグは使わない） */
-function toFlowNodes(board: Board, draggable: boolean): TopicFlowNode[] {
-  const opened = openedCodes(board);
-  return board.nodes.map((node) => ({
-    id: node.id,
-    type: "topic",
-    position: node.position,
-    data: opened.has(node.id) ? { ...node.data, openedCode: opened.get(node.id) } : node.data,
-    selected: board.focusedNodeId === node.id,
-    draggable: draggable && !node.data.placeholder,
-  }));
-}
-
 /** ドラッグ中の指・カーソルの位置 */
 function pointOf(event: MouseEvent | TouchEvent): { x: number; y: number } | null {
   if ("clientX" in event) return { x: event.clientX, y: event.clientY };
@@ -175,7 +151,9 @@ function CanvasInner({
   const combining = !overlay && Boolean(onCombine);
   const mouseDrag = combining && !coarse;
   const liveIds = useMemo(() => new Set(board.nodes.map((node) => node.id)), [board]);
-  const signature = `${board.id}:${overlay}:${layout}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
+  // ボード・並べ方（マンダラート / 放射）・配信用かどうか。変わるとカードの大きさも変わる
+  const scene = `${board.id}:${overlay}:${layout}`;
+  const signature = `${scene}:${board.focusedNodeId}:${board.pinnedNodeId}:${board.nodes
     .map((node) => {
       const d = node.data;
       // カードの見た目に効く値はすべて入れる（入れ忘れると再読み込みまで画面に出ない）。
@@ -191,10 +169,15 @@ function CanvasInner({
   const edges = useMemo(() => toFlowEdges(board, layout), [board, layout]);
   const pinned = Boolean(board.pinnedNodeId);
   const [seenDrag, setSeenDrag] = useState(mouseDrag);
+  const [seenScene, setSeenScene] = useState(scene);
   if (signature !== seenSignature || seenDrag !== mouseDrag) {
     setSeenSignature(signature);
     setSeenDrag(mouseDrag);
-    setNodes(toFlowNodes(board, mouseDrag));
+    setSeenScene(scene);
+    // 同じ場面の間は、カードの測った大きさを引き継ぐ（AI の語が入るたびにカードが隠れたり線が消えたりしない）。
+    // ボードや並べ方が変わったら引き継がずに測り直させ、最初の画面合わせ（下の useNodesInitialized）を新しい大きさで行う
+    const keep = scene === seenScene;
+    setNodes((current) => toFlowNodes(board, mouseDrag, keep ? current : undefined));
   }
 
   const fitCluster = useCallback(
@@ -400,7 +383,7 @@ function CanvasInner({
     const target = point ? nodeIdAt(point.x, point.y, node.id) : null;
     setReturningId(node.id);
     window.setTimeout(() => setReturningId((id) => (id === node.id ? null : id)), 300);
-    setNodes(toFlowNodes(board, mouseDrag));
+    setNodes((current) => toFlowNodes(board, mouseDrag, current));
     finishDrop(node.id, target);
   };
 
