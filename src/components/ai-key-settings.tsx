@@ -47,6 +47,7 @@ export function AiKeySettings({
 
   return (
     <Section
+      id="settings-ai-key"
       icon={<KeyRound />}
       title="自分の AI キー"
       description="AI は、みんなで 1 つの無料枠を分け合っています。混んで話題が出ないときは、自分のキー（無料で作れます）を入れると、自分の枠で使えます。入れなくても使えます。"

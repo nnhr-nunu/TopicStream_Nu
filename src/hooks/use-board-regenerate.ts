@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import * as ops from "@/lib/board-ops";
 import { currentSnapshot, existingForPrompt } from "@/lib/board-controller-helpers";
+import { aiKeyToastAction } from "@/lib/settings-open";
 import { addSpares, SPARE_COUNT, takeSpare } from "@/lib/board-spares";
 import { detailRecordSeed } from "@/lib/detail-modes";
 import { showGenerateNotice } from "@/lib/expand-notices";
@@ -118,7 +119,10 @@ export function useBoardRegenerate({ updateBoardById, rejectedRef }: RegenerateD
         ]);
         if (result.retryLater) {
           // 定型の埋め合わせで今のカードを置き換えない
-          toast.warning(result.warning, { duration: 8_000 });
+          toast.warning(result.warning, {
+            duration: 8_000,
+            action: aiKeyToastAction(result.noticeKind, Boolean(currentSnapshot().settings.geminiApiKey)),
+          });
           return;
         }
         const [nextLabel, ...rest] = result.topics;

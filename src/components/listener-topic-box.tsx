@@ -18,7 +18,12 @@ function TopicItem({ topic, onAdopt }: { topic: ListenerTopic; onAdopt: (topic: 
         onClick={() => onAdopt(topic)}
       >
         <span className="odai-label">{topic.label}</span>
-        {topic.count > 1 ? <span className="odai-count">×{topic.count}</span> : null}
+        {/* 票が増えたら数だけ弾ませる（ボタンごと作り直すと、押している途中のクリックが落ちる） */}
+        {topic.count > 1 ? (
+          <span key={topic.count} className="odai-count">
+            ×{topic.count}
+          </span>
+        ) : null}
       </button>
       <button
         type="button"
@@ -36,9 +41,8 @@ function TopicItem({ topic, onAdopt }: { topic: ListenerTopic; onAdopt: (topic: 
 function TopicList({ topics, onAdopt }: { topics: ListenerTopic[]; onAdopt: (topic: ListenerTopic) => void }) {
   return (
     <ul className="odai-list">
-      {/* 数が増えるたびに付け直して、届いたことを一瞬光らせる */}
       {topics.map((topic) => (
-        <TopicItem key={`${topic.key}:${topic.count}`} topic={topic} onAdopt={onAdopt} />
+        <TopicItem key={topic.key} topic={topic} onAdopt={onAdopt} />
       ))}
     </ul>
   );

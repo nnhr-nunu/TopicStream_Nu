@@ -1114,11 +1114,22 @@
 }
 
 .odai-count {
+  display: inline-block;
   flex-shrink: 0;
   color: color-mix(in oklab, var(--listener) 75%, var(--foreground));
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
+  animation: odai-bump 600ms ease-out;
+}
+
+@keyframes odai-bump {
+  0% {
+    transform: scale(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .odai-remove {
@@ -1192,7 +1203,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .odai-item {
+  .odai-item,
+  .odai-count {
     animation: none;
   }
 }

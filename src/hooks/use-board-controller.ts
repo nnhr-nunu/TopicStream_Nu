@@ -150,7 +150,10 @@ export function useBoardController() {
       toast.message("戻せる操作がありません");
       return;
     }
-    for (const id of [action.parentId, ...action.childIds]) {
+    // 広げた操作を戻すときだけ、親の広げ途中も止める。R・お題箱の採用は「選んでいたカード」を親として覚えているだけなので、
+    // そのカードが別に広げている途中なら止めない（止めると空のカードが残ったままになる）
+    const opened = board.nodes.some((node) => action.childIds.includes(node.id) && node.data.parentId === action.parentId);
+    for (const id of opened ? [action.parentId, ...action.childIds] : action.childIds) {
       const key = expandKey(board.id, id);
       expandTokens.current.set(key, (expandTokens.current.get(key) ?? 0) + 1);
     }

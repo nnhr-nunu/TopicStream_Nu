@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { ArrowRight, Dices, History, ShieldAlert } from "lucide-react";
+import { ArrowRight, ClipboardList, Dices, History, Inbox, MessageSquareText, ShieldAlert } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
@@ -47,6 +47,14 @@ function subscribeNarrow(onChange: () => void) {
 function shortPlaceholder(text: string): string {
   return text.split(/[、（]/u)[0] ?? text;
 }
+
+/** 配信で使うとできること（画像の説明では伝わらない、視聴者といっしょに使う機能） */
+const LIVE_FEATURES = [
+  { Icon: MessageSquareText, title: "コメントでカードが光る", body: "視聴者が「1E」と書くと、そのカードが光ってハート +1" },
+  { Icon: Inbox, title: "お題箱", body: "「お題:〇〇」で届いたお題を、押すだけでカードにして広げる" },
+  { Icon: Dices, title: "話題ルーレット", body: "まだ話していないカードから、次の話題を選ぶ" },
+  { Icon: ClipboardList, title: "タイムスタンプ", body: "話した順と時刻を、概要欄のチャプターにコピー" },
+] as const;
 
 function SectionTitle({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
@@ -264,6 +272,18 @@ export function StartScreen({
               </h2>
             </div>
             <UsageGallery />
+            <h3 className="mt-8 mb-3 text-center text-sm font-semibold">配信で使うと</h3>
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {LIVE_FEATURES.map(({ Icon, title, body }) => (
+                <li key={title} className="flex items-start gap-3 rounded-xl border border-border/70 bg-card/70 px-3 py-2.5">
+                  <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{title}</span>
+                    <span className="block text-xs leading-5 text-muted-foreground">{body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </section>
 
           <TopicShowcase onStart={(label) => onStart(label, DEFAULT_MODE)} busy={busy} />
