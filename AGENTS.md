@@ -28,7 +28,8 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | 公開する文のフィルタ（個人情報・暴言・晒し・差別語。重い悩みは通す） | [`public-text.ts`](./src/lib/public-text.ts)（図鑑・人気のお題・みんなのマップ・AI への指示で共通）。実名の悪口など文字で見分けられないものは `topic-archive-data.ts` で手作業で隠す |
 | ショートカット | [`use-hotkeys.ts`](./src/hooks/use-hotkeys.ts)（効かせない場面の判定は [`key-guards.ts`](./src/lib/key-guards.ts)。拡大縮小の F / 0 / ± は `board-canvas.tsx`） |
 | 未完了タスク | [`task.md`](./task.md) |
-| セットアップ・キー・公開URL | [`README.md`](./README.md) |
+| クレジット表記（配信・動画の概要欄に書いてもらう文） | [`credit.ts`](./src/lib/credit.ts)（文面の元）→ [`credit-notice.tsx`](./src/components/credit-notice.tsx)（使い方ページの「配信・動画で使うとき」。コピー付き）。README の「クレジット表記のお願い」も同じ文なので、変えるときは両方そろえる |
+| セットアップ・キー・公開URL・運用（図鑑の自動育成・広告・使用量） | [`docs/setup.md`](./docs/setup.md)（README は利用者向けなので、ここには置かない） |
 
 ## 読まない（日常改修）
 
@@ -77,6 +78,6 @@ Windows の既定ターミナルは PowerShell（[`.vscode/settings.json`](./.vs
 
 - 完了タスク → `task.md` から削除（履歴は `git log`）
 - 画面の言葉は [`docs/quality-review.md`](./docs/quality-review.md) の用語集にそろえる（マップ・NOW・ハート・広げる・付箋・お題。コードの名前は board のままでよい）
-- README は起動手順・公開URL・キーの説明のみ。製品メモが増えるなら `docs/product/` を新設
+- README は利用者向け（何ができるか・つかいかた・クレジット表記のお願い）のみ。起動手順・キー・運用は `docs/setup.md`。製品メモが増えるなら `docs/product/` を新設
 - 800 行を超えるファイルは責務単位で分割する（2026-10-01 に `use-board-controller.ts` と `gemini-core.ts` を分けた。現状 `board-ops.ts` が約 700 行で最大 — 増やすなら `begin*` / `fill*` / 戻す系を `board-expand.ts` へ分ける）
 - クライアントから `/api/*` を呼ぶときは [`api-base.ts`](./src/lib/api-base.ts) の `apiPath` / `isNoServerResponse` を使う（GitHub Pages の 404 / 405 / HTML の返事をオフラインの動きに切り替える）

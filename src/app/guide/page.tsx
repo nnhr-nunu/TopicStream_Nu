@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { AdScript } from "@/components/ad-script";
 import { AdSlot } from "@/components/ad-slot";
 import { AiKeySteps } from "@/components/ai-key-steps";
+import { CreditNotice } from "@/components/credit-notice";
 import { SiteLinks } from "@/components/site-links";
 import { UsageGallery } from "@/components/usage-gallery";
 
@@ -92,6 +93,10 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "「AI の利用上限に達しました」と出ます。",
     a: "AI はみんなで 1 つの無料枠を分け合っているので、混む時間は使い切ってしまうことがあります。時間を置くか、このページの「自分の AI キーを入れる」の手順で自分のキー（無料）を入れると、自分の枠で続けられます。",
+  },
+  {
+    q: "配信や動画で使ってもいいですか？",
+    a: "はい。使ったときは、概要欄などにこのページ下のクレジットを書いていただけるとうれしいです。",
   },
   {
     q: "個人情報を書いても大丈夫ですか？",
@@ -211,6 +216,14 @@ export default function GuidePage() {
             </div>
           ))}
         </dl>
+      </Card>
+
+      <Card id="credit">
+        <Heading>配信・動画で使うとき（クレジット表記のお願い）</Heading>
+        <p>
+          配信や動画で TopicStream(ぬ) を使っていただいたときは、概要欄などに次のクレジットを書いていただけるとうれしいです。
+        </p>
+        <CreditNotice />
       </Card>
 
       <Link
