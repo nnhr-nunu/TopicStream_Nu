@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { HomeIntro } from "@/components/home-intro";
 import { LiveChatDock } from "@/components/live-chat-dock";
 import { ModeDock } from "@/components/mode-dock";
 import { PinBanner } from "@/components/pin-banner";
@@ -126,13 +127,7 @@ export function TopicWorkspace() {
     roulette: () => void controller.spinRoulette(),
   }, onBoard);
 
-  if (!controller.hydrated || !board || !settings) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-        マップを読み込み中…
-      </div>
-    );
-  }
+  if (!controller.hydrated || !board || !settings) return <HomeIntro />;
 
   const showHome = atHome || board.nodes.length === 0;
   const pinnedNode = board.pinnedNodeId ? board.nodes.find((node) => node.id === board.pinnedNodeId) : undefined;

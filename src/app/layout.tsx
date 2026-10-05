@@ -3,7 +3,7 @@ import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 
 import { AppProviders } from "@/components/app-providers";
 import { adConfig } from "@/lib/ads";
-import { SHARE_TITLE, SITE_DESCRIPTION, SITE_TITLE } from "@/lib/page-metadata";
+import { SHARE_TITLE, SITE_DESCRIPTION, SITE_ROBOTS, SITE_TITLE } from "@/lib/page-metadata";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 import "./app-chrome.css";
@@ -25,7 +25,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
-  keywords: ["マインドマップ", "マンダラート", "雑談配信", "話題", "ネタ出し", "アイデア出し", "お悩み相談", "目標設定", "VTuber"],
+  robots: SITE_ROBOTS,
+  keywords: ["マインドマップ", "マンダラート", "雑談配信", "話題", "ネタ出し", "ネタ切れ", "トークテーマ", "話題ジェネレーター", "アイデア出し", "お悩み相談", "目標設定", "VTuber"],
   openGraph: {
     type: "website",
     siteName: "TopicStream(ぬ)",

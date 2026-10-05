@@ -5,6 +5,7 @@ import { ArrowRight, ClipboardList, Dices, History, Inbox, MessageSquareText, Sh
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
 import { DeveloperFooter } from "@/components/developer-footer";
+import { HomeHeading } from "@/components/home-intro";
 import { ModeBadge, ModePicker } from "@/components/mode-picker";
 import { PRIVACY_NOTICE } from "@/components/privacy-notice";
 import { StreamDirectory } from "@/components/stream-directory";
@@ -20,8 +21,6 @@ import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
 import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
 import { looksAbusive } from "@/lib/public-text";
 import type { Board, BoardMode } from "@/lib/types";
-
-const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
 function formatUpdated(ms: number): string {
   const date = new Date(ms);
@@ -127,17 +126,7 @@ export function StartScreen({
         {/* 本文はすべて同じ幅の 1 カラムにそろえる（セクションごとに幅を変えない） */}
         <div className="mx-auto w-full min-w-0 max-w-4xl px-4 pt-24 sm:pt-28">
           <header className="flex flex-col items-center text-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポート（Pages）でも同じパスで出すため */}
-            <img src={`${base}/topicstream-logo.svg`} alt="" width={56} height={56} className="size-14 rounded-2xl" />
-            <p className="mt-4 text-sm font-semibold text-primary">
-              TopicStream<span className="ml-0.5 text-xs">(ぬ)</span>
-            </p>
-            <h1 className="mt-2 text-3xl leading-tight font-bold tracking-tight text-balance sm:text-5xl">
-              もう、話題に詰まらない。
-            </h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-pretty text-muted-foreground [word-break:auto-phrase] sm:text-base">
-              お題をひとつ入れるだけで、話せるネタや考えの切り口が 8 方向に広がる。
-            </p>
+            <HomeHeading />
 
             <div className="mt-7 w-full max-w-2xl">
               <ModePicker value={mode} onChange={setMode} disabled={busy} />

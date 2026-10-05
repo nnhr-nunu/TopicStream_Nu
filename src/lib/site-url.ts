@@ -7,7 +7,8 @@ const PRODUCTION_URL = "https://topic-stream.oshilog.life";
 
 /**
  * 検索エンジンに伝える「このページの正しい場所」。path は末尾の / なし（例: /topics/abc）。
- * キー無しデモ（GitHub Pages）にも同じページが出るので、そちらは本番の URL を指して、検索の評価が2つに割れないようにする
+ * キー無しデモ（GitHub Pages）にも同じページが出るので、そちらでも本番の URL を返す（共有カードの URL・構造化データ）。
+ * デモは丸ごと noindex なので、canonical のタグ自体は付けない（page-metadata.ts）
  */
 export function canonicalUrl(path: string): string {
   return `${process.env.STATIC_EXPORT === "1" ? PRODUCTION_URL : siteUrl()}${path}`;
