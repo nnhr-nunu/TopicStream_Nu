@@ -4,12 +4,9 @@
 
 | ID | 観点 | 重要度 | 場所 | 問題か提案 | 体験への影響 | 根拠 | 直し方の案 | 手間 | 状態 |
 |---|---|---|---|---|---|---|---|---|---|
-| Q-006 | SEO | 高 | `src/app/page.tsx` / `topic-workspace.tsx:129` / `community-catalog.tsx` | 問題 | 検索で一番大事な入口（トップ）の中身がクローラーに伝わりにくく、「雑談配信 話題」などで見つけてもらえない | 本番 `/` の初期 HTML の本文は「マップを読み込み中…」だけ（h1・説明・内部リンク 0）。`/community` も「みんなのマップを読み込み中…」だけ | 読み込み中の表示を、サーバーで描く短い紹介（h1・一文・使い方/図鑑/お題ページへのリンク）にする | 中 | 判断待ち |
-| Q-007 | SEO | 中 | GitHub Pages デモ（nnhr-nunu.github.io） / `.github/workflows/pages.yml` | 問題 | 古いデモが本番と別に検索に出ると、古い説明で入ってきて迷う | デモは旧 title・旧 description、canonical・noindex なし、robots.txt・sitemap・/guide・/topics は 404。`pages.yml` はビルド確認だけでデプロイしない（d066fe2）。README・setup.md はこの URL を案内 | (a) デモを今のビルドで更新（canonical は本番を指すよう済み）(b) デモ全体を noindex (c) デモを閉じて案内を消す | 中 | 判断待ち |
-| Q-008 | SEO | 中 | `src/app/robots.ts:11` | 問題 | 「いっしょに見る」を X に貼ってもカードが出ない（Twitterbot は robots.txt に従う） | `/watch` `/overlay` を Disallow。noindex は今回付けたので、Disallow を外してもカードだけ出せる | `/watch` の Disallow を外し、見る画面の og:title をマップ名にする（外すなら）。外さないなら今のまま | 小〜中 | 判断待ち |
+| Q-007 | SEO | 中 | GitHub Pages デモ（nnhr-nunu.github.io） / `.github/workflows/pages.yml` | 問題 | 古いデモが本番と別に検索に出ると、古い説明で入ってきて迷う | デモは旧 title・旧 description、canonical・noindex なし。`pages.yml` はビルド確認だけでデプロイしない（d066fe2）。配信元のリポジトリも不明 | 「デモ全体を noindex」に決定（2026-10-05）。コードは済み（静的ビルドは全ページ noindex・canonical なし・robots に sitemap なし）。**公開中のデモへの反映（デプロイ）が残り** | 小 | 判断待ち（デプロイ） |
 | Q-009 | SEO | 中 | `layout.tsx`（`AppProviders`） | 提案 | 検索から来た人が、読むだけのページ（お題ページ・使い方）でも JS を待つ | gzip で `/guide`・`/topics/<slug>` 約 285〜290KB、`/` 約 520KB。LCP・INP は未計測 | 静的ページのクライアント JS を減らす（プロバイダーを入口だけに） | 中〜大 | 見送り |
 | Q-010 | SEO | 低 | `topics/[slug]/page.tsx:72` | 提案 | 検索結果で title が切れて、サービス名や件数が見えない | title は 58〜127 文字。「グッズのアイデア」のアイデア…のように語が重なるものも | 長いお題は件数・接尾辞を省く、「アイデア」の重なりを言い換える | 小 | 判断待ち |
-| Q-011 | SEO | 低 | `src/lib/page-metadata.ts`（`SITE_TITLE` / `SITE_DESCRIPTION`） | 提案 | 想定の検索語で引っかかりにくい | 「ネタ切れ」「トークテーマ」「ジェネレーター」が title・description に無い。想定語そのものが推測 | 検索語を決めてから description の先頭に入れる | 小 | 判断待ち |
 | Q-012 | SEO | 低 | `src/app/page.tsx` | 提案 | 検索結果で「無料のWebアプリ」と伝わる手がかりが増える | `/` に JSON-LD が無い（お題ページは BreadcrumbList あり） | WebApplication の JSON-LD を 1 つ | 小 | 判断待ち |
 | Q-013 | SEO | 低 | `src/app/sitemap.ts:19` | 提案 | 更新したお題ページが早く拾われる | lastmod 無し、全ページ changefreq weekly | データの更新日を `lastModified` に、changefreq は外す | 小 | 判断待ち |
 | Q-014 | SEO | 低 | `src/app/`（アイコン） | 提案 | ホーム画面に追加・古いクローラーで既定の絵になる | `/favicon.ico`・apple-touch-icon・manifest が 404（`icon.svg` だけ） | `favicon.ico` と `apple-icon.png` を足す（絵の用意が要る） | 小 | 判断待ち |
@@ -20,7 +17,8 @@
 - 範囲: 全体（Vercel 本番 + GitHub Pages デモ）。観点: SEO。目線: 指定なし
 - 割り振り: SEO 担当 = sonnet・qr（エフォートはセッションと同じ）。裏取り・修正・差分レビューはメイン（opus）
 - 確かめたこと（問題なし）: robots.txt・sitemap.xml は 200（195 URL がすべて実在）。お題ページ 190 件は title の重複なし・canonical・BreadcrumbList あり・初期 HTML に本文あり。404 は noindex。OGP 画像 1200×630 と alt あり
-- まず直すべきもの: Q-006（トップの初期 HTML）→ Q-007（デモ）→ Q-008（いっしょに見るのカード）
+- 判断の結果（2026-10-05）: Q-006 読み込み前を紹介に / Q-007 デモは丸ごと noindex / Q-008 Disallow を外してカードを出す / Q-011 検索語は下書きのとおり（すべておすすめの案）
+- 残り: Q-007 のデプロイ、Q-009（JS の量）は見送り、Q-010・Q-012〜Q-015 は低の提案
 - 見られなかったこと: LCP・CLS・INP の実測、X での実際のカード表示、デモの配信元リポジトリ
 
 ## 2026-10-02 の回（UI/UX と表記が中心）
@@ -98,8 +96,11 @@
 
 | ID | 観点 | 重要度 | 場所 | 内容 | コミット |
 |---|---|---|---|---|---|
-| Q-001 | SEO | 中 | `src/lib/page-metadata.ts` ほか各 `page.tsx` | トップ・使い方・図鑑・みんなのマップ・プライバシーに canonical が無かった（`?utm_` 付きやデモと評価が割れる）→ 付けた。デモのビルドでは本番を指す | af42d44 |
+| Q-001 | SEO | 中 | `src/lib/page-metadata.ts` ほか各 `page.tsx` | トップ・使い方・図鑑・みんなのマップ・プライバシーに canonical が無かった（`?utm_` 付きと評価が割れる）→ 付けた。デモは Q-007 で丸ごと noindex にしたので canonical なし | af42d44 |
 | Q-002 | SEO | 中 | 同上 | og:title・twitter:title が全ページでトップの文、og:url も無かった → ページごとに | af42d44 |
 | Q-003 | SEO | 中 | `src/app/community/page.tsx` | みんなのマップの title・description がトップのコピー → 「みんなが作った話題マップ」 | af42d44 |
 | Q-004 | SEO | 中 | `src/app/watch/`・`src/app/overlay/` | 配信ごとの画面に noindex が無かった（`/watch?…` の静的版も）→ noindex と title | af42d44, 730964c |
 | Q-005 | SEO | 低 | `src/components/usage-gallery.tsx:81` | 使い方の画像の alt が「話題が 8 方向に広がるの画面」と崩れていた → 「画面の例: 〇〇」 | af42d44 |
+| Q-006 | SEO | 高 | `src/components/home-intro.tsx` / `topic-workspace.tsx` | トップの最初の HTML が「マップを読み込み中…」だけだった → 読み込み前はホームと同じ見出し・一文・使い方/図鑑/みんなのマップへのリンク（見出しの位置は読み込み後と同じ。PC・スマホ幅で確認）。みんなのマップは h1 と説明が初めから HTML にあった（調査の指摘は一部誤り） | 8ef5e73 |
+| Q-008 | SEO | 中 | `src/app/robots.ts` / `src/app/watch/[id]/page.tsx` | `/watch` の Disallow を外し、X に貼るとマップ名と「〇〇 の枠」入りのカードが出るように（noindex は付けたまま。オーバーレイは Disallow のまま） | 8ef5e73 |
+| Q-011 | SEO | 低 | `src/lib/page-metadata.ts` | 想定の検索語（ネタ切れ・トークテーマ）を description の先頭に。検索語は下書きのとおりで確定 | 8ef5e73 |

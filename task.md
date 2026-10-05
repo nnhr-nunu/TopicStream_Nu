@@ -4,10 +4,8 @@
 
 ## 残り: SEO（2026-10-05。詳細は docs/quality-review.md の Q-006〜Q-015）
 
-- [ ] トップ・みんなのマップの初期 HTML が「読み込み中…」だけ（Q-006）
-- [ ] GitHub Pages デモが古いまま（更新・noindex・閉じるのどれか。Q-007）
-- [ ] いっしょに見るを X に貼るとカードが出ない（robots の Disallow。Q-008）
-- [ ] お題ページの title の長さ・検索語・JSON-LD・sitemap の lastmod・favicon・www（Q-010〜Q-015）
+- [ ] GitHub Pages デモ（nnhr-nunu.github.io）が古いビルドのまま。丸ごと noindex にするコードは済み、公開中のデモへの反映（デプロイ・配信元リポジトリの確認）が残り（Q-007）
+- [ ] お題ページの title の長さ・JSON-LD・sitemap の lastmod・favicon・www（Q-010・Q-012〜Q-015）。読むだけのページの JS の量（Q-009、見送り）
 
 ## 改善案: 使ってもらうための機能（2026-09-30）
 
