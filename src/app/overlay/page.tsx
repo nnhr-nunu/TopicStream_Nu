@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { OverlayWorkspace } from "@/components/overlay-workspace";
+
+/** 配信ごとの画面なので検索には出さない（robots.txt でもクロールを止めている） */
+export const metadata: Metadata = {
+  title: "オーバーレイ | TopicStream(ぬ)",
+  robots: { index: false, follow: false },
+};
 
 export default function OverlayPage() {
   return (

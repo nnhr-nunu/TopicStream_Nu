@@ -3,6 +3,7 @@ import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 
 import { AppProviders } from "@/components/app-providers";
 import { adConfig } from "@/lib/ads";
+import { SHARE_TITLE, SITE_DESCRIPTION, SITE_TITLE } from "@/lib/page-metadata";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 import "./app-chrome.css";
@@ -19,9 +20,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_TITLE = "TopicStream(ぬ) | 話題が広がるマインドマップ・マンダラートWebサービス";
-const SITE_DESCRIPTION =
-  "お題をひとつ入れると、話せるネタや考えの切り口を 8 方向に広げるマインドマップ・マンダラート。雑談配信のネタ出しから、お悩み相談・アイデア出し・目標の分解・振り返り・調べものまで。登録不要・無料。";
 
 export const metadata: Metadata = {
   // X などで共有したときのカード画像（opengraph-image.png）を絶対 URL にするための基準。公開先ごとに変えられる
@@ -33,12 +31,12 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "TopicStream(ぬ)",
     locale: "ja_JP",
-    title: "TopicStream(ぬ) | もう、話題に詰まらない。",
+    title: SHARE_TITLE,
     description: SITE_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "TopicStream(ぬ) | もう、話題に詰まらない。",
+    title: SHARE_TITLE,
     description: SITE_DESCRIPTION,
   },
   // AdSense のサイト所有確認用。ID 未設定なら出さない。

@@ -78,7 +78,7 @@ export function UsageGallery({ className }: { className?: string }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- 静的エクスポートでも同じパスで出すため */}
               <img
                 src={`${base}/guide/${step.image}.webp`}
-                alt={`${step.title}の画面`}
+                alt={`画面の例: ${step.title}`}
                 width={1200}
                 height={750}
                 loading={i === 0 ? "eager" : "lazy"}

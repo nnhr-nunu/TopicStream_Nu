@@ -1,11 +1,16 @@
-import type { Metadata } from "next";
+import type { ResolvingMetadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export const metadata: Metadata = {
-  title: "プライバシーポリシー | TopicStream(ぬ)",
-  description: "TopicStream(ぬ)の広告・Cookie・保存データの扱いについて。",
-};
+import { pageMetadata } from "@/lib/page-metadata";
+
+export function generateMetadata(_: unknown, parent: ResolvingMetadata) {
+  return pageMetadata(parent, {
+    path: "/privacy",
+    title: "プライバシーポリシー | TopicStream(ぬ)",
+    description: "TopicStream(ぬ)の広告・Cookie・保存データの扱いについて。",
+  });
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (

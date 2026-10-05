@@ -8,6 +8,7 @@ import { AdSlot } from "@/components/ad-slot";
 import { SiteLinks } from "@/components/site-links";
 import { TopicPageMandala, TopicStartButton } from "@/components/topic-page-start";
 import { modePreset } from "@/lib/modes";
+import { pageMetadata } from "@/lib/page-metadata";
 import { canonicalUrl } from "@/lib/site-url";
 import { categoryLabel } from "@/lib/topic-knowledge";
 import { relatedTopicPages, topicPageBySlug, topicPages, type TopicPage } from "@/lib/topic-pages";
@@ -76,26 +77,12 @@ function pageTitle(page: TopicPage): string {
 export async function generateMetadata({ params }: Props, parent: ResolvingMetadata): Promise<Metadata> {
   const page = topicPageBySlug((await params).slug);
   if (!page) return {};
-  // openGraph を書き直すと共有カードの画像（opengraph-image.png）が外れるので、親のものを引き継ぐ
-  const inherited = await parent;
-  const title = `${pageTitle(page)} | TopicStream(ぬ)`;
-  const description = `${page.topics.slice(0, 5).join("、")}など、「${page.seed}」の${COPY[page.mode].list}を ${page.topics.length} 個。押すだけで 3×3 の話題マップになり、AI でさらに広げられます。登録不要・無料。`;
-  const url = canonicalUrl(`/topics/${page.slug}`);
-  return {
-    title,
-    description,
-    alternates: { canonical: url },
-    openGraph: {
-      type: "article",
-      siteName: "TopicStream(ぬ)",
-      locale: "ja_JP",
-      title,
-      description,
-      url,
-      images: inherited.openGraph?.images,
-    },
-    twitter: { card: "summary_large_image", title, description, images: inherited.twitter?.images },
-  };
+  return pageMetadata(parent, {
+    path: `/topics/${page.slug}`,
+    title: `${pageTitle(page)} | TopicStream(ぬ)`,
+    description: `${page.topics.slice(0, 5).join("、")}など、「${page.seed}」の${COPY[page.mode].list}を ${page.topics.length} 個。押すだけで 3×3 の話題マップになり、AI でさらに広げられます。登録不要・無料。`,
+    type: "article",
+  });
 }
 
 const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";

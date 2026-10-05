@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { ResolvingMetadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -8,12 +8,16 @@ import { AiKeySteps } from "@/components/ai-key-steps";
 import { CreditNotice } from "@/components/credit-notice";
 import { SiteLinks } from "@/components/site-links";
 import { UsageGallery } from "@/components/usage-gallery";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
-  title: "使い方 | TopicStream(ぬ)",
-  description:
-    "TopicStream(ぬ)の使い方。キーワードを1つ入れるだけで、雑談配信のネタが3×3のマップで広がります。コメント連動やOBS表示の方法も。",
-};
+export function generateMetadata(_: unknown, parent: ResolvingMetadata) {
+  return pageMetadata(parent, {
+    path: "/guide",
+    title: "使い方 | TopicStream(ぬ)",
+    description:
+      "TopicStream(ぬ)の使い方。キーワードを1つ入れるだけで、雑談配信のネタが3×3のマップで広がります。コメント連動やOBS表示の方法も。",
+  });
+}
 
 function Card({ id, children }: { id?: string; children: ReactNode }) {
   return (
