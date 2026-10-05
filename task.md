@@ -2,6 +2,13 @@
 
 完了の詳細は `git log`。制約はエージェント用の [`AGENTS.md`](./AGENTS.md)。
 
+## 残り: SEO（2026-10-05。詳細は docs/quality-review.md の Q-006〜Q-015）
+
+- [ ] トップ・みんなのマップの初期 HTML が「読み込み中…」だけ（Q-006）
+- [ ] GitHub Pages デモが古いまま（更新・noindex・閉じるのどれか。Q-007）
+- [ ] いっしょに見るを X に貼るとカードが出ない（robots の Disallow。Q-008）
+- [ ] お題ページの title の長さ・検索語・JSON-LD・sitemap の lastmod・favicon・www（Q-010〜Q-015）
+
 ## 改善案: 使ってもらうための機能（2026-09-30）
 
 方針（2026-09-30 に決定）: 「みんなに共有しない」の設定は入れない。みんなが公開しているからこその安心感があり、重い悩みこそ公開する（フィルタは [`public-text.ts`](./src/lib/public-text.ts) のまま、重い悩みは通す）。
