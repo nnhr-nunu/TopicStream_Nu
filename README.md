@@ -5,6 +5,18 @@
 - 公式ページ: https://topic-stream.oshilog.life/
 - キーなしデモ（AI の代わりに用意済みの話題で動きます）: https://nnhr-nunu.github.io/
 
+## クレジット表記のお願い
+
+配信や動画で使っていただいたときは、概要欄などに次のクレジットを書いていただけるとうれしいです。
+
+```text
+TopicStream(ぬ)
+開発者：ぬぬはら - 催眠音声制作者
+YouTube：https://www.youtube.com/@nnhr_nunu
+X(Twitter)：https://x.com/nnhr_nunu
+公式ページ：https://topic-stream.oshilog.life/
+```
+
 ## つかいかた
 
 1. ホームでお題（キーワード）を入れて「始める」。思いつかないときはサイコロのボタン
@@ -35,18 +47,6 @@ OBS のウィンドウキャプチャでブラウザを映すのが手軽です�
 | `Z` / `Y` | 1 つ戻る / 進む |
 | `+` / `-` | 拡大 / 縮小 |
 | `0` | 全体を表示 |
-
-## クレジット表記のお願い
-
-配信や動画で使っていただいたときは、概要欄などに次のクレジットを書いていただけるとうれしいです。
-
-```text
-TopicStream(ぬ)
-開発者：ぬぬはら - 催眠音声制作者
-YouTube：https://www.youtube.com/@nnhr_nunu
-X(Twitter)：https://x.com/nnhr_nunu
-公式ページ：https://topic-stream.oshilog.life/
-```
 
 ## 開発者・お問い合わせ
 
