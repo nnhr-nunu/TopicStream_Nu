@@ -1,6 +1,9 @@
 import { Suspense } from "react";
 
 import { WatchPageClient } from "@/components/watch-page-client";
+import { streamPageMetadata } from "@/lib/page-metadata";
+
+export const metadata = streamPageMetadata("いっしょに見る");
 
 export default function WatchPage() {
   return (

@@ -48,3 +48,8 @@ export async function pageMetadata(parent: ResolvingMetadata, page: PageMeta): P
     },
   };
 }
+
+/** 配信ごとの画面（いっしょに見る・オーバーレイ）。検索には出さない（robots.txt でもクロールを止めている） */
+export function streamPageMetadata(name: string): Metadata {
+  return { title: `${name} | TopicStream(ぬ)`, robots: { index: false, follow: false } };
+}

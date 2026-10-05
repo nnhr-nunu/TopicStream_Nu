@@ -20,7 +20,6 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-
 export const metadata: Metadata = {
   // X などで共有したときのカード画像（opengraph-image.png）を絶対 URL にするための基準。公開先ごとに変えられる
   metadataBase: new URL(siteUrl()),
