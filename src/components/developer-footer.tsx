@@ -5,16 +5,17 @@ const LINK = "break-all text-primary underline-offset-2 hover:underline";
 const RELATED = [
   { label: "推し活支援サービス：推しログ(ぬ)", href: "https://oshilog.life/" },
   {
-    label: "配信者向け写真表示ソフト：StreamMediaViewer(ぬ)",
-    href: "https://x.com/nnhr_nunu/status/2100926390078169405",
-  },
-  {
     label: "Xのエゴサーチ支援Webサービス：エゴサ支援ツール(ぬ)",
     href: "https://self-search.oshilog.life/",
   },
+  { label: "性癖を可視化するWebサービス：性癖カルテ", href: "https://seiheki.net/" },
   {
     label: "心音配信に合わせて動く心臓ソフトウェア：StreamHeartbeat(ぬ)",
     href: "https://github.com/nnhr-nunu/StreamHeartbeat_Nu",
+  },
+  {
+    label: "配信者向け写真表示ソフト：StreamMediaViewer(ぬ)",
+    href: "https://x.com/nnhr_nunu/status/2100926390078169405",
   },
   { label: "Slay the Spire 2 催眠術師Mod", href: "https://x.com/nnhr_nunu/status/2083033452128207076" },
 ] as const;
