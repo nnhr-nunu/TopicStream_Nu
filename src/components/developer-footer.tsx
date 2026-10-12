@@ -8,7 +8,7 @@ const RELATED = [
     label: "Xのエゴサーチ支援Webサービス：エゴサ支援ツール(ぬ)",
     href: "https://self-search.oshilog.life/",
   },
-  { label: "性癖を可視化するWebサービス：性癖カルテ", href: "https://seiheki.net/" },
+  { label: "性癖を可視化するWebサービス：性癖カルテ(ぬ)", href: "https://seiheki.net/" },
   {
     label: "心音配信に合わせて動く心臓ソフトウェア：StreamHeartbeat(ぬ)",
     href: "https://github.com/nnhr-nunu/StreamHeartbeat_Nu",
