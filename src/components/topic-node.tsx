@@ -7,13 +7,12 @@ import { toast } from "sonner";
 import { useBoardActions } from "@/components/board-actions";
 import { useCombine } from "@/components/combine-drag";
 import { NodeDraftEditor, TopicActionsMenu, useMenuHold } from "@/components/topic-actions-menu";
-import { StickyNotePanel } from "@/components/sticky-note-panel";
+import { ExplainNotePanel, StickyNotePanel } from "@/components/sticky-note-panel";
 import { useChatHearts } from "@/hooks/use-chat-hearts";
 import { useCoarsePointer } from "@/hooks/use-coarse-pointer";
 import { usePulsing } from "@/hooks/use-pulse-codes";
 import { useRouletteMark } from "@/hooks/use-roulette";
 import { LABEL_EDIT_MAX } from "@/lib/constants";
-import { appendToMemo } from "@/lib/explain";
 import { fitLabelFontSize } from "@/lib/fit-label";
 import { formatHeartCount, totalHearts } from "@/lib/live-hearts";
 import { cellCode } from "@/lib/mandala-ids";
@@ -55,6 +54,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     pinNode,
     focusNode,
     setMemo,
+    setExplain,
     setLabel,
     detailNode,
     explainNode,
@@ -68,13 +68,11 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     spareCountFor,
     generationLayout,
     expandMode,
+    bigCodes,
   } = useBoardActions();
   const [editor, setEditor] = useState<"label" | null>(null);
   const [memoOpen, setMemoOpen] = useState(false);
-  const memoRef = useRef(data.memo);
-  useEffect(() => {
-    memoRef.current = data.memo;
-  }, [data.memo]);
+  const [explainOpen, setExplainOpen] = useState(false);
   const menu = useMenuHold();
   const coarse = useCoarsePointer();
   const combine = useCombine();
@@ -91,14 +89,15 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
     menu.hideNow();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   };
-  // 解説: ダイアログは出さず、そのまま付箋に貼る（届くまでの間はトーストで知らせる）
-  const explainToMemo = () => {
-    if (!explainNode) return;
+  // 解説: ダイアログは出さず、そのままカードに解説の付箋を貼る（届くまでの間はトーストで知らせる）。
+  // 自分の付箋（memo）とは別に持ち、いっしょに見る画面・オーバーレイ・みんなが作った話題マップにも出す
+  const explainToCard = () => {
+    if (!explainNode || !setExplain) return;
     const label = data.label;
     const toastId = toast.loading(`「${label}」の解説を取得中…`);
     void explainNode(id, label).then((result) => {
       if (result.text) {
-        setMemo(id, appendToMemo(memoRef.current, result.text));
+        setExplain(id, result.text);
         toast.success("解説を付箋に貼りました", { id: toastId, description: result.warning });
         return;
       }
@@ -110,6 +109,9 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
       });
     });
   };
+  // 自分の付箋は自分の画面だけ。解説はオーバーレイ・いっしょに見る画面にも出す
+  const showMemo = Boolean(data.memo) && !data.placeholder && !overlay;
+  const showExplain = Boolean(data.explain) && !data.placeholder;
   const isFocused = focusedNodeId === id || selected;
   const isRoot = data.parentId === null;
   const isMandala = generationLayout === "mandala";
@@ -132,8 +134,10 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
   // 文のカード（「具体的にする」の答え・図鑑から取り込んだ長い文）は小さめの文字で左寄せ
   const sentence = !gloss && isSentenceCard(data);
   const labelMax = sentence ? 13 : isRoot ? 16 : 15;
+  // 配信のコメントを読んでいる間は番号を大きく出す。そのぶん語に使える高さを詰める（globals.css の .topic-chip-bigcode）
+  const bigCode = Boolean(bigCodes && code);
   const labelW = isMandala ? MANDALA_CHIP_W - 36 : 16 * 16 - 36;
-  const labelH = isMandala ? MANDALA_CHIP_H - 28 : 72;
+  const labelH = isMandala ? MANDALA_CHIP_H - (bigCode ? 37 : 28) : 72;
   const fontSize = gloss
     ? fitLabelFontSize(gloss.term, labelW, labelH * 0.5, 16, 10)
     : isMandala
@@ -361,22 +365,47 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         </span>
       ) : null}
 
-      {data.memo && !data.placeholder && !overlay ? (
-        <button
-          type="button"
-          className="topic-memo-tag nodrag"
-          aria-label={`付箋: ${data.memo}（開いて編集）`}
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.stopPropagation();
-            setMemoOpen(true);
-          }}
-        >
-          <span className="topic-memo-tag-text">{data.memo}</span>
-          <span className="topic-memo-tag-full" aria-hidden>
-            {data.memo}
-          </span>
-        </button>
+      {/* カードの上の縁に貼る付箋: 解説（みんなに見える）と、自分の付箋（自分の画面だけ） */}
+      {showExplain || showMemo ? (
+        <div className="topic-notes">
+          {showExplain ? (
+            <button
+              type="button"
+              className="topic-memo-tag topic-explain-tag nodrag"
+              aria-label={`解説: ${data.explain}（開く）`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setExplainOpen(true);
+              }}
+            >
+              <span className="topic-memo-tag-text">
+                <span aria-hidden>💡 </span>
+                {data.explain}
+              </span>
+              <span className="topic-memo-tag-full" aria-hidden>
+                {data.explain}
+              </span>
+            </button>
+          ) : null}
+          {showMemo ? (
+            <button
+              type="button"
+              className="topic-memo-tag nodrag"
+              aria-label={`付箋: ${data.memo}（開いて編集）`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                setMemoOpen(true);
+              }}
+            >
+              <span className="topic-memo-tag-text">{data.memo}</span>
+              <span className="topic-memo-tag-full" aria-hidden>
+                {data.memo}
+              </span>
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <button
@@ -397,6 +426,7 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
           talked && "topic-chip-talked",
           roulette === "spin" && "topic-chip-roulette",
           roulette === "hit" && "topic-chip-roulette-hit",
+          bigCode && "topic-chip-bigcode",
         )}
         onPointerDown={(event) => {
           event.stopPropagation();
@@ -508,6 +538,16 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
         onCommit={(next) => setMemo(id, next)}
       />
 
+      {showExplain ? (
+        <ExplainNotePanel
+          open={explainOpen}
+          title={data.label}
+          value={data.explain ?? ""}
+          onOpenChange={setExplainOpen}
+          onRemove={!overlay && setExplain ? () => setExplain(id, "") : undefined}
+        />
+      ) : null}
+
       {overlay ? null : (
         <TopicActionsMenu
           open={(menu.open || (!coarse && editor === "label")) && !dragging}
@@ -521,10 +561,10 @@ function TopicNodeComponent({ id, data, selected, dragging }: NodeProps<TopicFlo
               : undefined
           }
           onExplain={
-            explainNode && !data.placeholder
+            explainNode && setExplain && !data.placeholder
               ? () => {
                   leaveMenu();
-                  explainToMemo();
+                  explainToCard();
                 }
               : undefined
           }

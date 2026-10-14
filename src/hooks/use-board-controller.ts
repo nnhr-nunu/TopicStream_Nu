@@ -200,6 +200,14 @@ export function useBoardController() {
       }),
     [updateBoard],
   );
+  const setExplain = useCallback(
+    (nodeId: string, text: string) =>
+      updateBoard((board) => {
+        const current = currentSnapshot();
+        return ops.setExplain(board, nodeId, text, prefsFromSettings(current.settings, false, board.pinnedNodeId));
+      }),
+    [updateBoard],
+  );
   const setLabel = useCallback(
     (nodeId: string, label: string) =>
       updateBoard((board) => {
@@ -386,6 +394,7 @@ export function useBoardController() {
     undo,
     redo,
     setMemo,
+    setExplain,
     setLabel,
     pinNode,
     focusNode,

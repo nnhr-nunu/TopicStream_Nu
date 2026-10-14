@@ -5,9 +5,11 @@ import { useSearchParams } from "next/navigation";
 
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { CommentHint } from "@/components/comment-hint";
 import { PinBanner } from "@/components/pin-banner";
 import { useBoardController } from "@/hooks/use-board-controller";
 import { useHotkeys } from "@/hooks/use-hotkeys";
+import { parseStreamUrl } from "@/lib/stream-url";
 
 export function OverlayWorkspace() {
   const searchParams = useSearchParams();
@@ -50,6 +52,9 @@ export function OverlayWorkspace() {
     );
   }
 
+  // 配信と連携していれば（この画面は配信に映す前提なので）、番号を大きくし、コメントでできることをときどき出す
+  const linked = Boolean(parseStreamUrl(settings.streamUrl));
+
   if (board.nodes.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-10 text-center">
@@ -70,6 +75,7 @@ export function OverlayWorkspace() {
         setLabel: controller.setLabel,
         copyLabel: (id) => void controller.copyLabel(id),
         overlay: true,
+        bigCodes: linked,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: board.focusedNodeId,
         generationLayout: settings.generationLayout,
@@ -95,6 +101,7 @@ export function OverlayWorkspace() {
           layout={settings.generationLayout}
           onFocus={controller.focusNode}
         />
+        {linked ? <CommentHint nodes={board.nodes} /> : null}
       </div>
     </BoardActionsProvider>
   );

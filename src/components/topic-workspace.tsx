@@ -43,6 +43,8 @@ export function TopicWorkspace() {
   // （ホームから始めたときは、入力欄の下に同じ注意書きがあるので盤面では出さない）
   // 値は出すたびに変わる印（時刻）。出し終えた印は覚えてあるので、マップを開き直しても同じ注意書きは出ない
   const [privacyNotice] = useState(() => (hasStartKeywordRequest() ? Date.now() : 0));
+  // 配信のコメントを読めている間は、カードの番号を大きく出す
+  const [reading, setReading] = useState(false);
   // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す。
   // ボード一覧からは表示中でないボードもシェアできるので、対象のボードを覚えておく
   const [sharePostOpen, setSharePostOpen] = useState(false);
@@ -151,6 +153,7 @@ export function TopicWorkspace() {
           }),
         pinNode: controller.pinNode,
         setMemo: controller.setMemo,
+        setExplain: controller.setExplain,
         setLabel: controller.setLabel,
         copyLabel: (id) => void controller.copyLabel(id),
         toggleHeart: controller.toggleHeart,
@@ -161,6 +164,7 @@ export function TopicWorkspace() {
         spareCountFor: (id) => spareCount(board, board.nodes.find((node) => node.id === id)?.data.parentId),
         generationLayout: settings.generationLayout,
         expandMode: settings.expandMode,
+        bigCodes: reading && !showHome,
       }}
     >
       <div
@@ -250,6 +254,7 @@ export function TopicWorkspace() {
               autoStreamer={autoStreamer}
               onStreamerChange={changeStreamer}
               onShowCommentsChange={(showComments) => controller.patchSettings({ showComments })}
+              onReadingChange={setReading}
             >
               <PinBanner
                 label={pinnedLabel}

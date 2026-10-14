@@ -87,6 +87,8 @@ html[data-theme="fresh"] {
   --sidebar-ring: oklch(0.62 0.11 155);
   --sticky: oklch(0.94 0.05 95);
   --sticky-foreground: oklch(0.36 0.04 80);
+  --explain-note: oklch(0.93 0.04 225);
+  --explain-note-foreground: oklch(0.33 0.05 240);
   --chip-fill: color-mix(in oklab, oklch(0.995 0.01 95) 92%, white);
   --now: oklch(0.78 0.09 85);
   --now-foreground: oklch(0.32 0.05 70);
@@ -128,6 +130,8 @@ html[data-theme="calm"] {
   --sidebar-ring: oklch(0.52 0.07 180);
   --sticky: oklch(0.93 0.04 95);
   --sticky-foreground: oklch(0.34 0.03 80);
+  --explain-note: oklch(0.92 0.035 225);
+  --explain-note-foreground: oklch(0.32 0.04 240);
   --chip-fill: color-mix(in oklab, oklch(0.98 0.012 120) 94%, white);
   --now: oklch(0.72 0.07 80);
   --now-foreground: oklch(0.3 0.04 70);
@@ -168,6 +172,8 @@ html[data-theme="stream"],
   --sidebar-ring: oklch(0.82 0.07 165);
   --sticky: oklch(0.9 0.06 95);
   --sticky-foreground: oklch(0.3 0.04 80);
+  --explain-note: oklch(0.89 0.05 225);
+  --explain-note-foreground: oklch(0.28 0.05 240);
   --chip-fill: color-mix(in oklab, oklch(0.3 0.03 175) 90%, black);
   --now: oklch(0.84 0.08 90);
   --now-foreground: oklch(0.24 0.04 70);
@@ -362,6 +368,23 @@ html.overlay-mode .topic-chip {
   letter-spacing: 0.08em;
   line-height: 1;
   color: color-mix(in oklab, var(--family-line, var(--primary)) 80%, var(--foreground));
+}
+
+/* 配信のコメントを読んでいる間: 視聴者が書き写しやすいよう、番号を濃い色の札にして大きく（語の高さは topic-node.tsx で詰める） */
+.topic-chip-bigcode .topic-id {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--family-line, var(--primary)) 82%, black);
+  padding: 0.08rem 0.5rem;
+  color: white;
+  font-size: calc(1.05rem * var(--ts-scale));
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.topic-chip-bigcode .topic-opened {
+  background: color-mix(in oklab, white 22%, transparent);
+  font-size: 0.6em;
+  vertical-align: 0.15em;
 }
 
 .topic-opened {

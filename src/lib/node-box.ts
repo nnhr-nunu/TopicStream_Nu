@@ -131,7 +131,8 @@ export function estimateLocalBox(node: Pick<TNode, "id" | "data">, prefs: Requir
   let right = right0;
   let bottom = chipH / 2;
 
-  const memo = node.data.memo?.trim() ?? "";
+  // 付箋と解説の付箋は、どちらもカードの上の縁に貼る。両方あれば合わせた長さで見積もる
+  const memo = [node.data.memo?.trim(), node.data.explain?.trim()].filter(Boolean).join("\n");
   if (memo) {
     const memoFont = 12 * scale;
     const memoW = Math.max(9.5 * REM, 8.4 * REM * scale);

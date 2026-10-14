@@ -159,20 +159,40 @@ export function previewGroup(nodes: CritterNode[], focusedId: string | null, cen
 export type CritterWait = CritterGroup & { waitNo: number };
 
 /**
- * 待ちの出入りの記録。live は待っている範囲（同じカードは1つだけ）、leaving は待ちが終わって消える途中の範囲。
- * 1つの待ち（waitNo）は live か leaving のどちらかに1回だけ出る。同じカードがすぐにまた待つと、前の待ちの消える途中の場面と
- * 新しい待ちの場面が並ぶ（番号が違うので key は重ならない）。lastNo は最後に付けた待ち番号
+ * 待ちの出入りの記録。live は待っている範囲（同じカードは1つだけ）、lingering は待ちが終わったあともしばらく遊んでいる範囲、
+ * leaving は消える途中の範囲。1つの待ち（waitNo）は live → lingering → leaving の順に進み、戻らない。
+ * 同じカードがすぐにまた待つと、前の待ちの消える途中の場面と新しい待ちの場面が並ぶ（番号が違うので key は重ならない）。
+ * lastNo は最後に付けた待ち番号
  */
-export type WaitTrack = { live: CritterWait[]; leaving: CritterWait[]; lastNo: number };
+export type WaitTrack = { live: CritterWait[]; lingering: CritterWait[]; leaving: CritterWait[]; lastNo: number };
 
-export const NO_WAITS: WaitTrack = { live: [], leaving: [], lastNo: 0 };
+export const NO_WAITS: WaitTrack = { live: [], lingering: [], leaving: [], lastNo: 0 };
+
+/** 親のカードと、その子のカードがまだ盤面にあるか（戻した・ボードを替えたら無い） */
+function stillOnBoard(nodes: CritterNode[], parentId: string): boolean {
+  return nodes.some((node) => node.id === parentId) && nodes.some((node) => node.data.parentId === parentId);
+}
+
+/** 遊び続ける範囲を今のカードの位置に合わせる（測れていなければ前の範囲のまま）。待ちは終わったので空のカードは無い */
+function settle(nodes: CritterNode[], wait: CritterWait): CritterWait {
+  const cards = groupAround(nodes, wait.key)?.cards ?? wait.cards;
+  return {
+    ...wait,
+    cards: cards.some((card) => card.empty) ? cards.map((card) => (card.empty ? { ...card, empty: false } : card)) : cards,
+  };
+}
 
 /**
  * 盤面が変わったときの、待ちの出入り。待ちが終わるのは、親のカードの空のカードが無くなったとき。
  * 語が1つ入るたびに nodes が作り直され、大きさが一瞬測れなくなる間も、まだ待っているので前の範囲のまま続ける
- * （終わったことにすると、同じ場面が消える途中のものとして何枚も重なり、動物が点滅する）
+ * （終わったことにすると、同じ場面が消える途中のものとして何枚も重なり、動物が点滅する）。
+ * lingers が true を返す待ちは、終わってもすぐ消えずに遊び続ける（lingering）。新しい待ちが始まったら・カードが盤面から消えたら帰る
  */
-export function trackWaits(prev: WaitTrack, nodes: CritterNode[]): WaitTrack {
+export function trackWaits(
+  prev: WaitTrack,
+  nodes: CritterNode[],
+  lingers: (wait: CritterWait) => boolean = () => false,
+): WaitTrack {
   const waiting = waitingParentIds(nodes);
   const measured = new Map(groupsFor(nodes, waiting).map((group) => [group.key, group]));
   const live: CritterWait[] = [];
@@ -183,9 +203,28 @@ export function trackWaits(prev: WaitTrack, nodes: CritterNode[]): WaitTrack {
     measured.delete(wait.key);
   }
   let lastNo = prev.lastNo;
+  const started = measured.size > 0;
   for (const group of measured.values()) live.push({ ...group, waitNo: (lastNo += 1) });
-  // 終わった待ちは消える途中の場面に回す。外すのは dropLeaving（待ちごとに時間が来たら）だけ
-  return { live, leaving: ended.length > 0 ? [...prev.leaving, ...ended] : prev.leaving, lastNo };
+
+  const lingering: CritterWait[] = [];
+  const leave: CritterWait[] = [];
+  for (const wait of prev.lingering) {
+    if (!started && stillOnBoard(nodes, wait.key)) lingering.push(settle(nodes, wait));
+    else leave.push(wait);
+  }
+  for (const wait of ended) {
+    if (!started && lingers(wait) && stillOnBoard(nodes, wait.key)) lingering.push(settle(nodes, wait));
+    else leave.push(wait);
+  }
+  // 外すのは endLinger（遊ぶ時間が来たら）と dropLeaving（消える様子を見せ終わったら）だけ
+  return { live, lingering, leaving: leave.length > 0 ? [...prev.leaving, ...leave] : prev.leaving, lastNo };
+}
+
+/** 遊び続けている待ちを1つ、消える途中に回す（遊ぶ時間が来たとき）。無い番号なら何も変えない */
+export function endLinger(track: WaitTrack, waitNo: number): WaitTrack {
+  const wait = track.lingering.find((item) => item.waitNo === waitNo);
+  if (!wait) return track;
+  return { ...track, lingering: track.lingering.filter((item) => item !== wait), leaving: [...track.leaving, wait] };
 }
 
 /** 消える途中の待ちを1つ外す（その待ちが終わってから、消える様子を見せ終わったとき）。無い番号なら何も変えない */
@@ -201,6 +240,7 @@ export function dropLeaving(track: WaitTrack, waitNo: number): WaitTrack {
 export function shownWaits(track: WaitTrack): { wait: CritterWait; leaving: boolean }[] {
   return [
     ...track.live.map((wait) => ({ wait, leaving: false })),
+    ...track.lingering.map((wait) => ({ wait, leaving: false })),
     ...track.leaving.map((wait) => ({ wait, leaving: true })),
   ].sort((a, b) => a.wait.waitNo - b.wait.waitNo);
 }

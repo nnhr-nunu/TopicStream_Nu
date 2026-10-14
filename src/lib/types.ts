@@ -18,7 +18,10 @@ export type TopicNodeRole = "source" | "keyword";
 
 export type TopicNodeData = {
   label: string;
+  /** 付箋（自分用のメモ）。サーバーへは送らない */
   memo: string;
+  /** 解説ボタンで出た解説の文（そのまま貼ったもの）。付箋と違い、いっしょに見る画面・みんなが作った話題マップにも出る */
+  explain?: string;
   parentId: string | null;
   expanded: boolean;
   expanding: boolean;
