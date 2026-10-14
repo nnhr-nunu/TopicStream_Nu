@@ -179,7 +179,7 @@ function CanvasInner({
     .map((node) => {
       const d = node.data;
       // カードの見た目に効く値はすべて入れる（入れ忘れると再読み込みまで画面に出ない）。
-      return `${node.id}:${d.label}:${d.memo}:${d.heartCount ?? 0}:${d.frameHearts ?? 0}:${d.expanding ? 1 : 0}:${d.expanded ? 1 : 0}:${d.placeholder ? 1 : 0}:${d.role ?? ""}:${d.groupId ?? ""}:${d.cellIndex ?? ""}:${d.familyIndex ?? ""}:${node.position.x}:${node.position.y}`;
+      return `${node.id}:${d.label}:${d.memo}:${d.explain ?? ""}:${d.heartCount ?? 0}:${d.frameHearts ?? 0}:${d.expanding ? 1 : 0}:${d.expanded ? 1 : 0}:${d.placeholder ? 1 : 0}:${d.role ?? ""}:${d.groupId ?? ""}:${d.cellIndex ?? ""}:${d.familyIndex ?? ""}:${node.position.x}:${node.position.y}`;
     })
     .join("|")}`;
   const [nodes, setNodes] = useState<TopicFlowNode[]>(() => toFlowNodes(board, mouseDrag));

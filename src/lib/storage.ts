@@ -1,6 +1,6 @@
 import { asColorTheme } from "@/lib/color-theme";
 import { DEFAULT_MODE, isBoardMode } from "@/lib/modes";
-import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, DEFAULT_SETTINGS, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
+import { COMMENT_SCALE_MAX, COMMENT_SCALE_MIN, DEFAULT_SETTINGS, MEMO_MAX, RETIRED_GEMINI_MODELS, STORAGE_KEY } from "@/lib/constants";
 import { createId, todayBoardName } from "@/lib/ids";
 import type { AppSnapshot, Board, Settings, TEdge, TNode } from "@/lib/types";
 import { isCritterKind } from "@/lib/wait-critters";
@@ -49,6 +49,10 @@ function asNode(value: unknown): TNode | null {
     data: {
       label: String(node.data.label ?? "").slice(0, 160),
       memo: String(node.data.memo ?? "").slice(0, 4000),
+      explain:
+        typeof node.data.explain === "string" && node.data.explain.trim()
+          ? node.data.explain.trim().slice(0, MEMO_MAX)
+          : undefined,
       parentId: typeof node.data.parentId === "string" ? node.data.parentId.slice(0, 64) : null,
       expanded: Boolean(node.data.expanded),
       expanding: false,
@@ -183,7 +187,7 @@ function asSettings(value: unknown, snapshotVersion = 2): Settings {
 
 export { asBoard };
 
-/** 付箋は自分用のメモなので、サーバーへ送る・サーバーで残すボードからは外す */
+/** 付箋は自分用のメモなので、サーバーへ送る・サーバーで残すボードからは外す（解説ボタンの解説は残す） */
 export function withoutMemos(board: Board): Board {
   return { ...board, nodes: board.nodes.map((node) => (node.data.memo ? { ...node, data: { ...node.data, memo: "" } } : node)) };
 }

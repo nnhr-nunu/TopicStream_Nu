@@ -565,6 +565,17 @@ export function setMemo(
   );
 }
 
+/** 解説ボタンで出た文を貼る（空なら外す）。付箋（memo）とは別に持つ */
+export function setExplain(board: Board, nodeId: string, text: string, prefs: LayoutPrefs = {}): Board {
+  const explain = text.trim().slice(0, MEMO_MAX) || undefined;
+  return maybeLayout(
+    touch(board, {
+      nodes: board.nodes.map((node) => (node.id === nodeId ? { ...node, data: { ...node.data, explain } } : node)),
+    }),
+    prefs,
+  );
+}
+
 export function setLabel(
   board: Board,
   nodeId: string,

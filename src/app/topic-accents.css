@@ -1,14 +1,25 @@
 /* カードの装飾: 付箋タグ・NOW リボン・ピン留めの強調・ハートの +N・マンダラートのつながり線 */
 
-/* 付箋: カードの上の縁（左肩。右肩は ♡ ボタン）に貼った黄色いメモ。下に出る操作メニューと重ならないよう上へはみ出す */
-.topic-memo-tag {
+/* 付箋: カードの上の縁（左肩。右肩は ♡ ボタン）に貼ったメモ。下に出る操作メニューと重ならないよう上へはみ出す。
+   解説（青・みんなに見える）と自分の付箋（黄・自分の画面だけ）が両方あれば横に並べる */
+.topic-notes {
   position: absolute;
   left: -0.35rem;
   bottom: calc(100% - 0.5rem);
   z-index: 6;
+  display: flex;
+  max-width: 80%;
+  align-items: flex-end;
+  gap: 0.3rem;
+}
+
+.topic-memo-tag {
+  position: relative;
   display: block;
+  min-width: 0;
+  flex: 0 1 auto;
   width: max-content;
-  max-width: 72%;
+  max-width: 100%;
   rotate: -1.6deg;
   border: 0;
   border-radius: 0.3rem 0.3rem 0.45rem 0.3rem;
@@ -46,6 +57,26 @@
 .topic-memo-tag:focus-visible {
   rotate: 0deg;
   translate: 0 -2px;
+}
+
+/* 解説ボタンで貼った解説: 自分の付箋と見分けられるよう青い紙に */
+.topic-explain-tag,
+.topic-explain-tag .topic-memo-tag-full {
+  background: var(--explain-note);
+  color: var(--explain-note-foreground);
+}
+
+.topic-explain-tag {
+  rotate: 1.2deg;
+}
+
+/* 2 枚あるときは半分ずつ（長い解説が自分の付箋を押しつぶさないように） */
+.topic-notes > .topic-memo-tag:not(:only-child) {
+  max-width: calc(50% - 0.15rem);
+}
+
+.topic-explain-tag::before {
+  background: color-mix(in oklab, white 55%, var(--explain-note));
 }
 
 /* 1行まで。それ以上はホバーで全文 */

@@ -18,6 +18,8 @@ type BoardActions = {
   /** カードを選ぶ（枠を付け、E・P・G・C キーの対象にする）。広げないカードを押したときに使う */
   focusNode?: (id: string) => void;
   setMemo: (id: string, memo: string) => void;
+  /** 解説ボタンで出た文をカードに貼る（空で消す）。自分の付箋と違い、いっしょに見る画面などにも出る */
+  setExplain?: (id: string, text: string) => void;
   setLabel?: (id: string, label: string) => void;
   copyLabel: (id: string) => void;
   toggleHeart?: (id: string) => void;
@@ -35,6 +37,8 @@ type BoardActions = {
   generationLayout?: GenerationLayout;
   /** 「具体的」のときはカードのタップで「具体的にする」、メニューに「抽象展開」を出す */
   expandMode?: ExpandMode;
+  /** 配信のコメントを読んでいる間: 視聴者が番号を書きやすいよう、カードの番号を大きく出す */
+  bigCodes?: boolean;
 };
 
 const BoardActionsContext = createContext<BoardActions | null>(null);

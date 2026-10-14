@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asBoard, parseImportedBoards } from "@/lib/storage";
+import { asBoard, parseImportedBoards, withoutMemos } from "@/lib/storage";
 import type { TNode } from "@/lib/types";
 
 function node(id: string, parentId: string | null, data: Partial<TNode["data"]> = {}): TNode {
@@ -22,6 +22,21 @@ describe("書き出した JSON の読み込み", () => {
   it("ボードがあれば読み込む", () => {
     const boards = parseImportedBoards({ boards: [{ id: "b1", name: "雑談", nodes: [node("r", null)], edges: [] }] });
     expect(boards?.map((board) => board.id)).toEqual(["b1"]);
+  });
+});
+
+describe("付箋と解説", () => {
+  it("サーバーへ送るボードから自分の付箋は外し、解説ボタンの解説は残す", () => {
+    const board = asBoard({
+      id: "b1",
+      name: "雑談",
+      nodes: [node("root", null, { memo: "自分だけのメモ", explain: "  休日に家で過ごすこと。 " }), node("a", "root", { explain: "   " })],
+      edges: [],
+    })!;
+    expect(board.nodes.map((item) => item.data.explain)).toEqual(["休日に家で過ごすこと。", undefined]);
+    const sent = withoutMemos(board);
+    expect(sent.nodes[0]!.data.memo).toBe("");
+    expect(sent.nodes[0]!.data.explain).toBe("休日に家で過ごすこと。");
   });
 });
 

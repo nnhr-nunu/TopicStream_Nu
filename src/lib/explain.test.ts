@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  appendToMemo,
   buildExplainPrompt,
   clipSentence,
   EXPLAIN_MAX,
@@ -30,13 +29,6 @@ describe("解説", () => {
     expect(offlineExplanation("冬の朝の習慣", ["冬"]).text).toBe("");
     expect(explainQuery("じゃけん：だから", ["広島弁"])).toBe("広島弁 じゃけん");
     expect(explainQuery("広島弁の語尾", ["広島弁"])).toBe("広島弁の語尾");
-  });
-
-  it("付箋には改行して足し、入りきらない分は縮める", () => {
-    expect(appendToMemo("", "とても。")).toBe("とても。");
-    expect(appendToMemo("オチを言う", "とても。")).toBe("オチを言う\nとても。");
-    expect(appendToMemo("とても。", "とても。")).toBe("とても。");
-    expect(appendToMemo("メ".repeat(100), `${"あ".repeat(30)}。`).length).toBeLessThanOrEqual(EXPLAIN_MAX);
   });
 });
 

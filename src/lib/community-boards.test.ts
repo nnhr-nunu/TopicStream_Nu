@@ -45,6 +45,15 @@ describe("みんなが作った話題マップ", () => {
     expect(entry?.opened).toBe(1);
   });
 
+  it("解説ボタンの解説は載せる。個人につながりそうな解説だけ外す（ボードは載せる）", () => {
+    const source = board({ root: "休日の過ごし方", openChild: true });
+    source.nodes[1]!.data.explain = "休日に家で過ごすこと。";
+    source.nodes[2]!.data.explain = "連絡は 090-1234-5678 まで。";
+    const entry = toCommunityBoard(source, "cb_1");
+    expect(entry?.nodes[1]!.data.explain).toBe("休日に家で過ごすこと。");
+    expect(entry?.nodes[2]!.data.explain).toBeUndefined();
+  });
+
   it("URL や連絡先を含むボードは載せない", () => {
     const entry = toCommunityBoard(board({ root: "休日", openChild: true, label: "090-1234-5678" }), "cb_1");
     expect(entry).toBeNull();

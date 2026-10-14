@@ -14,6 +14,62 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { MEMO_MAX } from "@/lib/constants";
 
+/** 解説ボタンで貼った解説の付箋。書き換えはできない（自分の文を混ぜるなら自分の付箋へ）。onRemove が無ければ読むだけ */
+export function ExplainNotePanel({
+  open,
+  title,
+  value,
+  onOpenChange,
+  onRemove,
+}: {
+  open: boolean;
+  title: string;
+  value: string;
+  onOpenChange: (open: boolean) => void;
+  onRemove?: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="sm:max-w-md"
+        showCloseButton
+        finalFocus={false}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <DialogHeader>
+          <DialogTitle>💡 {title || "解説"}</DialogTitle>
+          <DialogDescription>
+            {onRemove
+              ? "解説はいっしょに見る画面・みんなが作った話題マップにも出ます（📝 自分の付箋は出ません）。"
+              : "自動で作った解説です。まちがっていることもあります。"}
+          </DialogDescription>
+        </DialogHeader>
+        <p className="whitespace-pre-wrap text-sm leading-6">{value}</p>
+        <DialogFooter>
+          {onRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                onRemove();
+                onOpenChange(false);
+              }}
+            >
+              解説を外す
+            </Button>
+          ) : null}
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            閉じる
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function StickyNotePanel({
   open,
   title,

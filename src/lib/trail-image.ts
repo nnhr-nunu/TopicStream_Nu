@@ -374,7 +374,7 @@ function drawMap(board: Board, layout: GenerationLayout, trail: TopicTrail, titl
         h: MANDALA_CHIP_H,
       };
     }
-    const box = estimateLocalBox({ ...node, data: { ...node.data, memo: "" } }, prefs);
+    const box = estimateLocalBox({ ...node, data: { ...node.data, memo: "", explain: undefined } }, prefs);
     return {
       item: node,
       x: node.position.x + box.left,

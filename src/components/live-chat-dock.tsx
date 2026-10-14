@@ -11,6 +11,7 @@ import { TimestampCopyButton } from "@/components/talk-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CommentHint } from "@/components/comment-hint";
 import { copyViewerGuide, ViewerGuide } from "@/components/viewer-guide";
 import { addListenerTopic, removeListenerTopic, useListenerTopics } from "@/hooks/use-listener-topics";
 import { useSettled } from "@/hooks/use-settled";
@@ -64,6 +65,7 @@ export function LiveChatDock({
   streamer,
   autoStreamer,
   onStreamerChange,
+  onReadingChange,
   children,
 }: {
   board: Board | null;
@@ -84,6 +86,8 @@ export function LiveChatDock({
   /** 配信 URL から分かる名前（✏️ で空にしたときに戻る名前） */
   autoStreamer: string;
   onStreamerChange: (name: string) => void;
+  /** 配信のコメントを読めている（連携中）かどうかが変わった */
+  onReadingChange?: (reading: boolean) => void;
   children: ReactNode;
 }) {
   const streamRef = useMemo(() => parseStreamUrl(streamUrl), [streamUrl]);
@@ -289,6 +293,11 @@ export function LiveChatDock({
     };
   }, [applyText, connectUrl]);
 
+  const reading = linked && live.phase === "live";
+  useEffect(() => {
+    onReadingChange?.(reading);
+  }, [onReadingChange, reading]);
+
   const linkedLabel = !streamRef
     ? "配信と連携"
     : live.phase === "live"
@@ -384,7 +393,10 @@ export function LiveChatDock({
             </div>
           </aside>
         ) : null}
-        <div className="map-live-canvas">{children}</div>
+        <div className="map-live-canvas">
+          {children}
+          {reading ? <CommentHint nodes={board?.nodes ?? []} /> : null}
+        </div>
       </div>
 
       <div className="map-bottom-bar">

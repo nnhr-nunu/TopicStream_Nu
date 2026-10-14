@@ -4,7 +4,7 @@ import type { BoardMode } from "@/lib/types";
 
 /**
  * 解説: カードの言葉を、話の流れ（祖先のお題）を踏まえて短く解説する。
- * 盤面は広げず、読んで分かれば済むもの。付箋に貼れるよう MEMO_MAX に収める。
+ * 盤面は広げず、読んで分かれば済むもの。カードの解説の付箋（data.explain）に貼れるよう MEMO_MAX に収める。
  */
 
 /** 解説の長さの上限（付箋にそのまま貼れる長さ） */
@@ -85,14 +85,4 @@ export function offlineExplanation(label: string, context: string[] = []): Expla
     ? clipSentence(`「${gloss.term}」は${near ? `${near}で` : ""}「${gloss.meaning}」という意味。`, EXPLAIN_MAX)
     : "";
   return { text, source: "offline", query: explainQuery(label, context) };
-}
-
-/** 付箋に足す（今の付箋があれば改行して後ろへ。入りきらなければ解説を縮める） */
-export function appendToMemo(memo: string, text: string): string {
-  const current = memo.trim();
-  if (!current) return clipSentence(text, EXPLAIN_MAX);
-  if (current.includes(text)) return current;
-  const room = EXPLAIN_MAX - current.length - 1;
-  if (room < 10) return current;
-  return `${current}\n${clipSentence(text, room)}`;
 }

@@ -11,6 +11,19 @@ function labelsOf(board: Board): string[] {
 
 const radial = normalizePrefs({ generationLayout: "radial", density: "comfortable" });
 
+describe("解説の付箋", () => {
+  it("自分の付箋とは別に持ち、空にすると外れる", () => {
+    let board = ops.createRootBoard(emptyBoard("test"), "根", radial);
+    const rootId = board.nodes[0]!.id;
+    board = ops.setMemo(board, rootId, "自分のメモ", radial);
+    board = ops.setExplain(board, rootId, " 根のこと。 ", radial);
+    expect(board.nodes[0]!.data).toMatchObject({ memo: "自分のメモ", explain: "根のこと。" });
+    board = ops.setExplain(board, rootId, "", radial);
+    expect(board.nodes[0]!.data.explain).toBeUndefined();
+    expect(board.nodes[0]!.data.memo).toBe("自分のメモ");
+  });
+});
+
 describe("展開のやり直し", () => {
   it("一つ戻ると、その展開のノード・辺・付箋が残らない", () => {
     let board = ops.createRootBoard(emptyBoard("test"), "根", radial);

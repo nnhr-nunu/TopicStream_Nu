@@ -1058,6 +1058,98 @@
   padding: 0.05rem 0.35rem;
 }
 
+/* 配信のコメントを読んでいる間、盤面の下にときどきふわっと出る「コメントで話題を選べます！」（comment-hint.tsx）。触れないので盤面の操作を邪魔しない */
+.comment-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 1.1rem;
+  z-index: 15;
+  display: flex;
+  max-width: min(24rem, calc(100% - 2rem));
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 38%, var(--border));
+  border-radius: 1.4rem;
+  background: color-mix(in oklab, var(--popover) 90%, var(--primary));
+  padding: 0.5rem 1.1rem 0.55rem 0.85rem;
+  color: var(--popover-foreground);
+  box-shadow: 0 12px 32px color-mix(in oklab, black 20%, transparent);
+  font-size: calc(0.8rem * var(--ts-scale, 1));
+  line-height: 1.35;
+  pointer-events: none;
+  opacity: 0;
+  translate: -50% 14px;
+  scale: 0.94;
+  transition:
+    opacity 0.8s ease,
+    translate 0.8s ease,
+    scale 0.8s ease;
+}
+
+.comment-hint-on {
+  opacity: 1;
+  translate: -50% 0;
+  scale: 1;
+  animation: comment-hint-float 3.4s ease-in-out 0.8s infinite;
+}
+
+@keyframes comment-hint-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.comment-hint-icon {
+  font-size: 1.35em;
+}
+
+.comment-hint-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.comment-hint-body strong {
+  font-size: 1.08em;
+  font-weight: 800;
+}
+
+.comment-hint-body > span {
+  color: var(--muted-foreground);
+}
+
+.comment-hint-code {
+  border-radius: 999px;
+  background: var(--primary);
+  padding: 0 0.4rem;
+  color: var(--primary-foreground);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+/* スマホでは左下の切り替え（広げる / 具体化）の上に出す */
+@media (max-width: 640px) {
+  .comment-hint {
+    bottom: 4.6rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comment-hint {
+    translate: -50% 0;
+    scale: 1;
+    transition: opacity 0.4s ease;
+  }
+
+  .comment-hint-on {
+    animation: none;
+  }
+}
+
 .odai-box {
   flex-shrink: 0;
   padding: 0 0.6rem 0.4rem 0.7rem;

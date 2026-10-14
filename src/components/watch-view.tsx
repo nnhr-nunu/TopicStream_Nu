@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { CommentHint } from "@/components/comment-hint";
 import { PinBanner } from "@/components/pin-banner";
 import { Button } from "@/components/ui/button";
 import { ViewerGuide } from "@/components/viewer-guide";
@@ -181,6 +182,8 @@ export function WatchView({ shareId }: { shareId: string }) {
         },
         overlay: true,
         viewer: true,
+        // 配信者がコメントを読んでいる間は、書き写しやすいよう番号を大きく
+        bigCodes: chat,
         pinnedNodeId: board.pinnedNodeId,
         focusedNodeId: viewBoard.focusedNodeId,
         generationLayout: layout,
@@ -248,6 +251,8 @@ export function WatchView({ shareId }: { shareId: string }) {
           fromListener={Boolean(board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.fromListener)}
         />
         <BoardCanvas board={viewBoard} overlay layout={layout} onFocus={setLocalFocus} />
+        {/* 配信に映す（OBS）ときは、コメントでできることを盤面の下にときどき出す（見る人の画面には上の案内がある） */}
+        {chat && obs ? <CommentHint nodes={viewBoard.nodes} /> : null}
       </div>
     </BoardActionsProvider>
   );

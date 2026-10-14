@@ -73,6 +73,8 @@ export function toCommunityBoard(board: Board, id: string, now = Date.now()): Co
         ...node.data,
         label: node.data.label.trim().slice(0, node.data.parentId === null ? ROOT_LABEL_MAX : LABEL_MAX * 2),
         memo: "",
+        // 解説ボタンの解説は載せる（AI の文でも、個人につながりそうな語・人を傷つける語があれば外す）
+        explain: node.data.explain && isPublicSafe(node.data.explain) ? node.data.explain : undefined,
         expanding: false,
         spares: undefined,
         copiedFromId: undefined,

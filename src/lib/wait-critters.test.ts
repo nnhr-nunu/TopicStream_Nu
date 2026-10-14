@@ -10,6 +10,7 @@ import {
   CRITTER_KINDS,
   critterPaths,
   dropLeaving,
+  endLinger,
   NO_WAITS,
   pickCritter,
   previewGroup,
@@ -268,6 +269,53 @@ describe("待ちの出入り", () => {
     expect(order(track)).toEqual([["p", true], ["q", true], ["p", false]]);
   });
 
+  it("遊び続ける待ちは、終わっても消えずに残り（空のカードは無くなる）、遊ぶ時間が来たら消える途中に回る", () => {
+    const always = () => true;
+    let track = trackWaits(NO_WAITS, board(1), always);
+    track = trackWaits(track, board(0), always);
+    expect(track.live).toEqual([]);
+    expect(ids(track.lingering)).toEqual([["p", 1]]);
+    expect(track.leaving).toEqual([]);
+    expect(track.lingering[0]!.cards.some((card) => card.empty)).toBe(false);
+    expect(shownWaits(track).map((item) => item.leaving)).toEqual([false]);
+
+    // 盤面が作り直されて測れなくても、遊び続ける
+    track = trackWaits(track, board(0, { measured: false }), always);
+    expect(ids(track.lingering)).toEqual([["p", 1]]);
+
+    track = endLinger(track, 1);
+    expect(track.lingering).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+    // もう無い番号なら何も変えない
+    expect(endLinger(track, 1)).toBe(track);
+  });
+
+  it("遊び続けている間に、新しい待ちが始まったら・カードが盤面から消えたら、すぐ帰る", () => {
+    const always = () => true;
+    const both = (p: number, q: number) => [...board(p), ...board(q, { parent: "q" })];
+    let track = trackWaits(NO_WAITS, both(1, 0), always);
+    track = trackWaits(track, both(0, 0), always);
+    expect(ids(track.lingering)).toEqual([["p", 1]]);
+    track = trackWaits(track, both(0, 2), always);
+    expect(ids(track.live)).toEqual([["q", 2]]);
+    expect(track.lingering).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+
+    // 戻して子のカードが無くなった
+    track = trackWaits(NO_WAITS, board(1), always);
+    track = trackWaits(track, board(0), always);
+    track = trackWaits(track, [node("p", null, 0)], always);
+    expect(track.lingering).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+  });
+
+  it("遊び続けない待ち（リアルな絵・出てくる前に終わった待ち）は、終わったらすぐ消える途中に回る", () => {
+    let track = trackWaits(NO_WAITS, board(1), () => false);
+    track = trackWaits(track, board(0), () => false);
+    expect(track.lingering).toEqual([]);
+    expect(ids(track.leaving)).toEqual([["p", 1]]);
+  });
+
   it("どんな順に出入りしても、場面の key が重ならず、待っている同じカードは1つだけで、終わった待ちは戻らない", () => {
     const random = seeded(11);
     const ended = new Set<number>();
@@ -281,17 +329,20 @@ describe("待ちの出入り", () => {
         return board(0, { parent });
       });
       const before = track.lastNo;
-      track = trackWaits(track, nodes);
-      // 消える時間が来た場面を、ときどき外す
+      // 番号が偶数の待ちだけ、終わっても遊び続ける
+      track = trackWaits(track, nodes, (wait) => wait.waitNo % 2 === 0);
+      // 遊ぶ時間・消える時間が来た場面を、ときどき外す
+      if (track.lingering.length > 0 && random() < 0.3) track = endLinger(track, track.lingering[0]!.waitNo);
       if (track.leaving.length > 0 && random() < 0.3) track = dropLeaving(track, track.leaving[0]!.waitNo);
 
       const keys = shownWaits(track).map(({ wait }) => `${wait.key}:${wait.waitNo}`);
       expect(new Set(keys).size).toBe(keys.length);
       expect(new Set(track.live.map((wait) => wait.key)).size).toBe(track.live.length);
       for (const wait of track.live) expect(ended.has(wait.waitNo)).toBe(false);
-      for (const wait of track.leaving) ended.add(wait.waitNo);
+      for (const wait of track.lingering) expect(wait.waitNo % 2).toBe(0);
+      for (const wait of [...track.lingering, ...track.leaving]) ended.add(wait.waitNo);
       expect(track.lastNo).toBeGreaterThanOrEqual(before);
-      for (const wait of [...track.live, ...track.leaving]) expect(wait.waitNo).toBeLessThanOrEqual(track.lastNo);
+      for (const wait of [...track.live, ...track.lingering, ...track.leaving]) expect(wait.waitNo).toBeLessThanOrEqual(track.lastNo);
     }
   });
 });
