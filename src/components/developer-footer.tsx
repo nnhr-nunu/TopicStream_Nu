@@ -1,24 +1,7 @@
+import { RELATED_SERVICES } from "@/components/related-services";
 import { SiteLinks } from "@/components/site-links";
 
 const LINK = "break-all text-primary underline-offset-2 hover:underline";
-
-const RELATED = [
-  { label: "推し活支援サービス：推しログ(ぬ)", href: "https://oshilog.life/" },
-  {
-    label: "Xのエゴサーチ支援Webサービス：エゴサ支援ツール(ぬ)",
-    href: "https://self-search.oshilog.life/",
-  },
-  { label: "性癖を可視化するWebサービス：性癖カルテ(ぬ)", href: "https://seiheki.net/" },
-  {
-    label: "心音配信に合わせて動く心臓ソフトウェア：StreamHeartbeat(ぬ)",
-    href: "https://github.com/nnhr-nunu/StreamHeartbeat_Nu",
-  },
-  {
-    label: "配信者向け写真表示ソフト：StreamMediaViewer(ぬ)",
-    href: "https://x.com/nnhr_nunu/status/2100926390078169405",
-  },
-  { label: "Slay the Spire 2 催眠術師Mod", href: "https://x.com/nnhr_nunu/status/2083033452128207076" },
-] as const;
 
 function External({ href }: { href: string }) {
   return (
@@ -28,7 +11,7 @@ function External({ href }: { href: string }) {
   );
 }
 
-/** ホームの最下部。開発者情報と関連サービス（姉妹サービスと同じ内容・並び）。 */
+/** ホームの最下部。開発者情報と関連サービス（一覧は related-services.ts。正本から書き写す）。 */
 export function DeveloperFooter() {
   return (
     <footer className="w-full pb-12">
@@ -50,7 +33,7 @@ export function DeveloperFooter() {
         <div className="mt-5 border-t border-border pt-5">
           <h3 className="font-medium">【開発した関連サービス】</h3>
           <ul className="mt-3 divide-y divide-border">
-            {RELATED.map((item) => (
+            {RELATED_SERVICES.map((item) => (
               <li key={item.href} className="space-y-0.5 py-3 first:pt-0 last:pb-0">
                 <p>・{item.label}</p>
                 <p>
