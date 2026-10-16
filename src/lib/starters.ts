@@ -67,6 +67,35 @@ export const STARTER_TOPICS = [
   "声だけ入れ替われるなら、誰の声がいい？",
 ] as const;
 
+/**
+ * 月ごとの季節のお題（ホームの「おすすめのお題」の先頭に 2 つ混ぜる）。どれも同梱の手書きの語がある
+ * （topic-knowledge-seed-data.ts）ので、最初の 3×3 から AI を待たずに出せる
+ */
+export const MONTHLY_TOPICS: Record<number, readonly string[]> = {
+  1: ["年末年始の過ごし方", "冬の朝がつらい", "今年やってみたいこと"],
+  2: ["バレンタインの思い出", "冬の朝がつらい", "寒い日に食べたいもの"],
+  3: ["卒業アルバム、今見ると恥ずかしい？", "春から始めたいこと", "新生活の思い出"],
+  4: ["新生活の思い出", "お花見の思い出", "春から始めたいこと"],
+  5: ["連休の過ごし方", "新生活の思い出", "雨の日の過ごし方"],
+  6: ["雨の日の過ごし方", "最近の天気の話", "夏にやりたいこと"],
+  7: ["夏休みの思い出", "夏にやりたいこと", "夏と冬どっち派"],
+  8: ["夏休みの思い出", "夏祭り・花火の思い出", "暑い日の過ごし方"],
+  9: ["修学旅行の思い出", "秋にやりたいこと", "最近の天気の話"],
+  10: ["ハロウィンの思い出", "秋にやりたいこと", "好きな季節の過ごし方"],
+  11: ["寒い日に食べたいもの", "秋にやりたいこと", "今年いちばん笑ったこと"],
+  12: ["クリスマスの過ごし方", "年末年始の過ごし方", "今年いちばん笑ったこと"],
+};
+
+/** その月の季節のお題から count 個（来るたびに少し変わるよう、くじで選ぶ） */
+export function pickMonthlyTopics(date: Date, count = 2, random: () => number = Math.random): string[] {
+  const pool = [...(MONTHLY_TOPICS[date.getMonth() + 1] ?? [])];
+  const picked: string[] = [];
+  while (picked.length < count && pool.length > 0) {
+    picked.push(pool.splice(Math.floor(random() * pool.length), 1)[0]!);
+  }
+  return picked;
+}
+
 export function pickRandomStarter(exclude: string[] = []): string {
   const pool = STARTER_TOPICS.filter((topic) => !exclude.includes(topic));
   const source = pool.length > 0 ? pool : STARTER_TOPICS;
