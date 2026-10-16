@@ -16,7 +16,8 @@ export type YoutubeChatProblem = "no-key" | "not-live" | "quota" | "forbidden" |
 
 /**
  * 1日1万ユニットの枠（Google Cloud プロジェクト単位）を配信中に使い切らないよう、
- * YouTube が指定する間隔より短くは読まない（公式表では list は1ユニット、実測で5ユニットとの報告もある）。
+ * YouTube が指定する間隔より短くは読まない（公式表 https://developers.google.com/youtube/v3/determine_quota_cost では
+ * liveChatMessages.list は 1 回 5 ユニット。8 秒おきなら全員で 1 日 4.4 時間ほど）。静かな間は画面側で間隔を延ばす（poll-interval.ts）
  */
 const MIN_POLL_MS = 8_000;
 

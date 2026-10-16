@@ -21,6 +21,7 @@ import { timeoutSignal } from "@/lib/api-base";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseListenerTopic, type ListenerTopic } from "@/lib/listener-topics";
+import { nextYoutubePollMs } from "@/lib/poll-interval";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -228,6 +229,8 @@ export function LiveChatDock({
     let quotaNoticed = false;
     // つないだ直後に届くのは過去のコメント。読み直すたびにハートを数え直さないよう、既読にするだけ
     let primed = false;
+    // 新しいコメントが無かった回の続いた数（静かな間は読む間隔を少し延ばして、みんなの YouTube の枠を節約する）
+    let quiet = 0;
     const poll = async () => {
       try {
         const response = await fetch("/api/chat/youtube", {
@@ -273,13 +276,16 @@ export function LiveChatDock({
         announce(connectUrl);
         token = json.nextPageToken ?? token;
         if (seen.current.size > 5_000) seen.current = new Set([...seen.current].slice(-1_000));
+        let fresh = 0;
         for (const message of json.messages ?? []) {
           if (!message.id || seen.current.has(message.id)) continue;
           seen.current.add(message.id);
+          fresh += 1;
           if (primed) applyText(message.text);
         }
         primed = true;
-        later(() => void poll(), json.pollingMs ?? 8_000);
+        quiet = fresh > 0 ? 0 : quiet + 1;
+        later(() => void poll(), nextYoutubePollMs(json.pollingMs, quiet));
       } catch {
         if (cancelled) return;
         setLive({ phase: "error", message: "YouTube に届きません。少しして読み直します。" });
