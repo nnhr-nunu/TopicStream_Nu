@@ -79,3 +79,11 @@ export function isRecordableSeed(seed: string, context: string[] = []): boolean 
   if (context.length === 1 && [...text].length <= 3) return false;
   return true;
 }
+
+/**
+ * カードが選ばれた票を、親の語のお題として図鑑に送ってよいか。
+ * 深い所の語（isRecordableSeed を通らない）のお題は、図鑑にまだ無ければ新しく作らない。今あるお題への票は入れる
+ */
+export function acceptsPickSeed(seed: string, seedContext: string[], known: boolean): boolean {
+  return known || isRecordableSeed(seed, seedContext);
+}

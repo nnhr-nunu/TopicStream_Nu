@@ -76,9 +76,9 @@ export async function generateRelatedTopics(options: {
     anchor && !mixed && recalled.topics.length < count
       ? recallTopicsNow(anchor, [...options.existing, ...context], count, mode).topics
       : [];
-  // お悩み相談などで深く広げたカードは、図鑑（ほかのボードで同じ語から出た語）だけで済ませない。
-  // 中心のお題を知らない語が並び、話がズレていくため（AI には中心のお題を渡して寄せてもらう）
-  const deep = mode !== "chat" && context.length >= 2;
+  // 深く広げたカード（祖先 2 段以上）は、図鑑（ほかのボードで同じ語から出た語）だけで済ませない。
+  // 図鑑の語は話の流れを知らないので、並べると話がズレていく（AI には流れを渡す。雑談以外は中心のお題へ寄せてもらう）
+  const deep = context.length >= 2;
   if (options.recall && !deep && recalled.depth >= count && recalled.topics.length >= count && Math.random() >= RECALL_AI_RATE) {
     for (const label of recalled.topics) {
       options.onTopic?.(label);

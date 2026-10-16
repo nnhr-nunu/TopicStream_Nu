@@ -1,4 +1,5 @@
 import { FILLER_KEY, KNOWLEDGE_KEY } from "@/lib/constants";
+import { acceptsPickSeed } from "@/lib/label-quality";
 import { boardMode } from "@/lib/modes";
 import {
   asKnowledgeEntry,
@@ -16,6 +17,7 @@ import {
   type PickKind,
 } from "@/lib/topic-knowledge";
 import { withoutArchived } from "@/lib/topic-archive";
+import { topicContext } from "@/lib/topic-context";
 import type { Board, BoardMode } from "@/lib/types";
 import { seedKnowledge } from "@/lib/topic-knowledge-seed";
 
@@ -213,6 +215,7 @@ function isUnknownFiller(seed: string, topic: string, mode: BoardMode): boolean 
  * カードの語が選ばれた（♡・クリックで広げた・ピン・コピー・書き直し・コメントのハート）ことを図鑑に伝える。
  * お題はそのカードの親の語（seedOverride があればそちら）。図鑑に無い語でもそのまま加える（盛り上がった話題を取りこぼさないため）。
  * ただし AI が使えなかったときの埋め合わせの語（markFillers）は加えない。
+ * 深い所（親の祖先が 2 段以上）では、図鑑にまだ無いお題を新しく作らない（流れの切れたお題が図鑑に残るため）。
  */
 export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverride?: string) {
   if (typeof window === "undefined") return;
@@ -226,6 +229,10 @@ export function notePick(board: Board, nodeId: string, kind: PickKind, seedOverr
   if (!topic || !seed || node?.data.placeholder || normalizeSeed(topic) === normalizeSeed(seed)) return;
   // 埋め合わせの定型の語は、選ばれても図鑑に新しく加えない（自分で書き直した語は人の語なので入れる）
   if (kind !== "edit" && isUnknownFiller(seed, topic, mode)) return;
+  if (!seedOverride && parent) {
+    const known = Boolean(combinedKnowledge()[knowledgeKey(seed, mode)]);
+    if (!acceptsPickSeed(seed, topicContext(board, parent.id), known)) return;
+  }
   noteTopicPick(seed, topic, kind, mode);
 }
 

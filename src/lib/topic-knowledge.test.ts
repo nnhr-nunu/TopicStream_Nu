@@ -311,19 +311,42 @@ describe("recordPick", () => {
 
 describe("pickGrowCandidates", () => {
   it("語の少ないお題と、よく選ばれた語（次のお題）を先に育てる", () => {
-    let shared = recordTopics({}, "深夜の過ごし方", ["夜食", "ラジオ", "散歩"]);
-    shared = recordPick(shared, "深夜の過ごし方", "ラジオ", "heart");
+    let shared = recordTopics({}, "深夜の過ごし方", ["夜食の誘惑", "深夜ラジオの思い出", "散歩"]);
+    shared = recordPick(shared, "深夜の過ごし方", "深夜ラジオの思い出", "heart");
     const picked = pickGrowCandidates({}, shared, 10, () => 0);
     const seeds = picked.map((item) => item.seed);
     expect(seeds).toContain("深夜の過ごし方");
-    expect(seeds).toContain("ラジオ");
-    expect(seeds.indexOf("ラジオ")).toBeLessThan(seeds.indexOf("夜食"));
+    expect(seeds).toContain("深夜ラジオの思い出");
     expect(picked.find((item) => item.seed === "深夜の過ごし方")?.known).toHaveLength(3);
+    // 次のお題として広げる語には、元のお題を流れとして渡す
+    expect(picked.find((item) => item.seed === "深夜ラジオの思い出")?.context).toEqual(["深夜の過ごし方"]);
+  });
+
+  it("票の無い語・長い語・短すぎる語・「語：意味」は次のお題にしない", () => {
+    let shared = recordTopics({}, "宇宙のすごさ", ["未知の空間へのロマン", "成層圏のオゾン層を破壊する塩素ラジカル", "星", "ぶち：とても"]);
+    for (const label of ["成層圏のオゾン層を破壊する塩素ラジカル", "星", "ぶち：とても"]) {
+      shared = recordPick(shared, "宇宙のすごさ", label, "heart");
+    }
+    const seeds = pickGrowCandidates({}, shared, 10, () => 0).map((item) => item.seed);
+    expect(seeds).toContain("宇宙のすごさ");
+    expect(seeds).not.toContain("未知の空間へのロマン");
+    expect(seeds).not.toContain("成層圏のオゾン層を破壊する塩素ラジカル");
+    expect(seeds).not.toContain("星");
+    expect(seeds).not.toContain("ぶち：とても");
+  });
+
+  it("同梱に無い長いお題（文に近いもの）は育てない。同梱のお題は長くても育てる", () => {
+    const shared = recordTopics({}, "治療後にぶり返した風邪の症状と回復までの話", ["語"]);
+    const bundled = recordTopics({}, "地元のイントネーション、他県だと笑われる？", ["語"]);
+    const seeds = pickGrowCandidates(bundled, shared, 10, () => 0).map((item) => item.seed);
+    expect(seeds).not.toContain("治療後にぶり返した風邪の症状と回復までの話");
+    expect(seeds).toContain("地元のイントネーション、他県だと笑われる？");
   });
 
   it("十分たまったお題は育てない・数を守る", () => {
     const many = Array.from({ length: 30 }, (_, index) => `語${index}`);
-    const shared = recordTopics({}, "満タン", many);
+    let shared = recordTopics({}, "満タン", many);
+    for (let index = 0; index < 5; index += 1) shared = recordTopics(shared, `雑談のお題${index}`, ["語"]);
     const seeds = pickGrowCandidates({}, shared, 3, () => 0).map((item) => item.seed);
     expect(seeds).not.toContain("満タン");
     expect(seeds).toHaveLength(3);
