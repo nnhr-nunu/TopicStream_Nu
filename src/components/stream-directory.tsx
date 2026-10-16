@@ -43,26 +43,42 @@ export function StreamDirectory({
       }),
     [linkedStreamer, linkedTitle, linkedUrl, linkedWatchId],
   );
-  const streams = useMemo(
-    () => mergePublicStreams(SEED_PUBLIC_STREAMS, remote, linked ? [linked] : []),
-    [linked, remote],
-  );
+  // サーバーに載った枠（配信サイトのタイトル・ライブかどうか）を正にする。
+  // この端末の連携は、まだサーバーの一覧に出ていない間のつなぎだけ（盤面の名前・常にライブ、で上書きしない）
+  const streams = useMemo(() => {
+    const base = mergePublicStreams(SEED_PUBLIC_STREAMS, remote);
+    if (!linked) return base;
+    const key = linked.url.replace(/\/+$/, "");
+    const index = base.findIndex((stream) => stream.url.replace(/\/+$/, "") === key);
+    if (index < 0) return mergePublicStreams(base, [linked]);
+    if (linked.watchId && !base[index].watchId) {
+      return base.map((stream, i) => (i === index ? { ...stream, watchId: linked.watchId } : stream));
+    }
+    return base;
+  }, [linked, remote]);
 
   useEffect(() => {
     let cancelled = false;
     const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-    void fetch(`${base}/api/streams`)
-      .then((response) => response.json())
-      .then((json: { streams?: PublicStream[] }) => {
-        if (!cancelled && Array.isArray(json.streams) && json.streams.length > 0) {
-          setRemote(json.streams);
-        }
-      })
-      .catch(() => undefined);
+    const load = () =>
+      void fetch(`${base}/api/streams`)
+        .then((response) => response.json())
+        .then((json: { streams?: PublicStream[] }) => {
+          if (!cancelled && Array.isArray(json.streams) && json.streams.length > 0) {
+            setRemote(json.streams);
+          }
+        })
+        .catch(() => undefined);
+    load();
+    // 連携した直後は知らせが届いてから読み直す。あとは「ライブ」の外れを拾うため定期的に読む
+    const soon = linkedUrl ? window.setTimeout(load, 8_000) : undefined;
+    const timer = window.setInterval(load, 60_000);
     return () => {
       cancelled = true;
+      if (soon) window.clearTimeout(soon);
+      window.clearInterval(timer);
     };
-  }, []);
+  }, [linkedUrl]);
 
   return (
     <section className="mt-12 w-full">
