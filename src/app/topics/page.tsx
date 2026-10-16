@@ -8,9 +8,9 @@ import { pageMetadata } from "@/lib/page-metadata";
 export function generateMetadata(_: unknown, parent: ResolvingMetadata) {
   return pageMetadata(parent, {
     path: "/topics",
-    title: "トピック図鑑 | TopicStream(ぬ)",
+    title: "雑談配信のトークテーマ・ネタ一覧 | TopicStream(ぬ)",
     description:
-      "みんなが TopicStream(ぬ)で広げた雑談ネタを、お題ごとにまとめた図鑑。お題や話題で検索して、そのまま自分のマップにできます。",
+      "雑談配信のネタ一覧。みんなが TopicStream(ぬ)で広げた話題を、お題ごとにまとめたトピック図鑑です。お題や話題で検索して、そのまま自分のマップにできます。",
   });
 }
 

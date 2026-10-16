@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { relatedTopicPages, topicPageBySlug, topicPageHref, topicPages, topicPageSlug } from "@/lib/topic-pages";
+import { relatedTopicPages, sharePath, topicPageBySlug, topicPageHref, topicPages, topicPageSlug } from "@/lib/topic-pages";
 
 describe("topicPageSlug", () => {
   it("URL にそのまま使える短い英数字になる", () => {
@@ -48,5 +48,14 @@ describe("relatedTopicPages", () => {
     expect(related.every((other) => other.slug !== page.slug && other.mode === page.mode)).toBe(true);
     // 同じ分類（暮らし・季節）が先に来る
     expect(related[0]!.category).toBe(page.category);
+  });
+});
+
+describe("sharePath", () => {
+  it("最初のお題にページがあればそのページ、無ければトップ", () => {
+    expect(sharePath("最近買ってよかったもの")).toBe(topicPageHref("最近買ってよかったもの"));
+    expect(sharePath("最近買ってよかったもの")).toMatch(/^\/topics\/t[0-9a-z]{7}$/);
+    expect(sharePath("どこにも無い自分だけのお題")).toBe("/");
+    expect(sharePath(undefined)).toBe("/");
   });
 });
