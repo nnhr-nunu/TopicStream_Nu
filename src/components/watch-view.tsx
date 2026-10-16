@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ViewerGuide } from "@/components/viewer-guide";
 import { timeoutSignal } from "@/lib/api-base";
 import { boardLooksCrisis } from "@/lib/crisis";
+import { nextWatchPollMs } from "@/lib/poll-interval";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import type { Board, GenerationLayout } from "@/lib/types";
@@ -87,6 +88,9 @@ export function WatchView({ shareId }: { shareId: string }) {
     let inFlight = false;
     let lastUpdated = -1;
     let failures = 0;
+    // 盤面が変わらなかった回の続いた数（見る人の画面だけ、静かな間は読む間隔を延ばす）
+    let unchanged = 0;
+    let timer: number | undefined;
     const failed = () => {
       failures += 1;
       if (lastUpdated < 0 && failures >= 3 && !cancelled) setStruggling(true);
@@ -118,7 +122,11 @@ export function WatchView({ shareId }: { shareId: string }) {
         // 配信の URL を後から貼った・外したときは盤面が変わらなくても届くので、盤面の比較より先に反映する
         setChat(json.chat === true);
         const updated = typeof json.board.updatedAt === "number" ? json.board.updatedAt : Date.now();
-        if (updated === lastUpdated) return;
+        if (updated === lastUpdated) {
+          unchanged += 1;
+          return;
+        }
+        unchanged = 0;
         lastUpdated = updated;
         setBoard(json.board);
         setNickname(json.nickname);
@@ -130,11 +138,14 @@ export function WatchView({ shareId }: { shareId: string }) {
         inFlight = false;
       }
     }
-    void load();
-    const timer = window.setInterval(() => void load(), 2500);
+    const tick = async () => {
+      await load();
+      if (!cancelled) timer = window.setTimeout(() => void tick(), nextWatchPollMs(unchanged, inObs()));
+    };
+    void tick();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [shareId]);
 
