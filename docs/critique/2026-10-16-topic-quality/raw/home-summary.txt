@@ -1,0 +1,8 @@
+<title>(.*?)</title> ['TopicStream(ぬ) | 話題が広がるマインドマップ・マンダラートWebサービス']
+<meta name="description" content="(.*?)" ['雑談配信のネタ切れやトークテーマ探しに。お題をひとつ入れると、話せるネタや考えの切り口を 8 方向に広げるマインドマップ・マンダラート。お悩み相談・アイデア出し・目標の分解・振り返り・調べものにも。登録不要・無料。']
+<h1[^>]*>(.*?)</h1> ['もう、話題に詰まらない。']
+<link rel="canonical" href="(.*?)" ['https://topic-stream.oshilog.life']
+adsbygoogle ['adsbygoogle', 'adsbygoogle']
+og:image" content="(.*?)" ['https://topic-stream.oshilog.life/opengraph-image.png?opengraph-image.0s_jfni2be94f.png']
+マップを読み込み中 ['マップを読み込み中']
+TEXT:  TopicStream(ぬ) | 話題が広がるマインドマップ・マンダラートWebサービス TopicStream (ぬ) もう、話題に詰まらない。 お題をひとつ入れるだけで、話せるネタや考えの切り口が 8 方向に広がる。 マップを読み込み中… 雑談配信のネタ切れやトークテーマ探しに。配信のコメントと連動し、OBS にも映せます。 使い方 トピック図鑑 みんなが作った話題マップ 

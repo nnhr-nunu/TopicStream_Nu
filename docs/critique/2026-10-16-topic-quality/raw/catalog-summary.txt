@@ -1,0 +1,36 @@
+keys ['boards', 'popular']
+== boards 19
+{'id': 'cb_debef04fa431006a', 'name': '宇宙のすごさ', 'author': '', 'tags': 1, 'summary': '「宇宙のすごさ」から 31か所ひろげた、カード153枚のマップ。', 'favorites': 0, 'keywords': 153}
+{'id': 'cb_2b5e239bd6e56e72', 'name': '低血圧について', 'author': '', 'tags': 1, 'summary': '「低血圧について」から 16か所ひろげた、カード81枚のマップ。', 'favorites': 0, 'keywords': 81}
+{'id': 'cb_f19f55eb744a9d2d', 'name': '各地域の方言', 'author': '', 'tags': 1, 'summary': '「各地域の方言」から 16か所ひろげた、カード81枚のマップ。', 'favorites': 0, 'keywords': 81}
+{'id': 'cb_94738a9e9342556b', 'name': '夏と冬どっち派', 'author': '', 'tags': 1, 'summary': '「夏と冬どっち派」から 4か所ひろげた、カード27枚のマップ。', 'favorites': 0, 'keywords': 27}
+{'id': 'cb_f131065da50ed5cf', 'name': 'ヒヤッとした体験', 'author': '', 'tags': 1, 'summary': '「ヒヤッとした体験」から 5か所ひろげた、カード36枚のマップ。', 'favorites': 0, 'keywords': 36}
+{'id': 'cb_8175ca096829f017', 'name': '雪', 'author': '', 'tags': 1, 'summary': '「雪」から 28か所ひろげた、カード135枚のマップ。', 'favorites': 0, 'keywords': 135}
+{'id': 'cb_fe302096f80c3dc2', 'name': '猫ミーム', 'author': '', 'tags': 1, 'summary': '「猫ミーム」から 32か所ひろげた、カード153枚のマップ。', 'favorites': 1, 'keywords': 153}
+{'id': 'cb_8dcb46f0507d74b1', 'name': '猫', 'author': '', 'tags': 1, 'summary': '「猫」から 30か所ひろげた、カード144枚のマップ。', 'favorites': 1, 'keywords': 144}
+{'id': 'cb_96a882e40dd62aac', 'name': '子供時代のこだわり', 'author': '', 'tags': 1, 'summary': '「子供時代のこだわり」から 26か所ひろげた、カード126枚のマップ。', 'favorites': 0, 'keywords': 126}
+{'id': 'cb_b06010f05a477cdb', 'name': 'ボルゾイ', 'author': '', 'tags': 1, 'summary': '「ボルゾイ」から 21か所ひろげた、カード108枚のマップ。', 'favorites': 1, 'keywords': 108}
+{'id': 'cb_c1f0c64af3930a8a', 'name': 'リス', 'author': '', 'tags': 1, 'summary': '「リス」から 16か所ひろげた、カード81枚のマップ。', 'favorites': 0, 'keywords': 81}
+{'id': 'cb_c56f0bd372cdf967', 'name': '地元のイントネーション、他県だと笑われる？', 'author': '', 'tags': 1, 'summary': '「地元のイントネーション、他県だと笑われる？」から 10か所ひろげた、カード54枚のマップ。', 'favorites': 0, 'keywords': 54}
+{'id': 'cb_55c4fa1e860d2bd5', 'name': '最近のマイブーム、まだ人に言ってないやつ', 'author': '', 'tags': 1, 'summary': '「最近のマイブーム、まだ人に言ってないやつ」から 7か所ひろげた、カード45枚のマップ。', 'favorites': 1, 'keywords': 45}
+{'id': 'cb_ebc32f0def7cb518', 'name': '方言', 'author': '', 'tags': 1, 'summary': '「方言」から 6か所ひろげた、カード36枚のマップ。', 'favorites': 0, 'keywords': 36}
+{'id': 'cb_cc5f083650899a3f', 'name': '職場で周りの人が優秀すぎてつらい', 'author': '', 'tags': 1, 'summary': '「職場で周りの人が優秀すぎてつらい」から 14か所ひろげた、カード72枚のマップ。', 'favorites': 1, 'keywords': 72}
+{'id': 'cb_9828c4dbe7a06674', 'name': 'コレクションしているもの', 'author': '', 'tags': 1, 'summary': '「コレクションしているもの」から 8か所ひろげた、カード45枚のマップ。', 'favorites': 0, 'keywords': 45}
+{'id': 'cb_08d934ef3f6c6340', 'name': '苦手な食べ物', 'author': '', 'tags': 1, 'summary': '「苦手な食べ物」から 8か所ひろげた、カード45枚のマップ。', 'favorites': 0, 'keywords': 45}
+{'id': 'cb_cd339f0566705326', 'name': 'トロンボーン', 'author': '', 'tags': 1, 'summary': '「トロンボーン」から 4か所ひろげた、カード27枚のマップ。', 'favorites': 0, 'keywords': 27}
+{'id': 'cb_dd00796f12c2e054', 'name': '最近買ってよかったもの', 'author': '', 'tags': 1, 'summary': '「最近買ってよかったもの」から 2か所ひろげた、カード18枚のマップ。', 'favorites': 0, 'keywords': 18}
+== popular 12
+{'label': '最近買ってよかったもの', 'score': 220}
+{'label': 'ヒヤッとした体験', 'score': 186}
+{'label': '昔ハマってたゲーム', 'score': 170}
+{'label': '地元のイントネーション、他県だと笑われる？', 'score': 167}
+{'label': '出身地あるある、急に思い出した', 'score': 158}
+{'label': '最近のマイブーム、まだ人に言ってないやつ', 'score': 152}
+{'label': '今週の推し活', 'score': 150}
+{'label': 'もし配信してなかった自分、何してる？', 'score': 148}
+{'label': '学生のころの部活、今もネタになる？', 'score': 146}
+{'label': '何度もループしてる曲、ある？', 'score': 144}
+{'label': 'これだけはゆずれない、ちょっとしたルール', 'score': 140}
+{'label': '初配信の思い出', 'score': 120}
+streams keys ['streams']
+streams streams 2 [{'platform': 'youtube', 'live': True, 'updatedAt': 1792134305257}, {'platform': 'youtube', 'live': False, 'updatedAt': 1790262000000}]
