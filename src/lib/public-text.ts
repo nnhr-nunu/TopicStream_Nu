@@ -68,6 +68,8 @@ export function isPublicSafe(text: string): boolean {
   return !looksPersonal(text) && !looksAbusive(text);
 }
 
-/** AI への指示に足す1行（公開される図鑑に、人を傷つける語が入らないように） */
-export const PROMPT_SAFETY_RULE =
-  "- 実在の個人を名指しで悪く言う切り口・差別的な表現・住所や連絡先などの個人情報は出さない（つらい気持ちや重い悩みは否定せず、寄り添う切り口にする）";
+/** AI への指示に足す行（公開される図鑑に、人を傷つける語や体の話の断定が入らないように） */
+export const PROMPT_SAFETY_RULE = [
+  "- 実在の個人を名指しで悪く言う切り口・差別的な表現・住所や連絡先などの個人情報は出さない（つらい気持ちや重い悩みは否定せず、寄り添う切り口にする）",
+  "- 体調・病気の話は体験の切り口にとどめ、診断・治し方・効き目・数値の良し悪しは書かない",
+].join("\n");
