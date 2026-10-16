@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 別のセッションの worktree（中にそれぞれの .next がある）
+    ".claude/**",
   ]),
 ]);
 
