@@ -233,6 +233,15 @@ export function subscribeTalkLog(listener: () => void) {
   };
 }
 
+/** 図鑑の候補から外す、最近話した語の期間 */
+export const RECENT_TALK_DAYS = 30;
+
+/** 最近（days 日以内に）NOW にして話した語。同じお題の次のマップで、先月と同じカードばかり並ばないように使う */
+export function recentTalkLabels(log: readonly TalkEntry[], now: number, days = RECENT_TALK_DAYS): string[] {
+  const since = now - days * 86_400_000;
+  return [...new Set(log.filter((entry) => entry.start >= since).map((entry) => entry.label.trim()).filter(Boolean))];
+}
+
 export function loadTalkLog(): TalkEntry[] {
   if (typeof window === "undefined") return cache;
   try {

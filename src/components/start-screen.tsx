@@ -20,8 +20,9 @@ import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
 import { fetchCatalog } from "@/lib/catalog-client";
 import { looksCrisis } from "@/lib/crisis";
 import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
-import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
+import { mergePopularTopics, pickWeightedStarter, withMonthlyTopics, type PopularTopic } from "@/lib/popularity";
 import { looksAbusive } from "@/lib/public-text";
+import { pickMonthlyTopics } from "@/lib/starters";
 import type { Board, BoardMode } from "@/lib/types";
 
 function formatUpdated(ms: number): string {
@@ -112,11 +113,13 @@ export function StartScreen({
     .slice(0, 3);
 
   useEffect(() => {
+    // 今月のお題は画面の中でだけ日付を見て混ぜる（最初の HTML に入れると、静的なビルドが作った月で固まる）
+    const monthly = pickMonthlyTopics(new Date());
     void fetchCatalog()
       .then((json) => {
-        setPopular(mergePopularTopics(json.popular ?? []));
+        setPopular(withMonthlyTopics(mergePopularTopics(json.popular ?? []), monthly));
       })
-      .catch(() => setPopular(mergePopularTopics()));
+      .catch(() => setPopular(withMonthlyTopics(mergePopularTopics(), monthly)));
   }, []);
 
   return (
@@ -179,7 +182,7 @@ export function StartScreen({
 
             {isChat ? (
               <div className="mt-4 w-full max-w-2xl">
-                <p className="mb-2 text-xs text-muted-foreground">人気のお題から始める</p>
+                <p className="mb-2 text-xs text-muted-foreground">おすすめのお題から始める</p>
                 <ul className="flex flex-wrap justify-center gap-2">
                   {popular.slice(0, 10).map((topic, index) => (
                     <li key={topic.label} className={index >= 6 ? "max-sm:hidden" : undefined}>
@@ -189,7 +192,6 @@ export function StartScreen({
                         onClick={() => onStart(topic.label, DEFAULT_MODE)}
                         disabled={busy}
                       >
-                        {index < 3 ? <span className="mr-1 font-semibold text-primary">{index + 1}</span> : null}
                         {topic.label}
                       </button>
                     </li>

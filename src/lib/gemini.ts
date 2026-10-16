@@ -9,6 +9,7 @@ import { fetchSharedRelated, markFillers, recallTopicsNow, rememberTopics } from
 import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics, topicAnchor } from "@/lib/mock-topics";
 import { parseMode } from "@/lib/modes";
+import { loadTalkLog, recentTalkLabels } from "@/lib/talk-log";
 import type { BoardMode, GenerateResult } from "@/lib/types";
 
 /** 図鑑にこれだけ語がたまっているお題は、AI を呼ばずに図鑑から出す（たまに AI にも頼んで図鑑を育てる） */
@@ -69,12 +70,14 @@ export async function generateRelatedTopics(options: {
   ]);
   // 掛け合わせ（「A × B」）は似たお題の語を借りると片方だけの話になるので、図鑑からは出さない
   const mixed = Boolean(splitMix(options.seed));
+  // 最近 NOW にして話した語は、図鑑からは出さない（常連が同じお題で先月と同じカードばかり見ないように。AI への指示には足さない）
+  const talked = recentTalkLabels(loadTalkLog(), Date.now());
   const recalled =
-    generic || mixed ? { topics: [], depth: 0 } : recallTopicsNow(options.seed, options.existing, count, mode);
+    generic || mixed ? { topics: [], depth: 0 } : recallTopicsNow(options.seed, [...options.existing, ...talked], count, mode);
   // このお題で図鑑が足りないときは、元のお題の語で埋める（何も無くて汎用の切り口だけになるのを避ける）
   const related =
     anchor && !mixed && recalled.topics.length < count
-      ? recallTopicsNow(anchor, [...options.existing, ...context], count, mode).topics
+      ? recallTopicsNow(anchor, [...options.existing, ...context, ...talked], count, mode).topics
       : [];
   // 深く広げたカード（祖先 2 段以上）は、図鑑（ほかのボードで同じ語から出た語）だけで済ませない。
   // 図鑑の語は話の流れを知らないので、並べると話がズレていく（AI には流れを渡す。雑談以外は中心のお題へ寄せてもらう）

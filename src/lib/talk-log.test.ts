@@ -7,6 +7,7 @@ import {
   currentTalk,
   formatOffset,
   originFromClock,
+  recentTalkLabels,
   rowsFrom,
   SESSION_GAP_MS,
   syncTalk,
@@ -241,5 +242,15 @@ describe("X に投稿する文の長さ", () => {
     const post = talkPost(talkSessions(long)[0]!.rows, T0);
     expect(weightedPostLength(post, true)).toBeLessThanOrEqual(POST_LIMIT);
     expect(post).toContain("…");
+  });
+});
+
+describe("recentTalkLabels", () => {
+  it("30 日以内に話した語だけを、重ねずに返す", () => {
+    const day = 86_400_000;
+    const now = 100 * day;
+    const entry = (label: string, start: number): TalkEntry => ({ id: label + start, key: label, start, label, theme: "夜の過ごし方" });
+    const log = [entry("深夜ラジオの思い出", now - 40 * day), entry("夜食の誘惑", now - 2 * day), entry("夜食の誘惑", now - day)];
+    expect(recentTalkLabels(log, now)).toEqual(["夜食の誘惑"]);
   });
 });

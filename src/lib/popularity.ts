@@ -1,12 +1,16 @@
 import { rankedLocalTopics, usageScore, type TopicUsage } from "@/lib/usage";
 import { SEED_TOPIC_SCORES, type PopularTopic } from "@/lib/catalog-data";
-import { STARTER_TOPICS, pickRandomStarter } from "@/lib/starters";
+import { MONTHLY_TOPICS, STARTER_TOPICS, pickRandomStarter } from "@/lib/starters";
 
 export type { PopularTopic };
 
+/**
+ * サーバーの人気のお題（remote）に、この端末でよく使ったお題を足して並べる。
+ * サーバーの答えには手書きの初期点数がもう入っているので、足すのは読めなかったとき（remote が空）だけ
+ */
 export function mergePopularTopics(remote: PopularTopic[] = [], limit = 12): PopularTopic[] {
   const map = new Map<string, number>();
-  for (const item of SEED_TOPIC_SCORES) map.set(item.label, item.score);
+  if (remote.length === 0) for (const item of SEED_TOPIC_SCORES) map.set(item.label, item.score);
   for (const item of remote) map.set(item.label, (map.get(item.label) ?? 0) + item.score);
   for (const local of rankedLocalTopics(40) as TopicUsage[]) {
     map.set(local.label, (map.get(local.label) ?? 0) + usageScore(local));
@@ -17,12 +21,21 @@ export function mergePopularTopics(remote: PopularTopic[] = [], limit = 12): Pop
     .slice(0, limit);
 }
 
-export function pickWeightedStarter(exclude: string[] = []): string {
+/** 今月のお題を先頭に混ぜる（同じお題は二重に出さない） */
+export function withMonthlyTopics(popular: PopularTopic[], monthly: string[], limit = 12): PopularTopic[] {
+  const scores = new Map(popular.map((item) => [item.label, item.score]));
+  const first = monthly.map((label) => ({ label, score: scores.get(label) ?? 0 }));
+  return [...first, ...popular.filter((item) => !monthly.includes(item.label))].slice(0, limit);
+}
+
+export function pickWeightedStarter(exclude: string[] = [], now = new Date()): string {
   const ranked = mergePopularTopics([], 24);
   const seen = new Set(ranked.map((item) => item.label));
+  const monthly = (MONTHLY_TOPICS[now.getMonth() + 1] ?? []).filter((label) => !exclude.includes(label) && !seen.has(label));
   const pool: PopularTopic[] = [
     ...ranked.filter((item) => !exclude.includes(item.label)),
-    ...STARTER_TOPICS.filter((label) => !exclude.includes(label) && !seen.has(label)).map((label) => ({
+    ...monthly.map((label) => ({ label, score: 40 })),
+    ...STARTER_TOPICS.filter((label) => !exclude.includes(label) && !seen.has(label) && !monthly.includes(label)).map((label) => ({
       label,
       score: 28,
     })),
