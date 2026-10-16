@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
 import { CommentHint } from "@/components/comment-hint";
+import { CrisisLines } from "@/components/crisis-lines";
 import { PinBanner } from "@/components/pin-banner";
 import { Button } from "@/components/ui/button";
 import { ViewerGuide } from "@/components/viewer-guide";
 import { timeoutSignal } from "@/lib/api-base";
+import { boardLooksCrisis } from "@/lib/crisis";
 import { loadFavoriteTopics, subscribeTopicFavorites, toggleFavoriteTopic } from "@/lib/favorites";
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import type { Board, GenerationLayout } from "@/lib/types";
@@ -71,6 +73,7 @@ export function WatchView({ shareId }: { shareId: string }) {
   );
   // サーバーでは出さず、ブラウザで OBS でないと分かってから出す
   const obs = useSyncExternalStore(noSubscribe, inObs, () => true);
+  const [crisisClosed, setCrisisClosed] = useState(false);
   // コメントでの参加の案内は、広い画面では開いて、スマホでは 1 行にたたんで出す（NOW の帯を隠さないように）
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => false);
 
@@ -249,7 +252,10 @@ export function WatchView({ shareId }: { shareId: string }) {
         <PinBanner
           label={board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.label ?? ""}
           fromListener={Boolean(board.nodes.find((node) => node.id === board.pinnedNodeId)?.data.fromListener)}
-        />
+        >
+          {/* 相談窓口は見る人の画面だけ（配信に映す画面には出さない） */}
+          {!obs && !crisisClosed && boardLooksCrisis(board.nodes) ? <CrisisLines onClose={() => setCrisisClosed(true)} /> : null}
+        </PinBanner>
         <BoardCanvas board={viewBoard} overlay layout={layout} onFocus={setLocalFocus} />
         {/* 配信に映す（OBS）ときは、コメントでできることを盤面の下にときどき出す（見る人の画面には上の案内がある） */}
         {chat && obs ? <CommentHint nodes={viewBoard.nodes} /> : null}

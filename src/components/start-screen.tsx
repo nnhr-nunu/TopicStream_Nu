@@ -4,6 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { ArrowRight, ClipboardList, Dices, History, Inbox, MessageSquareText, ShieldAlert } from "lucide-react";
 
 import { AdSlot, SideAdRail } from "@/components/ad-slot";
+import { CrisisLines } from "@/components/crisis-lines";
 import { DeveloperFooter } from "@/components/developer-footer";
 import { HomeHeading } from "@/components/home-intro";
 import { ModeBadge, ModePicker } from "@/components/mode-picker";
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import type { CatalogBoard } from "@/lib/catalog-data";
 import { SEED_TOPIC_SCORES } from "@/lib/catalog-data";
 import { fetchCatalog } from "@/lib/catalog-client";
+import { looksCrisis } from "@/lib/crisis";
 import { DEFAULT_MODE, modePreset, pickModeStarter } from "@/lib/modes";
 import { mergePopularTopics, pickWeightedStarter, type PopularTopic } from "@/lib/popularity";
 import { looksAbusive } from "@/lib/public-text";
@@ -218,6 +220,7 @@ export function StartScreen({
               {PRIVACY_NOTICE}
             </p>
             {preset.note ? <p className="mt-1.5 max-w-xl text-[11px] text-muted-foreground">{preset.note}</p> : null}
+            {looksCrisis(keyword) ? <CrisisLines className="mt-3" /> : null}
           </header>
 
           {recent.length > 0 ? (

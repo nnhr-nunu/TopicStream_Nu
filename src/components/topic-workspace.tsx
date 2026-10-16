@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AppToolbar } from "@/components/app-toolbar";
 import { BoardActionsProvider } from "@/components/board-actions";
 import { BoardCanvas } from "@/components/board-canvas";
+import { CrisisLines } from "@/components/crisis-lines";
 import { HomeIntro } from "@/components/home-intro";
 import { LiveChatDock } from "@/components/live-chat-dock";
 import { ModeDock } from "@/components/mode-dock";
@@ -17,6 +18,7 @@ import { useCommunityPublish } from "@/hooks/use-community-publish";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { useTalkLog } from "@/hooks/use-talk-log";
 import { spareCount } from "@/lib/board-spares";
+import { boardLooksCrisis } from "@/lib/crisis";
 import {
   clearOpenActiveBoardRequest,
   hasStartKeywordRequest,
@@ -45,6 +47,8 @@ export function TopicWorkspace() {
   const [privacyNotice] = useState(() => (hasStartKeywordRequest() ? Date.now() : 0));
   // 配信のコメントを読めている間は、カードの番号を大きく出す
   const [reading, setReading] = useState(false);
+  /** 相談窓口を閉じたボード（同じボードでは開き直さない） */
+  const [crisisClosedFor, setCrisisClosedFor] = useState<string | null>(null);
   // X シェアの画面。開くたびに key を変えて、最新のボードで文例を作り直す。
   // ボード一覧からは表示中でないボードもシェアできるので、対象のボードを覚えておく
   const [sharePostOpen, setSharePostOpen] = useState(false);
@@ -262,6 +266,9 @@ export function TopicWorkspace() {
                 fromListener={Boolean(pinnedNode?.data.fromListener)}
               >
                 <PrivacyNotice trigger={privacyNotice} />
+                {crisisClosedFor !== board.id && boardLooksCrisis(board.nodes) ? (
+                  <CrisisLines onClose={() => setCrisisClosedFor(board.id)} />
+                ) : null}
               </PinBanner>
               <BoardCanvas
                 board={board}
