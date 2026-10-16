@@ -1,3 +1,4 @@
+import { isRecordableSeed } from "@/lib/label-quality";
 import type { BoardMode } from "@/lib/types";
 import {
   entryMode,
@@ -13,7 +14,10 @@ import {
  *
  * - 語がまだ少ないお題ほど先に（1つのお題に GROW_TARGET 語たまったら後回し）
  * - よく選ばれている語（♡・クリック）は、それ自体をお題として先に広げておく
- *   （アプリでカードを押すと、その語がお題になって AI に頼むので、先に図鑑に入れておけば AI を呼ばずに済む）
+ *   （アプリでカードを押すと、その語がお題になって AI に頼むので、先に図鑑に入れておけば AI を呼ばずに済む）。
+ *   票のある短い語だけを、元のお題を流れ（context）として渡して頼む。票の無い語を流れなしで頼むと、
+ *   「窒素」→「塩素ラジカル」のように教科書の語へ離れていき、元のお題の話に戻れない鎖になる
+ * - 同梱に無い長いお題（文に近いもの）や、単独のお題として記録しない形（isRecordableSeed）のお題は育てない
  * - お悩み相談などのモードも同じモードの指示で育てる。語が少ないうちに埋もれないよう、枠の一部を先に回す。
  *   ただし切り口（「本当はどうしたい？」など）は元のお題しだいなので、お題としては先に広げない
  */
@@ -22,14 +26,26 @@ import {
 export const GROW_TARGET = 24;
 /** 1回の枠のうち、雑談以外のモードへ先に回す割合 */
 export const GROW_OTHER_SHARE = 1 / 3;
+/** 次のお題として先に広げる語の条件: 票（ハート・NOW・コメントのハートなら 1 回、広げた・コピーなら 2 回）と長さ */
+export const PROMOTE_MIN_PICKS = 3;
+export const PROMOTE_MAX_LENGTH = 14;
+/** 同梱に無いお題で、これより長いもの（文に近い）は育てない */
+const GROW_SEED_MAX_LENGTH = 16;
 
 export type GrowCandidate = {
   seed: string;
   mode: BoardMode;
   /** すでに図鑑にある語（AI に「これ以外で」と頼む） */
   known: string[];
+  /** 話の流れ（近い順）。次のお題として広げる語では、元のお題 */
+  context?: string[];
   priority: number;
 };
+
+/** よく選ばれた語を、次のお題として先に広げてよいか */
+export function promotable(picks: number, label: string, parent: string): boolean {
+  return picks >= PROMOTE_MIN_PICKS && [...label].length <= PROMOTE_MAX_LENGTH && isRecordableSeed(label, [parent]);
+}
 
 export function pickGrowCandidates(
   bundled: KnowledgeStore,
@@ -50,7 +66,9 @@ export function pickGrowCandidates(
     const mode = entryMode(entry);
     const depth = Object.keys(entry.topics).length;
     const picks = Object.values(entry.picks ?? {}).reduce((sum, value) => sum + value, 0);
-    if (depth < GROW_TARGET) {
+    const bundledSeed = Boolean(bundled[knowledgeKey(entry.seed, mode)]);
+    const growable = bundledSeed || ([...entry.seed].length <= GROW_SEED_MAX_LENGTH && isRecordableSeed(entry.seed));
+    if (depth < GROW_TARGET && growable) {
       offer({
         seed: entry.seed,
         mode,
@@ -61,11 +79,12 @@ export function pickGrowCandidates(
     // よく選ばれる語を、次のお題として先に広げておく（雑談だけ）
     if (mode !== "chat") continue;
     for (const label of rankedTopics(entry, 4)) {
-      if (merged[knowledgeKey(label)]) continue;
+      if (merged[knowledgeKey(label)] || !promotable(entry.picks?.[label] ?? 0, label, entry.seed)) continue;
       offer({
         seed: label,
         mode,
         known: [entry.seed],
+        context: [entry.seed],
         priority: 2 + Math.log2(1 + (entry.picks?.[label] ?? 0) + topicScore(entry, label) / 4) * 0.8 + random() * 0.5,
       });
     }

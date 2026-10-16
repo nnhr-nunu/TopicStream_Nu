@@ -1,5 +1,6 @@
 import { combineInstruction } from "@/lib/combine";
 import { DETAIL_LABEL_MAX } from "@/lib/constants";
+import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, topicAnchor } from "@/lib/mock-topics";
 import { divisionInstruction, isDivisionLabel } from "@/lib/modes";
 import { PROMPT_SAFETY_RULE } from "@/lib/public-text";
@@ -261,8 +262,12 @@ export function mockDetailTopics(
 
 /**
  * 「具体的にする」の答えを図鑑のどのお題に記録するか。
- * 「一番つらい瞬間」のような汎用の切り口は元のお題しだいなので、話の流れの中の元のお題（無ければ記録しない）へ
+ * 「一番つらい瞬間」のような汎用の切り口は元のお題しだいなので、話の流れの中の元のお題（無ければ記録しない）へ。
+ * 普通に広げたときと同じく、深い所（祖先 2 段以上）で出たお題は単独のお題として記録しない（isRecordableSeed）
  */
 export function detailRecordSeed(seed: string, context: string[] = []): string | undefined {
-  return isGenericAngle(seed) ? topicAnchor(context) : seed.trim() || undefined;
+  if (!isGenericAngle(seed)) return isRecordableSeed(seed, context) ? seed.trim() : undefined;
+  const anchor = topicAnchor(context);
+  const index = anchor ? context.findIndex((label) => label.trim() === anchor) : -1;
+  return anchor && isRecordableSeed(anchor, context.slice(index + 1)) ? anchor : undefined;
 }

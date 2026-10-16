@@ -66,6 +66,8 @@ export async function GET(request: Request) {
         model: DEFAULT_MODEL,
         count: 12,
         mode: candidate.mode,
+        // 次のお題として広げる語は、元のお題を流れとして渡す（利用者がカードを押して広げたときと同じ頼み方にする）
+        ...(candidate.context ? { context: candidate.context } : {}),
         // 画面の広げる操作より短く見切り、1回の実行でなるべく多くのお題を育てる
         deadlineMs: Math.min(GROW_DEADLINE_MS, TIME_BUDGET_MS - (Date.now() - started)),
       });

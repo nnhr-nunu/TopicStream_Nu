@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { diversifyLabels, isNearDuplicate, isRecordableSeed, isTruncatedLabel } from "@/lib/label-quality";
+import { acceptsPickSeed, diversifyLabels, isNearDuplicate, isRecordableSeed, isTruncatedLabel } from "@/lib/label-quality";
 
 describe("isTruncatedLabel", () => {
   it("末尾が「…」の語は切れた語とみなす", () => {
@@ -61,6 +61,16 @@ describe("isRecordableSeed", () => {
     expect(isRecordableSeed("コンビニの違い", ["出身地あるある"])).toBe(true);
     expect(isRecordableSeed("雪", ["好きな季節の過ごし方"])).toBe(false);
     expect(isRecordableSeed("秋", ["夏と冬どっち派"])).toBe(false);
+  });
+});
+
+describe("acceptsPickSeed", () => {
+  it("深い所の語のお題は、図鑑にまだ無ければ票で新しく作らない。今あるお題への票は入れる", () => {
+    const deep = ["地球の生命を育むチッソと酸素", "宇宙のすごさ"];
+    expect(acceptsPickSeed("雷が土壌へ届け込む栄養の窒素", deep, false)).toBe(false);
+    expect(acceptsPickSeed("雷が土壌へ届け込む栄養の窒素", deep, true)).toBe(true);
+    expect(acceptsPickSeed("未知の空間へのロマン", ["宇宙のすごさ"], false)).toBe(true);
+    expect(acceptsPickSeed("宇宙のすごさ", [], false)).toBe(true);
   });
 });
 

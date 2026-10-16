@@ -91,9 +91,19 @@ describe("具体的にする", () => {
   });
 
   it("答えは図鑑に記録する（汎用の切り口なら元のお題の下へ）", () => {
-    expect(detailRecordSeed("夜食", ["深夜"])).toBe("夜食");
+    expect(detailRecordSeed("夜食の誘惑", ["深夜"])).toBe("夜食の誘惑");
     expect(detailRecordSeed("一番の失敗談", ["夜食"])).toBe("夜食");
     expect(detailRecordSeed("一番の失敗談", [])).toBeUndefined();
+  });
+
+  it("深い所（祖先 2 段以上）のカードの答えは、そのカードの語のお題として記録しない", () => {
+    expect(detailRecordSeed("測り直しの二回目", ["血圧測定での驚きの低さ", "低血圧について"])).toBeUndefined();
+    // 汎用の切り口なら、元のお題が深くなければそちらへ
+    expect(detailRecordSeed("一番の失敗談", ["夜食の誘惑", "深夜の過ごし方"])).toBe("夜食の誘惑");
+    expect(detailRecordSeed("一番の失敗談", ["夜食の誘惑", "深夜の過ごし方", "夜"])).toBeUndefined();
+  });
+
+  it("答えの文はそのまま記録できる", () => {
     const answer = "寝る前に、今日できたことを1つだけ書いてみる";
     expect(cleanForRecord("仕事を辞めたい", [answer])?.topics).toEqual([answer]);
   });
