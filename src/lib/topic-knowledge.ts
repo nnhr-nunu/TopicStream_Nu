@@ -10,6 +10,7 @@
 
 import { LABEL_LONG_MAX } from "@/lib/constants";
 import { isBoardMode } from "@/lib/modes";
+import { splitGloss } from "@/lib/node-box";
 import type { BoardMode } from "@/lib/types";
 
 export type CategoryId =
@@ -486,6 +487,29 @@ export function knowledgeDepth(store: KnowledgeStore, seed: string, mode: BoardM
   return Object.keys(store[knowledgeKey(seed, mode)]?.topics ?? {}).filter(isCardTopic).length;
 }
 
+/** 票の効きの頭打ち（1 人で重ねた票で、同じ語が毎回出るようにならないように） */
+const PICK_CAP = 9;
+/** AI が 1 回出しただけで、まだ誰も選んでいない語の重み（掛ける数） */
+const UNPROVEN_WEIGHT = 0.6;
+
+/**
+ * 図鑑から引くときの語の強さ。出た回数と票を分けて足す（票は頭打ち）。
+ * 手書きの語は 2 回出た扱いなので、AI が 1 回出しただけの語より先に出やすい。「ずれている」の票は出た回数から引く
+ */
+export function recallStrength(entry: KnowledgeEntry, label: string): number {
+  const picks = own(entry.picks, label);
+  const count = own(entry.topics, label) + Math.min(picks, 0);
+  if (count <= 0) return 0;
+  const voted = Math.max(picks, 0);
+  const strength = Math.sqrt(count) + Math.sqrt(Math.min(voted, PICK_CAP));
+  return voted === 0 && count <= 1 ? strength * UNPROVEN_WEIGHT : strength;
+}
+
+/** 「語：意味」の語は、手書き・票あり・2 回以上出た、のどれかのときだけ候補にする（AI が 1 回だけ出した意味は誤りがある） */
+function trustedGloss(entry: KnowledgeEntry, label: string): boolean {
+  return !splitGloss(label) || own(entry.topics, label) >= 2 || own(entry.picks, label) > 0;
+}
+
 /** お題自身の語が候補の数以上あるとき／半分以上あるときの、似たお題の語の重み（掛ける数）。深いときは、かなり似たお題だけ使う */
 const BORROW_WHEN_DEEP = 0.25;
 const BORROW_WHEN_HALF = 0.6;
@@ -494,6 +518,7 @@ const BORROW_MIN_SCORE_WHEN_DEEP = 0.5;
 /**
  * 図鑑から候補を引く。お題そのものの語を重く、似たお題の語は似ている度合いで軽くして、
  * 重み付きでくじ引きする（毎回同じ並びにならないように）。盤面にある語とお題そのものは出さない。
+ * accept で、すでに引いた語と並べてよいかを決める（ほぼ同じ語・同じ書き出しの語を並べない。label-quality の diversifyLabels）
  */
 export function suggestFromKnowledge(
   store: KnowledgeStore,
@@ -502,6 +527,7 @@ export function suggestFromKnowledge(
   count: number,
   random: () => number = Math.random,
   mode: BoardMode = "chat",
+  accept: (label: string, picked: string[]) => boolean = () => true,
 ): string[] {
   const banned = new Set([...exclude.map((item) => item.trim()), seed.trim()]);
   const weights = new Map<string, number>();
@@ -513,9 +539,9 @@ export function suggestFromKnowledge(
   for (const { entry, score, exact } of related) {
     if (!exact && ownDepth >= count && score < BORROW_MIN_SCORE_WHEN_DEEP) continue;
     for (const label of Object.keys(entry.topics)) {
-      if (banned.has(label) || !isCardTopic(label)) continue;
-      const weight = (exact ? 3 : score * borrow) * Math.sqrt(topicScore(entry, label));
-      weights.set(label, (weights.get(label) ?? 0) + weight);
+      if (banned.has(label) || !isCardTopic(label) || !trustedGloss(entry, label)) continue;
+      const weight = (exact ? 3 : score * borrow) * recallStrength(entry, label);
+      if (weight > 0) weights.set(label, (weights.get(label) ?? 0) + weight);
     }
   }
   const pool = [...weights.entries()];
@@ -525,8 +551,9 @@ export function suggestFromKnowledge(
     let cursor = random() * total;
     let index = pool.findIndex(([, weight]) => (cursor -= weight) <= 0);
     if (index < 0) index = pool.length - 1;
-    picked.push(pool[index]![0]);
+    const label = pool[index]![0];
     pool.splice(index, 1);
+    if (accept(label, picked)) picked.push(label);
   }
   return picked;
 }

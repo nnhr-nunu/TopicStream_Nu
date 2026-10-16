@@ -204,6 +204,59 @@ describe("suggestFromKnowledge", () => {
   });
 });
 
+describe("suggestFromKnowledge の重み（選ばれた語・手書きの語を先に）", () => {
+  /** くり返しても同じ結果になる乱数 */
+  function seeded(start = 1) {
+    let state = start;
+    return () => {
+      state = (state * 1103515245 + 12345) % 2147483648;
+      return state / 2147483648;
+    };
+  }
+  function tally(store: ReturnType<typeof recordTopics>, seed: string, rounds = 1000) {
+    const random = seeded();
+    const counts = new Map<string, number>();
+    for (let round = 0; round < rounds; round += 1) {
+      for (const label of suggestFromKnowledge(store, seed, [], 1, random)) counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  it("票の付いた語は、AI が 1 回出しただけの語より 2 倍以上出やすい", () => {
+    let shared = recordTopics({}, "夜の過ごし方", ["深夜ラジオの思い出", "夜食の誘惑", "寝る前のスマホ"]);
+    shared = recordPick(shared, "夜の過ごし方", "深夜ラジオの思い出", "heart");
+    const counts = tally(shared, "夜の過ごし方");
+    expect(counts.get("深夜ラジオの思い出")!).toBeGreaterThan(2 * counts.get("夜食の誘惑")!);
+  });
+
+  it("票をいくら重ねても、同じ語が毎回は出ない（頭打ち）", () => {
+    const labels = Array.from({ length: 10 }, (_, index) => `夜の話題その${index}`);
+    let shared = recordTopics({}, "夜の過ごし方", labels);
+    for (let index = 0; index < 10; index += 1) shared = recordPick(shared, "夜の過ごし方", labels[0]!, "heart");
+    const counts = tally(shared, "夜の過ごし方");
+    expect(counts.get(labels[0]!)!).toBeLessThan(900);
+  });
+
+  it("AI が 1 回出しただけの「語：意味」は出さず、手書き（2 回扱い）や票のある「語：意味」は出す", () => {
+    let shared = recordTopics({}, "広島弁", ["ぶち：とても", "たいぎい：面倒くさい", "じゃけえ：だから"]);
+    shared = recordTopics(shared, "広島弁", ["ぶち：とても"]);
+    shared = recordPick(shared, "広島弁", "じゃけえ：だから", "heart");
+    const picked = suggestFromKnowledge(shared, "広島弁", [], 10, fixed(0));
+    expect(picked).toContain("ぶち：とても");
+    expect(picked).toContain("じゃけえ：だから");
+    expect(picked).not.toContain("たいぎい：面倒くさい");
+  });
+
+  it("accept で、すでに引いた語とほぼ同じ語を並べない", () => {
+    const shared = recordTopics({}, "朝の過ごし方", ["朝のルーティン", "朝のルーティン動画", "二度寝の誘惑"]);
+    const accept = (label: string, picked: string[]) => !picked.some((other) => other.includes(label) || label.includes(other));
+    for (let start = 1; start < 30; start += 1) {
+      const picked = suggestFromKnowledge(shared, "朝の過ごし方", [], 3, seeded(start), "chat", accept);
+      expect(picked.includes("朝のルーティン") && picked.includes("朝のルーティン動画")).toBe(false);
+    }
+  });
+});
+
 describe("searchKnowledge", () => {
   const store = mergeStores(
     recordTopics({}, "今週の推し活", ["グッズ開封", "遠征あるある"]),

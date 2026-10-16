@@ -1,5 +1,5 @@
 import { FILLER_KEY, KNOWLEDGE_KEY } from "@/lib/constants";
-import { acceptsPickSeed } from "@/lib/label-quality";
+import { acceptsPickSeed, diversifyLabels } from "@/lib/label-quality";
 import { boardMode } from "@/lib/modes";
 import {
   asKnowledgeEntry,
@@ -119,11 +119,16 @@ export type Recall = {
   depth: number;
 };
 
+/** すでに引いた語と並べても、ほぼ同じ語・同じ書き出しの語が続かないか（AI の答えと同じ決まり） */
+function keepsVariety(label: string, picked: string[]): boolean {
+  return diversifyLabels([...picked, label]).length > picked.length;
+}
+
 /** 手元にあるものだけで候補を引く（待たない）。ほかのモードのお題の語は使わない */
 export function recallTopicsNow(seed: string, exclude: string[], count: number, mode: BoardMode = "chat"): Recall {
   const store = combinedKnowledge();
   return {
-    topics: suggestFromKnowledge(store, seed, exclude, count, Math.random, mode),
+    topics: suggestFromKnowledge(store, seed, exclude, count, Math.random, mode, keepsVariety),
     depth: knowledgeDepth(store, seed, mode),
   };
 }
