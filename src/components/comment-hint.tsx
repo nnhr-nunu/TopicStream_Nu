@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 const FIRST_MS = 11_000;
 const SHOW_MS = 14_000;
 const EVERY_MS = 3 * 60_000;
+/** 番号のある盤面でも、この回数に 1 回はお題の送り方（お題箱）を出す */
+const TOPIC_EVERY = 3;
 
 /** 例に出せる番号（3×3 の周りのカード。周りが無ければ中心も） */
 function exampleCodes(nodes: TNode[]): string[] {
@@ -25,12 +27,13 @@ function exampleCodes(nodes: TNode[]): string[] {
 
 /**
  * 配信のコメントを読んでいる間、盤面の下に「コメントで話題を選べます！」をときどきふわっと出す（配信に映る視聴者向け）。
- * 例の番号は盤面にあるカードから、出すたびに変える。番号の無い盤面（放射）ではお題の送り方を出す。
+ * 例の番号は盤面にあるカードから、出すたびに変える。番号の無い盤面（放射）と、TOPIC_EVERY 回に 1 回はお題の送り方を出す。
  * 読み始めたら出し、読むのをやめたら外す（マウントし直して数え直す）
  */
 export function CommentHint({ nodes, className }: { nodes: TNode[]; className?: string }) {
   const [visible, setVisible] = useState(false);
   const [round, setRound] = useState(0);
+  const [shows, setShows] = useState(0);
   useEffect(() => {
     const timers = new Set<number>();
     const later = (ms: number, run: () => void) => {
@@ -42,6 +45,7 @@ export function CommentHint({ nodes, className }: { nodes: TNode[]; className?: 
     };
     const show = () => {
       setRound((count) => count + 1 + Math.floor(Math.random() * 5));
+      setShows((count) => count + 1);
       setVisible(true);
       later(SHOW_MS, () => setVisible(false));
       later(EVERY_MS, show);
@@ -53,7 +57,7 @@ export function CommentHint({ nodes, className }: { nodes: TNode[]; className?: 
   }, []);
 
   const codes = exampleCodes(nodes);
-  const example = codes.length > 0 ? codes[round % codes.length] : null;
+  const example = codes.length > 0 && shows % TOPIC_EVERY !== 0 ? codes[round % codes.length] : null;
   return (
     <div className={cn("comment-hint", visible && "comment-hint-on", className)} aria-hidden={!visible}>
       <span className="comment-hint-icon" aria-hidden>

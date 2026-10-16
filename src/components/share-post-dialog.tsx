@@ -21,6 +21,8 @@ import {
   tweetIntentUrl,
   weightedPostLength,
 } from "@/lib/share-post";
+import { boardMode } from "@/lib/modes";
+import { sharePath } from "@/lib/topic-pages";
 import { buildTopicTrail } from "@/lib/topic-trail";
 import { renderTrailImage, type TrailImageMode } from "@/lib/trail-image";
 import type { Board } from "@/lib/types";
@@ -35,10 +37,12 @@ export function XLogo({ className }: { className?: string }) {
   );
 }
 
-function siteUrl(): string {
+/** 投稿に付けるリンク（最初のお題にお題ページがあればそのページ） */
+function shareUrl(board: Board): string {
   if (typeof window === "undefined") return "";
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  return `${window.location.origin}${base}/`;
+  const root = board.nodes.find((node) => node.data.parentId === null)?.data.label;
+  return `${window.location.origin}${base}${sharePath(root, boardMode(board))}`;
 }
 
 const TRAIL_MODES: { value: TrailImageMode; label: string }[] = [
@@ -204,7 +208,7 @@ export function SharePostDialog({
   const [body, setBody] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const imageRef = useRef<Blob | null>(null);
-  const url = siteUrl();
+  const url = shareUrl(board);
   const text = composeSharePost(body);
   const remaining = POST_LIMIT - weightedPostLength(text, true);
   const over = remaining < 0;

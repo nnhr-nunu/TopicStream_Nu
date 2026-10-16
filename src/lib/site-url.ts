@@ -4,6 +4,8 @@
  * basePath はここに含めない（Next が画像の URL に付ける）
  */
 const PRODUCTION_URL = "https://topic-stream.oshilog.life";
+/** 共有画像に書く公開先（画像だけ転載されても入口が残るように） */
+export const PRODUCTION_HOST = new URL(PRODUCTION_URL).host;
 
 /**
  * 検索エンジンに伝える「このページの正しい場所」。path は末尾の / なし（例: /topics/abc）。

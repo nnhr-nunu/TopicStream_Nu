@@ -73,6 +73,11 @@ export function topicPageHref(seed: string, mode: BoardMode = "chat"): string | 
   return topicPages().some((page) => page.slug === slug) ? `/topics/${slug}` : null;
 }
 
+/** X に投稿するときのリンク先: 最初のお題にページがあればそこ（そのお題の 3×3 と「このお題で始める」に着く）、無ければトップ */
+export function sharePath(rootLabel: string | undefined, mode: BoardMode = "chat"): string {
+  return (rootLabel && topicPageHref(rootLabel, mode)) || "/";
+}
+
 /** 近いお題（同じモード。同じ分類と、お題の言葉が似ているものを先に） */
 export function relatedTopicPages(page: TopicPage, limit = 6): TopicPage[] {
   return topicPages()

@@ -1,6 +1,7 @@
 import { layoutBoard, prefsFromSettings } from "@/lib/layout";
 import { CENTER_CELL_INDEX, cellCode } from "@/lib/mandala-ids";
 import { estimateLocalBox, MANDALA_CHIP_H, MANDALA_CHIP_W, splitGloss } from "@/lib/node-box";
+import { PRODUCTION_HOST } from "@/lib/site-url";
 import { buildTopicTrail, type TopicTrail, type TrailNode } from "@/lib/topic-trail";
 import type { Board, GenerationLayout, TNode } from "@/lib/types";
 
@@ -235,6 +236,10 @@ function drawFrame(
   ctx.font = font(15, 700, familyName);
   ctx.fillStyle = PRIMARY;
   ctx.fillText("TopicStream(ぬ)", PAD, height - PAD / 2 - 4);
+  const brandWidth = ctx.measureText("TopicStream(ぬ)").width;
+  ctx.fillStyle = MUTED;
+  ctx.font = font(13, 500, familyName);
+  ctx.fillText(PRODUCTION_HOST, PAD + brandWidth + 12, height - PAD / 2 - 4);
   ctx.textAlign = "right";
   ctx.fillStyle = MUTED;
   ctx.font = font(14, 500, familyName);
