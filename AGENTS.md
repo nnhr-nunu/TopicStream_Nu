@@ -26,9 +26,11 @@ Cursor / Claude Code で開発するときの最短導線。全文読み込み�
 | お気に入り・付箋 | [`favorites.ts`](./src/lib/favorites.ts) / [`sticky-note-panel.tsx`](./src/components/sticky-note-panel.tsx)。自分の付箋（`memo`）はサーバーへ送らない（`withoutMemos`）。解説ボタンの解説は別の `explain` に貼り、いっしょに見る画面・オーバーレイ・みんなが作った話題マップにも出す（青い付箋。書き換えはできず外すだけ） |
 | 話題ルーレット・「話した」の印・NOW の経過時間 | [`roulette.ts`](./src/lib/roulette.ts)（選び方）→ `use-board-controller.ts` の `spinRoulette` / [`use-roulette.ts`](./src/hooks/use-roulette.ts)（光らせる）/ [`pin-banner.tsx`](./src/components/pin-banner.tsx) |
 | 公開 API の守り（回数制限・共有リンクの鍵） | [`rate-limit.ts`](./src/lib/rate-limit.ts) / [`live-store.ts`](./src/lib/live-store.ts) の `saveShare` |
+| 重い話題の相談窓口（死にたい・自傷など） | [`crisis.ts`](./src/lib/crisis.ts)（正本は哲マロの `shared/crisis.ts`。人が書いたお題は広い判定、AI のカードは狭い判定）→ [`crisis-lines.tsx`](./src/components/crisis-lines.tsx)（ホームの入力の下・NOW の帯の下・いっしょに見る画面。OBS には出さない） |
 | 公開する文のフィルタ（個人情報・暴言・晒し・差別語。重い悩みは通す） | [`public-text.ts`](./src/lib/public-text.ts)（図鑑・人気のお題・みんなのマップ・AI への指示で共通）。実名の悪口など文字で見分けられないものは `topic-archive-data.ts` で手作業で隠す |
 | ショートカット | [`use-hotkeys.ts`](./src/hooks/use-hotkeys.ts)（効かせない場面の判定は [`key-guards.ts`](./src/lib/key-guards.ts)。拡大縮小の F / 0 / ± は `board-canvas.tsx`） |
 | 未完了タスク | [`task.md`](./task.md) |
+| AI の批評会議の記録と判断待ちの提案（本人の決定ではない） | [`docs/critique.md`](./docs/critique.md) |
 | クレジット表記（配信・動画の概要欄に書いてもらう文） | [`credit.ts`](./src/lib/credit.ts)（文面の元）→ [`credit-notice.tsx`](./src/components/credit-notice.tsx)（使い方ページの「配信・動画で使うとき」。コピー付き）。README の「クレジット表記のお願い」も同じ文なので、変えるときは両方そろえる |
 | セットアップ・キー・公開URL・運用（図鑑の自動育成・広告・使用量） | [`docs/setup.md`](./docs/setup.md)（README は利用者向けなので、ここには置かない） |
 
