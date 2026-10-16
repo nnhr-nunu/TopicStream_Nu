@@ -96,3 +96,24 @@ describe("モードごとの生成", () => {
     expect(buildPrompt("週ごとの目標", [], 8, [], "goal")).not.toContain(marker);
   });
 });
+
+describe("指示の安全と質の決まり（2026-10-16）", () => {
+  it("雑談の指示に、分類の名前だけで終わらせない・意味に自信がない言葉は言葉だけ、が入る", () => {
+    const prompt = buildPrompt("最近買ってよかったもの", [], 8);
+    expect(prompt).toContain("分類の名前だけで終わらせない");
+    expect(prompt).toContain("意味に自信がない言葉は、説明を付けず言葉だけにする");
+    expect(prompt).toContain("家電の種類");
+    expect(buildPrompt("仕事を辞めたい", [], 8, [], "advice")).not.toContain("分類の名前だけで終わらせない");
+  });
+
+  it("どの用途の指示にも、体の話を断定しない一文が入る", () => {
+    for (const preset of MODE_PRESETS) {
+      expect(buildPrompt("低血圧について", [], 8, [], preset.id)).toContain("診断・治し方・効き目");
+    }
+  });
+
+  it("お悩み相談の窓口の切り口は、命や健康に関わる内容のときだけにする", () => {
+    const prompt = buildPrompt("仕事を辞めたい", [], 8, [], "advice");
+    expect(prompt).toContain("それ以外の相談では窓口の語を入れない");
+  });
+});
