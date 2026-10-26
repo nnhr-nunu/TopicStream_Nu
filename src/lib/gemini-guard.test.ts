@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clientKeyFromHeaders, createGeminiGuard, GUARD_LIMITS } from "@/lib/gemini-guard";
+import { clientKeyFromHeaders, createGeminiGuard, GUARD_LIMITS, isOwnSiteRequest } from "@/lib/gemini-guard";
 
 describe("Gemini の交通整理", () => {
   it("1人が1分に使える回数を超えたら断り、1分経てば戻る", () => {
@@ -46,5 +46,14 @@ describe("Gemini の交通整理", () => {
   it("プロキシの先頭 IP をキーにする", () => {
     expect(clientKeyFromHeaders(new Headers({ "x-forwarded-for": "1.2.3.4, 10.0.0.1" }))).toBe("1.2.3.4");
     expect(clientKeyFromHeaders(new Headers())).toBe("unknown");
+  });
+
+  it("このサイトの画面からの呼び出しだけを通す", () => {
+    expect(isOwnSiteRequest(new Headers({ "sec-fetch-site": "same-origin" }))).toBe(true);
+    expect(isOwnSiteRequest(new Headers({ "sec-fetch-site": "cross-site", origin: "https://a.example", host: "a.example" }))).toBe(false);
+    expect(isOwnSiteRequest(new Headers({ origin: "https://a.example", host: "a.example" }))).toBe(true);
+    expect(isOwnSiteRequest(new Headers({ origin: "https://b.example", host: "a.example" }))).toBe(false);
+    expect(isOwnSiteRequest(new Headers({ origin: "https://a.example", "x-forwarded-host": "a.example", host: "internal" }))).toBe(true);
+    expect(isOwnSiteRequest(new Headers({ host: "a.example" }))).toBe(false);
   });
 });

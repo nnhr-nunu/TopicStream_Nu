@@ -108,3 +108,20 @@ export function clientKeyFromHeaders(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return forwarded || headers.get("x-real-ip")?.trim() || "unknown";
 }
+
+/**
+ * このサイトの画面から呼ばれたか。ブラウザが付ける Sec-Fetch-Site（無ければ Origin）で見分ける。
+ * 外から直に呼んでみんなの AI の枠を使ったり、図鑑に語を入れたりする道を細くする（自分のキーの呼び出しには使わない）
+ */
+export function isOwnSiteRequest(headers: Headers): boolean {
+  const site = headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
+  const origin = headers.get("origin");
+  const host = headers.get("x-forwarded-host")?.split(",")[0]?.trim() || headers.get("host");
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
+}

@@ -2,7 +2,7 @@ import { readGeminiApiKey, sanitizeApiKey } from "@/lib/env-secret";
 import { offlineExplanation, type Explanation } from "@/lib/explain";
 import { geminiUserNotice, GeminiRequestError } from "@/lib/gemini-core";
 import { requestExplanation } from "@/lib/gemini-explain";
-import { allowedModel, clientKeyFromHeaders, createGeminiGuard } from "@/lib/gemini-guard";
+import { allowedModel, clientKeyFromHeaders, createGeminiGuard, isOwnSiteRequest } from "@/lib/gemini-guard";
 import { parseMode } from "@/lib/modes";
 
 export const maxDuration = 25;
@@ -51,6 +51,8 @@ export async function POST(request: Request) {
   const reply = (value: Reply) => Response.json(value);
 
   if (!apiKey) return reply(offline);
+  // 外から直に呼ばれたら、みんなの枠は使わない（自分のキーなら本人の枠なので通す）
+  if (!override && !isOwnSiteRequest(request.headers)) return reply(offline);
 
   const cacheKey = `${mode}|${label}|${context.join("›")}`;
   const cached = cache.get(cacheKey);

@@ -10,7 +10,7 @@ import {
   type GeminiWaitStage,
 } from "@/lib/gemini-core";
 import { detailRecordSeed, mockDetailTopics } from "@/lib/detail-modes";
-import { allowedModel, clientKeyFromHeaders, createGeminiGuard, OWN_KEY_LIMITS } from "@/lib/gemini-guard";
+import { allowedModel, clientKeyFromHeaders, createGeminiGuard, isOwnSiteRequest, OWN_KEY_LIMITS } from "@/lib/gemini-guard";
 import { recordSharedKnowledge } from "@/lib/knowledge-server";
 import { isRecordableSeed } from "@/lib/label-quality";
 import { isGenericAngle, mockRelatedTopics } from "@/lib/mock-topics";
@@ -74,6 +74,8 @@ type Input = {
   /** apiKey が、利用者が自分で入れたキーかどうか */
   ownKey: boolean;
   clientKey: string;
+  /** このサイトの画面から呼ばれたか（isOwnSiteRequest） */
+  fromOwnSite: boolean;
 };
 
 /** AI を呼ぶ本体。届いた語は onTopic で先に渡し、最後に足りない分をオフライン候補で埋めて返す。 */
@@ -92,6 +94,13 @@ async function generate(
 
   // 人を傷つける言葉のお題は AI に広げさせず、図鑑にも残さない（ホームでは始める前に止めている）
   if (looksAbusive(seed)) return { topics: mock(), source: "mock" };
+
+  // 外から直に呼ばれたら、みんなの枠は使わず図鑑にも残さない（自分のキーなら本人の枠なので通す）
+  if (!input.ownKey && !input.fromOwnSite) {
+    const debug = geminiDebug({ reason: "foreign-origin", model });
+    logDebug(debug);
+    return { topics: mock(), source: "mock", debug };
+  }
 
   if (!apiKey) {
     const debug = geminiDebug({ reason: "missing-key", model });
@@ -237,6 +246,7 @@ export async function POST(request: Request) {
     apiKey: override || readGeminiApiKey(),
     ownKey: Boolean(override),
     clientKey: clientKeyFromHeaders(request.headers),
+    fromOwnSite: isOwnSiteRequest(request.headers),
   };
 
   if (body?.stream !== true) {

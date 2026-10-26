@@ -37,9 +37,9 @@ import {
 const SEED_LIMIT = 5_000;
 /** 1つのお題に持たせる語の上限 */
 const TOPIC_LIMIT = 80;
-/** 読み込むお題の数と、読み直す間隔（Redis のコマンド数を抑える） */
+/** 読み込むお題の数と、読み直す間隔（Redis の帯域を抑える。このサーバーで記録した分はすぐ手元に足すので、見た目の新しさはほぼ変わらない） */
 const SNAPSHOT_SIZE = 500;
-const SNAPSHOT_TTL_MS = 3 * 60_000;
+const SNAPSHOT_TTL_MS = 20 * 60_000;
 
 /** お題が多すぎたら、強さ（tsk:rank）のいちばん弱いものから消す */
 const EVICT = `

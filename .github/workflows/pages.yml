@@ -14,8 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
+      - run: npm run lint
+      - run: npx next typegen
+      - run: npm run typecheck
       - run: npm test
+      # 本番（Vercel）と同じ通常ビルド。キー無しでも通る
+      - run: npm run build
       - run: bash scripts/build-pages.sh
         env:
           PAGES_BASE_PATH: /TopicStream_Nu
