@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Noto_Sans_JP } from "next/font/google";
 
+import { AiNotice } from "@/components/ai-notice";
 import { AppProviders } from "@/components/app-providers";
 import { adConfig } from "@/lib/ads";
 import { SHARE_TITLE, SITE_DESCRIPTION, SITE_ROBOTS, SITE_TITLE } from "@/lib/page-metadata";
@@ -39,8 +40,12 @@ export const metadata: Metadata = {
     title: SHARE_TITLE,
     description: SITE_DESCRIPTION,
   },
-  // AdSense のサイト所有確認用。ID 未設定なら出さない。
-  ...(adConfig.client ? { other: { "google-adsense-account": adConfig.client } } : {}),
+  other: {
+    // AI の学習への利用の予約（TDM Reservation Protocol）。GitHub Pages ではヘッダを足せないので HTML にも出す
+    "tdm-reservation": "1",
+    // AdSense のサイト所有確認用。ID 未設定なら出さない。
+    ...(adConfig.client ? { "google-adsense-account": adConfig.client } : {}),
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -53,6 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <AppProviders>{children}</AppProviders>
+        <AiNotice />
       </body>
     </html>
   );
