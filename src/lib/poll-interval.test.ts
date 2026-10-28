@@ -23,4 +23,11 @@ describe("nextWatchPollMs", () => {
     expect(nextWatchPollMs(4, false)).toBe(5_000);
     expect(nextWatchPollMs(0, false)).toBe(2_500);
   });
+
+  it("盤面が 10 分変わらなければ、OBS でも 30 秒ごとにする", () => {
+    expect(nextWatchPollMs(240, true, 9 * 60_000)).toBe(2_500);
+    expect(nextWatchPollMs(240, true, 10 * 60_000)).toBe(30_000);
+    expect(nextWatchPollMs(120, false, 10 * 60_000)).toBe(30_000);
+    expect(nextWatchPollMs(0, true, 0)).toBe(2_500);
+  });
 });

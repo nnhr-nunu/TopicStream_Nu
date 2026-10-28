@@ -90,6 +90,8 @@ export function WatchView({ shareId }: { shareId: string }) {
     let failures = 0;
     // 盤面が変わらなかった回の続いた数（見る人の画面だけ、静かな間は読む間隔を延ばす）
     let unchanged = 0;
+    // 最後に盤面が変わった時刻（見る人の時計。長く変わらなければ配信していないとみなして、OBS でも読む間隔を延ばす）
+    let changedAt = Date.now();
     let timer: number | undefined;
     const failed = () => {
       failures += 1;
@@ -127,6 +129,7 @@ export function WatchView({ shareId }: { shareId: string }) {
           return;
         }
         unchanged = 0;
+        changedAt = Date.now();
         lastUpdated = updated;
         setBoard(json.board);
         setNickname(json.nickname);
@@ -140,7 +143,7 @@ export function WatchView({ shareId }: { shareId: string }) {
     }
     const tick = async () => {
       await load();
-      if (!cancelled) timer = window.setTimeout(() => void tick(), nextWatchPollMs(unchanged, inObs()));
+      if (!cancelled) timer = window.setTimeout(() => void tick(), nextWatchPollMs(unchanged, inObs(), Date.now() - changedAt));
     };
     void tick();
     return () => {

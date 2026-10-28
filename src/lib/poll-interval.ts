@@ -16,13 +16,22 @@ export function nextYoutubePollMs(serverMs: number | undefined, quietPolls: numb
   return quietPolls >= YOUTUBE_QUIET_POLLS ? Math.max(base, YOUTUBE_QUIET_POLL_MS) : base;
 }
 
-/** いっしょに見る画面の、ふだんの読み直しの間隔（OBS に映す画面はいつもこれ） */
+/** いっしょに見る画面の、ふだんの読み直しの間隔（OBS に映す画面は、配信していない間のほかはいつもこれ） */
 export const WATCH_POLL_MS = 2_500;
 /** 盤面が変わらない回がこれだけ続いたら、見る人の画面だけ間隔を延ばす */
 export const WATCH_QUIET_POLLS = 4;
 export const WATCH_QUIET_POLL_MS = 5_000;
 
-/** 次にいっしょに見る盤面を読むまで。unchanged は盤面が変わらなかった回の続いた数 */
-export function nextWatchPollMs(unchanged: number, obs: boolean): number {
+/**
+ * 盤面がこれだけ変わらなければ、配信していないとみなす（OBS に入れたままの画面が、配信のない間も読み続けないように。
+ * OBS のブラウザソースはシーンに出ていなくても動き続け、2.5 秒ごとだと 1 日で数万回 Redis を読む）
+ */
+export const WATCH_IDLE_AFTER_MS = 10 * 60_000;
+/** 配信していない間の間隔。配信を再開してから最初の変化が映るまで、長くてもこれだけ */
+export const WATCH_IDLE_POLL_MS = 30_000;
+
+/** 次にいっしょに見る盤面を読むまで。unchanged は盤面が変わらなかった回の続いた数、idleMs は最後に盤面が変わってからの時間 */
+export function nextWatchPollMs(unchanged: number, obs: boolean, idleMs = 0): number {
+  if (idleMs >= WATCH_IDLE_AFTER_MS) return WATCH_IDLE_POLL_MS;
   return !obs && unchanged >= WATCH_QUIET_POLLS ? WATCH_QUIET_POLL_MS : WATCH_POLL_MS;
 }
