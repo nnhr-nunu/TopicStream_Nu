@@ -72,8 +72,16 @@ export function StreamDirectory({
     load();
     // 連携した直後は知らせが届いてから読み直す。あとは「ライブ」の外れを拾うため定期的に読む
     const soon = linkedUrl ? window.setTimeout(load, 8_000) : undefined;
-    const timer = window.setInterval(load, 60_000);
+    // 隠れたタブでは読まない（Redis の帯域の節約）。見えたら 1 回読み直す
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "hidden") load();
+    }, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       cancelled = true;
       if (soon) window.clearTimeout(soon);
       window.clearInterval(timer);
