@@ -107,6 +107,37 @@ async function loadState(): Promise<State> {
   }
 }
 
+let streamsCache: { at: number; streams: Record<string, PublicStream> } | null = null;
+
+/**
+ * 配信一覧だけを読む（ボード・お気に入りまで読む loadState を使わない。ボードのハッシュは全件で約 540KB あり、
+ * 一覧の読み込みのたびに読むと Upstash の帯域が先に尽きる）。保存の形は loadState と同じ tsc:streams
+ */
+async function loadStreams(): Promise<Record<string, PublicStream>> {
+  const config = redisConfig();
+  if (!config) return loadMemory().streams;
+  if (streamsCache && Date.now() - streamsCache.at < CACHE_TTL_MS) return streamsCache.streams;
+  try {
+    const streams = parseHash<PublicStream>(await redisCommand(config, ["HGETALL", KEY_STREAMS]));
+    streamsCache = { at: Date.now(), streams };
+    return streams;
+  } catch {
+    return streamsCache?.streams ?? {};
+  }
+}
+
+/** 保存前の 1 件だけを読む（全件を読み直さない） */
+async function loadStream(url: string): Promise<PublicStream | undefined> {
+  const config = redisConfig();
+  if (!config) return loadMemory().streams[url];
+  try {
+    const raw = await redisCommand(config, ["HGET", KEY_STREAMS, url]);
+    return typeof raw === "string" ? (JSON.parse(raw) as PublicStream) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 端末のボード ID をそのまま見せない（見えると上書きできてしまう） */
 function publicBoardId(boardId: string): string {
   return `cb_${createHash("sha256").update(`community:${boardId}`).digest("hex").slice(0, 16)}`;
@@ -199,8 +230,7 @@ export async function saveStream(input: {
   const ref = typeof input.url === "string" ? parseStreamUrl(input.url.trim()) : null;
   if (!ref) return null;
   const url = canonicalStreamUrl(ref);
-  const state = await loadState();
-  const prev = state.streams[url];
+  const prev = await loadStream(url);
   let title = prev?.title ?? "";
   // 配信サイトでの名前。前からある枠（author を持つ前のもの）は streamer がそのまま配信サイトでの名前
   let author = prev?.author ?? prev?.streamer ?? "";
@@ -234,6 +264,7 @@ export async function saveStream(input: {
   };
   const config = redisConfig();
   if (!config) {
+    const state = loadMemory();
     state.streams[url] = stream;
     for (const key of oldest(state.streams, STREAM_LIMIT)) delete state.streams[key];
     persistMemory();
@@ -241,9 +272,15 @@ export async function saveStream(input: {
   }
   try {
     await redisCommand(config, ["HSET", KEY_STREAMS, url, JSON.stringify(stream)]);
-    state.streams[url] = stream;
-    const drop = oldest(state.streams, STREAM_LIMIT);
-    if (drop.length > 0) await redisCommand(config, ["HDEL", KEY_STREAMS, ...drop]);
+    if (streamsCache) streamsCache.streams[url] = stream;
+    // 上限を超えたときだけ全件を読んで古い枠を消す（件数は HLEN で安く確かめる）
+    const count = Number(await redisCommand(config, ["HLEN", KEY_STREAMS]));
+    if (count > STREAM_LIMIT) {
+      const all = parseHash<PublicStream>(await redisCommand(config, ["HGETALL", KEY_STREAMS]));
+      const drop = oldest(all, STREAM_LIMIT);
+      if (drop.length > 0) await redisCommand(config, ["HDEL", KEY_STREAMS, ...drop]);
+      if (streamsCache) for (const key of drop) delete streamsCache.streams[key];
+    }
     return stream;
   } catch {
     return null;
@@ -251,6 +288,6 @@ export async function saveStream(input: {
 }
 
 export async function listStreams(now = Date.now()): Promise<PublicStream[]> {
-  const state = await loadState();
-  return Object.values(state.streams).map((stream) => ({ ...stream, live: now - stream.updatedAt < LIVE_WINDOW_MS }));
+  const streams = await loadStreams();
+  return Object.values(streams).map((stream) => ({ ...stream, live: now - stream.updatedAt < LIVE_WINDOW_MS }));
 }
