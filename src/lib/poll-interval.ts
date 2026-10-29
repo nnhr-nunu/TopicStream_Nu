@@ -35,3 +35,14 @@ export function nextWatchPollMs(unchanged: number, obs: boolean, idleMs = 0): nu
   if (idleMs >= WATCH_IDLE_AFTER_MS) return WATCH_IDLE_POLL_MS;
   return !obs && unchanged >= WATCH_QUIET_POLLS ? WATCH_QUIET_POLL_MS : WATCH_POLL_MS;
 }
+
+/** 配信待ち（まだライブチャットが開いていない）がこれだけ続いたら、読む間隔を延ばす */
+export const YOUTUBE_WAITING_LONG_AFTER_MS = 10 * 60_000;
+/** 長く待っているときの間隔（videos.list の 1 日のユニットを節約。配信が始まってから読み始めるまで、長くてもこれだけ） */
+export const YOUTUBE_WAITING_LONG_POLL_MS = 3 * 60_000;
+
+/** 配信待ちの次の読み直しまで。waitingMs は待ち始めてからの時間 */
+export function nextWaitingPollMs(serverMs: number | undefined, waitingMs: number): number {
+  const base = serverMs ?? 30_000;
+  return waitingMs >= YOUTUBE_WAITING_LONG_AFTER_MS ? Math.max(base, YOUTUBE_WAITING_LONG_POLL_MS) : base;
+}

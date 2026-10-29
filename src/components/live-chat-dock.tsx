@@ -21,7 +21,7 @@ import { timeoutSignal } from "@/lib/api-base";
 import { emitChatHearts } from "@/lib/live-hearts";
 import { emitPulse } from "@/lib/live-pulse";
 import { parseListenerTopic, type ListenerTopic } from "@/lib/listener-topics";
-import { nextYoutubePollMs } from "@/lib/poll-interval";
+import { nextWaitingPollMs, nextYoutubePollMs } from "@/lib/poll-interval";
 import { parseStreamUrl, streamLabel } from "@/lib/stream-url";
 import type { Board } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -231,6 +231,8 @@ export function LiveChatDock({
     let primed = false;
     // 新しいコメントが無かった回の続いた数（静かな間は読む間隔を少し延ばして、みんなの YouTube の枠を節約する）
     let quiet = 0;
+    // 配信待ち（チャットがまだ開いていない）を始めた時刻。長く待つときは読む間隔を延ばす
+    let waitingSince = 0;
     const poll = async () => {
       try {
         const response = await fetch("/api/chat/youtube", {
@@ -269,9 +271,19 @@ export function LiveChatDock({
           }
           setLive({ phase: json.problem === "not-live" ? "waiting" : "error", message: json.warning ?? "" });
           // 終わった配信は戻ってこないので、みんなの YouTube の枠を使わないよう間隔を空ける
-          later(() => void poll(), json.problem === "ended" ? Math.max(json.retryMs ?? 0, 10 * 60_000) : (json.retryMs ?? 20_000));
+          if (json.problem === "not-live") waitingSince ||= Date.now();
+          else waitingSince = 0;
+          later(
+            () => void poll(),
+            json.problem === "ended"
+              ? Math.max(json.retryMs ?? 0, 10 * 60_000)
+              : json.problem === "not-live"
+                ? nextWaitingPollMs(json.retryMs, Date.now() - waitingSince)
+                : (json.retryMs ?? 20_000),
+          );
           return;
         }
+        waitingSince = 0;
         setLive({ phase: "live", message: "YouTube のチャットを読んでいます。" });
         announce(connectUrl);
         token = json.nextPageToken ?? token;

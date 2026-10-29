@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nextWatchPollMs, nextYoutubePollMs } from "@/lib/poll-interval";
+import { nextWatchPollMs, nextWaitingPollMs, nextYoutubePollMs } from "@/lib/poll-interval";
 
 describe("nextYoutubePollMs", () => {
   it("コメントが続いている間はふだんの間隔、40 秒ほど静かなら 16 秒にする", () => {
@@ -29,5 +29,14 @@ describe("nextWatchPollMs", () => {
     expect(nextWatchPollMs(240, true, 10 * 60_000)).toBe(30_000);
     expect(nextWatchPollMs(120, false, 10 * 60_000)).toBe(30_000);
     expect(nextWatchPollMs(0, true, 0)).toBe(2_500);
+  });
+});
+
+describe("nextWaitingPollMs", () => {
+  it("配信待ちが 10 分続くまではサーバーの指定どおり、それ以降は 3 分", () => {
+    expect(nextWaitingPollMs(30_000, 0)).toBe(30_000);
+    expect(nextWaitingPollMs(undefined, 9 * 60_000)).toBe(30_000);
+    expect(nextWaitingPollMs(30_000, 10 * 60_000)).toBe(180_000);
+    expect(nextWaitingPollMs(5 * 60_000, 20 * 60_000)).toBe(300_000);
   });
 });
