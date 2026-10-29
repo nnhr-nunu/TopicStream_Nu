@@ -14,6 +14,8 @@ import {
 } from "@/lib/gemini-errors";
 import {
   coolDownModel,
+  skipQuotaModel,
+  withoutQuotaModels,
   fallbackModels,
   GEMINI_DEADLINE_MS,
   GEMINI_FIRST_CHUNK_MS,
@@ -67,7 +69,11 @@ export {
 export type { GeminiText } from "@/lib/gemini-stream";
 
 function noteModelBusy(error: GeminiRequestError, model: string) {
-  if (isQuotaError(error.debug) || isBillingError(error.debug)) return;
+  if (isQuotaError(error.debug) || isBillingError(error.debug)) {
+    // 利用枠が尽きたモデルは 10 分間、次の人も飛ばす（毎回 429 を受けて待つのを避ける）
+    skipQuotaModel(model);
+    return;
+  }
   if (error.kind === "timeout" || isGeminiBusyError(error)) coolDownModel(model);
 }
 
@@ -95,7 +101,7 @@ export async function requestGemini(
   const remaining: Remaining = () => deadline - (geminiRetry.now() - started);
   const tried: string[] = [];
   const attempts: string[] = [];
-  const models = options.ownKey ? fallbackModels(options.model) : orderByCooldown(fallbackModels(options.model));
+  const models = options.ownKey ? fallbackModels(options.model) : orderByCooldown(withoutQuotaModels(fallbackModels(options.model)));
   const collected: string[] = [];
   const minimum = Math.min(options.count, Math.max(1, options.minimum ?? options.count));
   let lastError: GeminiRequestError | undefined;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_MODEL, GEMINI_FALLBACK_MODELS } from "@/lib/constants";
 import { redactSecret } from "@/lib/env-secret";
@@ -284,6 +284,10 @@ function googleOk(topics: string[]) {
 describe("Gemini の混雑リトライ", () => {
   const originalSleep = geminiRetry.sleep;
 
+  beforeEach(() => {
+    clearModelCooldown();
+  });
+
   afterEach(() => {
     geminiRetry.sleep = originalSleep;
     vi.unstubAllGlobals();
@@ -325,6 +329,27 @@ describe("Gemini の混雑リトライ", () => {
     const sent = JSON.parse(bodies[1]!) as { generationConfig: Record<string, unknown> };
     expect(sent.generationConfig.thinkingConfig).toEqual({ thinkingLevel: "minimal" });
     expect(sent.generationConfig.responseMimeType).toBe("application/json");
+  });
+
+  it("利用枠が尽きたモデルは 10 分間飛ばして、次のモデルから始める", async () => {
+    geminiRetry.sleep = vi.fn(async () => {});
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.includes("gemini-3.5-flash-lite")) return googleError(429, "RESOURCE_EXHAUSTED", "Quota exceeded. limit: 0");
+        return googleOk(["温泉", "湯けむり"]);
+      }),
+    );
+    const ask = () => requestGemini({ seed: "お題", existing: [], apiKey: "test-key", model: DEFAULT_MODEL, count: 8 });
+    const first = await ask();
+    expect(first.tried[0]).toBe("gemini-3.5-flash-lite");
+    calls.length = 0;
+    const second = await ask();
+    expect(second.tried).not.toContain("gemini-3.5-flash-lite");
+    expect(calls.some((url) => url.includes("gemini-3.5-flash-lite"))).toBe(false);
   });
 
   it("200 で答えが空（安全フィルタなど）なら、定型の候補で埋めずに次のモデルへ。500 も次のモデルへ", async () => {

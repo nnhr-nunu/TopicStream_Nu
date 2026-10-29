@@ -53,11 +53,28 @@ const modelCooldown = new Map<string, number>();
 
 export function clearModelCooldown() {
   modelCooldown.clear();
+  modelQuotaUntil.clear();
 }
 
 /** 混んでいたモデルを後回しにする（記録の中身は、このモジュールの外から触らない） */
 export function coolDownModel(model: string) {
   modelCooldown.set(model, geminiRetry.now() + MODEL_COOLDOWN_MS);
+}
+
+/** 利用枠が尽きた（429 の quota など）モデルを飛ばす時間 */
+export const MODEL_QUOTA_SKIP_MS = 10 * 60_000;
+const modelQuotaUntil = new Map<string, number>();
+
+/** 利用枠が尽きたモデルを覚える（clearModelCooldown で一緒に消える） */
+export function skipQuotaModel(model: string) {
+  modelQuotaUntil.set(model, geminiRetry.now() + MODEL_QUOTA_SKIP_MS);
+}
+
+/** 利用枠が尽きて間もないモデルを除く。全部尽きていれば、本当の原因を返せるよう除かない */
+export function withoutQuotaModels(models: string[]): string[] {
+  const now = geminiRetry.now();
+  const alive = models.filter((model) => (modelQuotaUntil.get(model) ?? 0) <= now);
+  return alive.length > 0 ? alive : models;
 }
 
 /** 最近混んでいたモデルを後ろへ回す（順番はそれ以外そのまま。全部混んでいても試す順が変わるだけ） */
