@@ -30,6 +30,12 @@ describe("nextWatchPollMs", () => {
     expect(nextWatchPollMs(120, false, 10 * 60_000)).toBe(30_000);
     expect(nextWatchPollMs(0, true, 0)).toBe(2_500);
   });
+
+  it("盤面が 1 時間変わらなければ、2 分ごとにする", () => {
+    expect(nextWatchPollMs(240, true, 59 * 60_000)).toBe(30_000);
+    expect(nextWatchPollMs(240, true, 60 * 60_000)).toBe(120_000);
+    expect(nextWatchPollMs(120, false, 60 * 60_000)).toBe(120_000);
+  });
 });
 
 describe("nextWaitingPollMs", () => {

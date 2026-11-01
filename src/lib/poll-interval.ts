@@ -29,9 +29,14 @@ export const WATCH_QUIET_POLL_MS = 5_000;
 export const WATCH_IDLE_AFTER_MS = 10 * 60_000;
 /** 配信していない間の間隔。配信を再開してから最初の変化が映るまで、長くてもこれだけ */
 export const WATCH_IDLE_POLL_MS = 30_000;
+/** 盤面がこれだけ変わらなければ、OBS を開いたまま離れているとみなす（30 秒ごとでも 1 枚で月 8.6 万回 Redis を読む） */
+export const WATCH_LONG_IDLE_AFTER_MS = 60 * 60_000;
+/** 離れている間の間隔。配信を再開してから最初の変化が映るまで、長くてもこれだけ。変化が届けばすぐふだんの間隔に戻る */
+export const WATCH_LONG_IDLE_POLL_MS = 2 * 60_000;
 
 /** 次にいっしょに見る盤面を読むまで。unchanged は盤面が変わらなかった回の続いた数、idleMs は最後に盤面が変わってからの時間 */
 export function nextWatchPollMs(unchanged: number, obs: boolean, idleMs = 0): number {
+  if (idleMs >= WATCH_LONG_IDLE_AFTER_MS) return WATCH_LONG_IDLE_POLL_MS;
   if (idleMs >= WATCH_IDLE_AFTER_MS) return WATCH_IDLE_POLL_MS;
   return !obs && unchanged >= WATCH_QUIET_POLLS ? WATCH_QUIET_POLL_MS : WATCH_POLL_MS;
 }
