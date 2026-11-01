@@ -75,6 +75,8 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "", streame
   const publishing = useRef(false);
   /** 最後に送った時刻（盤面が絶えず変わっていても、間をあけすぎずに送る） */
   const lastSent = useRef(0);
+  /** 自動の送信が続けて失敗した回数 */
+  const sendFailures = useRef(0);
   const chat = Boolean(parseStreamUrl(streamUrl));
 
   const publishWatchLink = useCallback(async () => {
@@ -142,7 +144,17 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "", streame
             description: "右上の「いっしょに見るリンク」ボタンから、作り直してください。",
           });
         } else if (saved) {
+          sendFailures.current = 0;
           writeShareSession(saved);
+        } else {
+          // 保存先が上限などで書けないと、見る人と OBS の画面は止まったままになる。一度の途切れでは出さず、続いたら 1 回だけ知らせる
+          sendFailures.current += 1;
+          if (sendFailures.current === 2) {
+            toast.error("いっしょに見る画面を更新できていません", {
+              description: "見ている人と OBS の画面は、今の表示で止まっています。盤面が変わるたびに送り直します。",
+              duration: 15_000,
+            });
+          }
         }
       });
     }, wait);
