@@ -85,3 +85,9 @@ Windows の既定ターミナルは PowerShell（[`.vscode/settings.json`](./.vs
 - README は利用者向け（何ができるか・つかいかた・クレジット表記のお願い）のみ。起動手順・キー・運用は `docs/setup.md`。製品メモが増えるなら `docs/product/` を新設
 - 800 行を超えるファイルは責務単位で分割する（2026-10-01 に `use-board-controller.ts` と `gemini-core.ts` を分けた。現状 `board-ops.ts` が約 700 行で最大 — 増やすなら `begin*` / `fill*` / 戻す系を `board-expand.ts` へ分ける）
 - クライアントから `/api/*` を呼ぶときは [`api-base.ts`](./src/lib/api-base.ts) の `apiPath` / `isNoServerResponse` を使う（GitHub Pages の 404 / 405 / HTML の返事をオフラインの動きに切り替える）
+
+## 層の決まり（どこを書き換えてよいか）
+
+- 事実（読み書きする）: task.md・AGENTS.md・docs/setup.md・docs/quality-review.md・docs/critique.md。済んだ節は docs/history/ へ移す（入口の task.md と AGENTS.md は 20KB まで）
+- 原本（書き換えない）: docs/history/ の記録・docs/critique/ の批評の記録
+- 成果物（手で直さない。元かスクリプトを直して作り直す）: out/・.next/・graphify-out/・tsconfig*.tsbuildinfo
