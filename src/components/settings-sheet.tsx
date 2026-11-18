@@ -62,7 +62,7 @@ function AiUsagePanel() {
           </p>
           {usage.fallbacks > 0 ? (
             <p className="tabular-nums">
-              AI の語が取れなかった {usage.fallbacks} 回（{failures.map(([reason, count]) => `${reason} ×${count}`).join(" / ")}）
+              AI の答えが取れなかった {usage.fallbacks} 回（{failures.map(([reason, count]) => `${reason} ×${count}`).join(" / ")}）
             </p>
           ) : null}
           {usage.last ? (
