@@ -151,7 +151,7 @@ export function useWatchShare(activeBoard: Board | null, streamUrl = "", streame
           sendFailures.current += 1;
           if (sendFailures.current === 2) {
             toast.error("いっしょに見る画面を更新できていません", {
-              description: "見ている人と OBS の画面は、今の表示で止まっています。盤面が変わるたびに送り直します。",
+              description: "見ている人と OBS の画面は、今の表示で止まっています。マップが変わるたびに送り直します。",
               duration: 15_000,
             });
           }

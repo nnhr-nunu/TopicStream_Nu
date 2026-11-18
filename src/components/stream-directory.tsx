@@ -97,7 +97,7 @@ export function StreamDirectory({
         <div className="rounded-2xl border border-dashed border-border/80 px-4 py-8 text-center">
           <p className="text-sm font-medium">まだ載っている配信はありません</p>
           <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-            これから増えていきます。配信で使うときにマップ下へ配信URLを貼ると、ここに載ります。
+            これから増えていきます。配信で使うときにマップの下へ配信URLを貼ると、ここに載ります。
           </p>
         </div>
       ) : (

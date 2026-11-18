@@ -187,7 +187,7 @@ function TrailImagePanel({
       </div>
       <p className="text-[11px] leading-4 text-muted-foreground">
         {canCopy
-          ? "「X に投稿」を押すと画像もコピーされるので、投稿画面で貼り付け（Ctrl+V）てください。"
+          ? "「X に投稿」を押すと画像もコピーされるので、投稿画面で貼り付けて（Ctrl+V）ください。"
           : "X の投稿画面には画像が自動で付かないので、保存した画像を添付してください。"}
       </p>
     </div>
